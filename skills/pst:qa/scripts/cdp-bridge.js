@@ -406,6 +406,7 @@ async function handleCapture() {
         break;
       }
       case 'metrics': {
+        await link.send('Performance.enable');
         const result = await link.send('Performance.getMetrics');
         const metrics = {};
         for (const m of result.metrics) metrics[m.name] = m.value;
@@ -451,13 +452,14 @@ async function handleRun() {
         if (!url) fail('args', '--url is required for navigate action');
         // Register load listener BEFORE navigating to avoid race condition
         // where fast navigations (about:blank, cached) fire before listener is attached
+        let didLoad = false;
         const loaded = new Promise((resolve) => {
-          link.on('Page.loadEventFired', resolve);
+          link.on('Page.loadEventFired', () => { didLoad = true; resolve(); });
           setTimeout(resolve, 10000);
         });
         await link.send('Page.navigate', { url });
         await loaded;
-        ok({ action: 'navigate', url });
+        ok({ action: 'navigate', url, timedOut: !didLoad });
         break;
       }
       case 'click': {
@@ -509,7 +511,7 @@ async function handleRun() {
           awaitPromise: true,
         });
         if (result.exceptionDetails) {
-          ok({ action: 'evaluate', error: result.exceptionDetails.text });
+          fail('evaluate', result.exceptionDetails.text);
         } else {
           ok({ action: 'evaluate', value: result.result.value });
         }
