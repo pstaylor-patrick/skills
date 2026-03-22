@@ -6,6 +6,8 @@ COMMANDS_DIR="$HOME/.claude/commands"
 
 SKILLS=(
   "decide-for-me"
+  "pst-code-review"
+  "pst-qa"
   "spec-gen"
   "validate-quality-gates"
 )
@@ -33,4 +35,4 @@ for skill in "${SKILLS[@]}"; do
 done
 
 echo ""
-echo "Run /decide-for-me, /spec-gen, or /validate-quality-gates in any Claude Code session."
+echo "Run /decide-for-me, /pst:code-review, /pst:qa, /spec-gen, or /validate-quality-gates in any Claude Code session."
