@@ -1,5 +1,5 @@
 ---
-name: pst-qa
+name: pst:qa
 description: Autonomous QA testing — synthesizes test plans from PR context, executes via browser automation, auto-judges pass/fail
 argument-hint: '[PR-number | PR-URL] [--post-merge] [--guided]'
 allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion, Agent
@@ -324,7 +324,7 @@ Resolve once before the first test case. Check in order — first available wins
 
 ```bash
 # Follow symlink from installed skill back to source
-SKILL_LINK="$HOME/.claude/commands/pst-qa.md"
+SKILL_LINK="$HOME/.claude/commands/pst:qa.md"
 if [ -L "$SKILL_LINK" ]; then
   SKILL_REAL=$(readlink -f "$SKILL_LINK")
   CDP_BRIDGE="$(dirname "$SKILL_REAL")/scripts/cdp-bridge.js"

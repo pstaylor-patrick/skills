@@ -306,11 +306,22 @@ async function handleStream() {
   const outputPath = args.output || path.join(os.tmpdir(), `pst-qa-stream-${Date.now()}.jsonl`);
   const fd = fs.openSync(outputPath, 'a');
 
-  const link = await ChromeLink.attach(port);
+  let link;
+  try {
+    link = await ChromeLink.attach(port);
+  } catch (e) {
+    fs.closeSync(fd);
+    throw e;
+  }
 
   function write(src, evt, payload) {
     const line = JSON.stringify({ t: Date.now(), src, evt, payload });
     fs.writeSync(fd, line + '\n');
+  }
+
+  function cleanup() {
+    try { fs.closeSync(fd); } catch { /* already closed */ }
+    try { link.close(); } catch { /* already closed */ }
   }
 
   // Enable domains
@@ -359,8 +370,8 @@ async function handleStream() {
   console.log(JSON.stringify({ ok: true, outputPath, pid: process.pid }));
 
   // Keep alive
-  process.on('SIGTERM', () => { fs.closeSync(fd); link.close(); process.exit(0); });
-  process.on('SIGINT', () => { fs.closeSync(fd); link.close(); process.exit(0); });
+  process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+  process.on('SIGINT', () => { cleanup(); process.exit(0); });
 }
 
 // ---------------------------------------------------------------------------
@@ -430,17 +441,22 @@ async function handleRun() {
 
   const link = await ChromeLink.attach(port);
 
+  // Enable Page domain so page lifecycle events (loadEventFired, frameNavigated) fire
+  await link.send('Page.enable');
+
   try {
     switch (actionType) {
       case 'navigate': {
         const url = args.url;
         if (!url) fail('args', '--url is required for navigate action');
-        await link.send('Page.navigate', { url });
-        // Wait for load
-        await new Promise((resolve) => {
+        // Register load listener BEFORE navigating to avoid race condition
+        // where fast navigations (about:blank, cached) fire before listener is attached
+        const loaded = new Promise((resolve) => {
           link.on('Page.loadEventFired', resolve);
           setTimeout(resolve, 10000);
         });
+        await link.send('Page.navigate', { url });
+        await loaded;
         ok({ action: 'navigate', url });
         break;
       }
@@ -472,6 +488,18 @@ async function handleRun() {
         ok({ action: 'focus', selector });
         break;
       }
+      case 'click-selector': {
+        const selector = args.selector;
+        if (!selector) fail('args', '--selector is required for click-selector action');
+        const result = await link.send('Runtime.evaluate', {
+          expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { found: false }; el.click(); return { found: true }; })()`,
+          returnByValue: true,
+        });
+        const found = result.result.value?.found ?? false;
+        if (!found) fail('element', `No element found for selector: ${selector}`);
+        ok({ action: 'click-selector', selector });
+        break;
+      }
       case 'evaluate': {
         const expr = args.expr;
         if (!expr) fail('args', '--expr is required for evaluate action');
@@ -488,7 +516,7 @@ async function handleRun() {
         break;
       }
       default:
-        fail('args', `Unknown action type: ${actionType}. Use: navigate, click, type, focus, evaluate`);
+        fail('args', `Unknown action type: ${actionType}. Use: navigate, click, click-selector, type, focus, evaluate`);
     }
   } finally {
     link.close();

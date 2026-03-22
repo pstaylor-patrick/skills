@@ -6,14 +6,20 @@ COMMANDS_DIR="$HOME/.claude/commands"
 
 SKILLS=(
   "decide-for-me"
-  "pst-code-review"
-  "pst-qa"
+  "pst:code-review"
+  "pst:qa"
   "spec-gen"
   "validate-quality-gates"
 )
 
+# Old names that may exist as orphaned symlinks
+OLD_SKILLS=(
+  "pst-code-review"
+  "pst-qa"
+)
+
 if [[ "${1:-}" == "--uninstall" ]]; then
-  for skill in "${SKILLS[@]}"; do
+  for skill in "${SKILLS[@]}" "${OLD_SKILLS[@]}"; do
     dst="$COMMANDS_DIR/$skill.md"
     if [[ -L "$dst" ]]; then
       rm "$dst"
@@ -26,6 +32,15 @@ if [[ "${1:-}" == "--uninstall" ]]; then
 fi
 
 mkdir -p "$COMMANDS_DIR"
+
+# Remove old hyphenated symlinks if they exist
+for old in "${OLD_SKILLS[@]}"; do
+  dst="$COMMANDS_DIR/$old.md"
+  if [[ -L "$dst" ]]; then
+    rm "$dst"
+    echo "Removed orphaned /$old → $dst"
+  fi
+done
 
 for skill in "${SKILLS[@]}"; do
   src="$REPO_DIR/skills/$skill/SKILL.md"

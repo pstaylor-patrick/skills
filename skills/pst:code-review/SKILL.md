@@ -1,5 +1,5 @@
 ---
-name: pst-code-review
+name: pst:code-review
 description: Code review with worktree-isolated fix verification — every finding must survive a quality gate before being reported
 argument-hint: '[PR-number | PR-URL | --local | --autofix | --sweep]'
 allowed-tools: Bash, Read, Edit, Grep, Glob, Agent, AskUserQuestion
