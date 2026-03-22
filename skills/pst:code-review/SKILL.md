@@ -1,7 +1,7 @@
 ---
 name: pst:code-review
 description: Code review with worktree-isolated fix verification — every finding must survive a quality gate before being reported
-argument-hint: '[PR-number | PR-URL | --local | --autofix | --sweep]'
+argument-hint: '[PR-number | PR-URL | --local | --preflight | --autofix | --sweep]'
 allowed-tools: Bash, Read, Edit, Grep, Glob, Agent, AskUserQuestion
 ---
 
@@ -20,10 +20,11 @@ Perform a **context-aware code review** where every finding is validated by appl
 - PR number (e.g., `42`)
 - PR URL (e.g., `https://github.com/{owner}/{repo}/pull/{N}`) — including cross-repo
 - `--local` — terminal output only, no GitHub interaction
+- `--preflight` — alias for `--local`. Terminal output only, no GitHub interaction
 - `--autofix` — fully autonomous: apply all verified fixes + auto-approve the PR
 - `--sweep` — multi-round autonomous review-and-fix loop until clean or max rounds
 
-**Default: GitHub PR mode** (post review to PR). `--local` for terminal-only output. `--autofix` for autonomous fix + approve. `--sweep` for iterative cleanup.
+**Default: GitHub PR mode** (post review to PR). `--local` or `--preflight` for terminal-only output. `--autofix` for autonomous fix + approve. `--sweep` for iterative cleanup.
 
 **Cross-repo detection:** If URL points to a different repo than the current directory:
 
@@ -225,7 +226,7 @@ Verify: {test command + expected result}
 
 **Shell safety:** always wrap body in heredoc with single-quoted delimiter (`'EOF'`).
 
-### Local Mode (`--local`)
+### Local Mode (`--local` / `--preflight`)
 
 Same Analysis + Verification stages. Output findings to terminal with severity markers. No GitHub interaction. No code edits.
 
