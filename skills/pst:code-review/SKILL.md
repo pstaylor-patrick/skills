@@ -1,7 +1,7 @@
 ---
 name: pst:code-review
 description: Code review with worktree-isolated fix verification — every finding must survive a quality gate before being reported
-argument-hint: '[PR-number | PR-URL | --local | --preflight | --autofix | --sweep]'
+argument-hint: "[PR-number | PR-URL | --local | --preflight | --autofix | --sweep]"
 allowed-tools: Bash, Read, Edit, Grep, Glob, Agent, AskUserQuestion
 ---
 
@@ -55,6 +55,7 @@ HEAD_SHA=$(gh pr view $N --json headRefOid --jq .headRefOid)
 ```
 
 **Skip worktree if all true:**
+
 1. Current branch matches `$HEAD_BRANCH`
 2. `HEAD` matches `$HEAD_SHA`
 3. Working tree is clean (`git status --porcelain` empty)
@@ -97,6 +98,15 @@ Build a picture of the codebase and the change under review. No external project
 1. **Repo context**: Read `CLAUDE.md`, `.context/architecture.md`, `.context/patterns.md`, recent ADRs (cap at 10 most recent)
 2. **PR metadata**: `gh pr view {N} --json number,title,body,baseRefName,headRefName,url,labels` + `gh pr diff {N}`
    - For `--sweep` mode: skip `gh pr view`. Use `git diff $(git merge-base origin/$DEFAULT_BRANCH HEAD)...HEAD`. No AskUserQuestion calls (fully autonomous).
+   - **PR Checkbox Tracking:** Parse all unchecked checkboxes (`- [ ] ...`) from the PR body. Store them for later:
+     ```
+     PR_CHECKBOXES = [
+       { index: 0, text: "Verify no regressions in auth flow", checked: false },
+       { index: 1, text: "Confirm error handling for edge case X", checked: false },
+       ...
+     ]
+     ```
+     The `index` is the positional occurrence (0-based) in the full PR body. Include checkbox items as additional review verification targets — if a checkbox describes something verifiable through code analysis (e.g., "no regressions", "handles edge case X"), treat it as a review item to validate during Analysis.
 3. **Commit messages**: `git log --oneline {base}...HEAD` — understand the narrative of changes
 4. **No context available?** → Use AskUserQuestion: "What is this project? Key architectural patterns? Critical invariants?" — gather minimum sufficient context for this review round.
 5. **Pattern inference**: For each changed file, sample 2-3 similar files (same directory, same extension). Detect patterns: naming conventions, import ordering, error handling style, test structure. Only flag deviations when **75%+ of sampled files agree** on a pattern. Tag these as "inferred pattern" findings.
@@ -169,6 +179,7 @@ Agent:
 7. Produce a verdict: `VERIFIED` (fix works, gates pass) or `DROPPED` (fix breaks something or finding is invalid)
 
 **After all sub-agents complete:**
+
 - Collect results. VERIFIED findings proceed to Reporting. DROPPED findings are discarded silently.
 - Clean up all verification worktrees.
 
@@ -179,6 +190,7 @@ Agent:
 ### GitHub PR Mode (default)
 
 Post a single grouped review via `gh api POST /repos/{owner}/{repo}/pulls/{N}/reviews`:
+
 - Event: `REQUEST_CHANGES` if any critical finding, else `COMMENT`
 - Body: Summary (max 8 bullets) + findings table + count of dropped findings
 
@@ -298,6 +310,50 @@ Match `databaseId` to REST comment IDs to correlate threads. **Always resolve af
 
 In `--autofix` mode: auto-reply "Fixed" for conversations whose findings were addressed in this run. Leave others unresolved.
 
+### Update PR Checkboxes
+
+**Skip if:** `--sweep`, `--local`, `--preflight`, or no PR exists, or no `PR_CHECKBOXES` were found.
+
+After posting the review and resolving conversations, check off PR description checkboxes that were verified through code analysis.
+
+**Which checkboxes to check off:**
+
+A PR checkbox is eligible to be checked if:
+
+- It describes something verifiable through static code analysis (e.g., "handles error case X", "validates input", "no regressions in Y")
+- The review confirmed the behavior is correct — either no related findings, or related findings were all nits
+- It was NOT contradicted by a critical or warning finding
+
+Do NOT check off checkboxes that:
+
+- Require runtime/manual testing to verify (e.g., "test in staging", "verify UI looks correct")
+- Were associated with a critical or warning finding
+- Are ambiguous or cannot be determined from code analysis alone
+
+**Step 1 — Fetch current PR body:**
+
+```bash
+PR_BODY=$(gh pr view $PR_NUMBER --json body --jq .body)
+```
+
+**Step 2 — Replace checkboxes:**
+
+For each verified checkbox index, replace the Nth unchecked checkbox (`- [ ]`) with `- [x]`. Process from highest index to lowest.
+
+**Step 3 — Update PR description:**
+
+```bash
+gh api repos/{owner}/{repo}/pulls/$PR_NUMBER --method PATCH --field body="$UPDATED_BODY"
+```
+
+**Step 4 — Log result:**
+
+```
+PR checkboxes updated: {N} of {total} checked off ({M} require manual/runtime verification)
+```
+
+In `--autofix` mode: also check off checkboxes if the autofix resolved a related finding.
+
 ### Worktree Cleanup
 
 If `REVIEW_WORKTREE=true`:
@@ -311,14 +367,14 @@ If removal fails, warn with manual cleanup command.
 
 ### Error Handling
 
-| Condition | Action |
-|-----------|--------|
-| 401/403 from GitHub | Instruct `gh auth login` |
-| 422 (invalid line comment) | Remove invalid comments, retry |
-| 429 (rate limit) | Wait, retry, fallback to body-only |
-| Empty diff | Exit with message |
-| Sub-agent worktree failure | Skip that finding with "unverified" caveat |
-| All sub-agents fail | Fall back to unverified review with warning banner |
-| Worktree creation fails | Fall back to reviewing in host repo with warning |
-| Worktree cleanup fails | Warn with manual cleanup command |
-| Sweep max rounds exceeded | Report remaining issues, exit |
+| Condition                  | Action                                             |
+| -------------------------- | -------------------------------------------------- |
+| 401/403 from GitHub        | Instruct `gh auth login`                           |
+| 422 (invalid line comment) | Remove invalid comments, retry                     |
+| 429 (rate limit)           | Wait, retry, fallback to body-only                 |
+| Empty diff                 | Exit with message                                  |
+| Sub-agent worktree failure | Skip that finding with "unverified" caveat         |
+| All sub-agents fail        | Fall back to unverified review with warning banner |
+| Worktree creation fails    | Fall back to reviewing in host repo with warning   |
+| Worktree cleanup fails     | Warn with manual cleanup command                   |
+| Sweep max rounds exceeded  | Report remaining issues, exit                      |

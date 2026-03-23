@@ -1,7 +1,7 @@
 ---
 name: pst:qa
 description: Autonomous QA testing — synthesizes test plans from PR context, executes via browser automation, auto-judges pass/fail
-argument-hint: '[PR-number | PR-URL] [--post-merge] [--guided]'
+argument-hint: "[PR-number | PR-URL] [--post-merge] [--guided]"
 allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion, Agent
 ---
 
@@ -74,6 +74,7 @@ Note: Stacked PR detected — PR #{N} will be diffed against {BASE_BRANCH}, not 
 ## Workspace Setup
 
 **Skip if:**
+
 - `--post-merge` (testing merged code on current branch)
 - No `HEAD_BRANCH` resolved
 
@@ -84,6 +85,7 @@ HEAD_SHA=$(gh pr view $PR_NUMBER --json headRefOid --jq .headRefOid)
 ```
 
 **Skip worktree if:**
+
 1. Current branch matches `$HEAD_BRANCH`
 2. `HEAD` matches `$HEAD_SHA`
 
@@ -124,11 +126,26 @@ Gather all available context to build a test plan. No external project managemen
 **1. PR Description**
 
 Extract QA-relevant content from the PR body:
+
 - "How to Test" or "Testing" sections
 - Bullet points describing behavior changes
 - Checkbox items (`- [ ]`)
 - Screenshots or recordings mentioned
 - Known limitations or caveats
+
+**PR Checkbox Tracking:**
+
+Parse all unchecked checkboxes (`- [ ] ...`) from the PR body. Store them in a tracking list:
+
+```
+PR_CHECKBOXES = [
+  { index: 0, text: "Verify login works with valid credentials", checked: false },
+  { index: 1, text: "Error message shows for invalid email", checked: false },
+  ...
+]
+```
+
+The `index` is the positional occurrence of the checkbox in the full PR body (0-based), used later to update the correct checkbox. Each checkbox becomes a candidate test case with `Source: PR checkbox`.
 
 **2. Git Diff (pre-merge only)**
 
@@ -140,13 +157,13 @@ git diff --name-only $MERGE_BASE...HEAD
 
 Categorize changed files:
 
-| Category | Signals |
-|----------|---------|
-| UI | `*.tsx`, `*.vue`, `*.svelte`, `components/`, `pages/`, `app/` |
-| API | `api/`, `routes/`, `controllers/`, `services/` |
-| DB | `migrations/`, `schema.*`, `prisma/`, `drizzle/`, `models/` |
-| Config | `*.config.*`, `.env*`, `docker*`, `.github/` |
-| Tests | `__tests__/`, `*.test.*`, `*.spec.*`, `test/` |
+| Category | Signals                                                       |
+| -------- | ------------------------------------------------------------- |
+| UI       | `*.tsx`, `*.vue`, `*.svelte`, `components/`, `pages/`, `app/` |
+| API      | `api/`, `routes/`, `controllers/`, `services/`                |
+| DB       | `migrations/`, `schema.*`, `prisma/`, `drizzle/`, `models/`   |
+| Config   | `*.config.*`, `.env*`, `docker*`, `.github/`                  |
+| Tests    | `__tests__/`, `*.test.*`, `*.spec.*`, `test/`                 |
 
 **3. Existing Test Files**
 
@@ -184,6 +201,7 @@ Options:
 **Synthesis**
 
 Combine test cases from all context sources:
+
 - PR description testing notes (primary)
 - Git diff categories (identify untested areas)
 - Commit message narrative
@@ -191,17 +209,17 @@ Combine test cases from all context sources:
 
 **Deduplication**
 
-When multiple sources describe the same test, keep the most specific version. Prefer PR description wording as canonical.
+When multiple sources describe the same test, keep the most specific version. Prefer PR description wording as canonical. When a PR checkbox is kept as the canonical version, preserve its `PR_CHECKBOXES` index in the test case metadata so it can be checked off later.
 
 **Prioritization**
 
-| Priority | Category | Always Include? |
-|----------|----------|-----------------|
-| P1 | Critical path / happy path | Yes |
-| P2 | Error handling / validation | If guided or autonomous |
-| P3 | Edge cases | If autonomous |
-| P4 | Regression (related areas) | If autonomous |
-| P5 | Non-functional (perf, a11y) | Autonomous only |
+| Priority | Category                    | Always Include?         |
+| -------- | --------------------------- | ----------------------- |
+| P1       | Critical path / happy path  | Yes                     |
+| P2       | Error handling / validation | If guided or autonomous |
+| P3       | Edge cases                  | If autonomous           |
+| P4       | Regression (related areas)  | If autonomous           |
+| P5       | Non-functional (perf, a11y) | Autonomous only         |
 
 In `--guided` mode, default to P1-P2 unless the tester requests more.
 
@@ -209,7 +227,8 @@ In `--guided` mode, default to P1-P2 unless the tester requests more.
 
 ```
 TC-{N}: {Title}
-Source: {PR description | Git diff | Commit message | Manual input}
+Source: {PR description | PR checkbox | Git diff | Commit message | Manual input}
+PR Checkbox Index: {index from PR_CHECKBOXES, or "N/A"}
 Priority: {P1-P5}
 Preconditions: {any setup needed}
 Steps:
@@ -314,11 +333,11 @@ Set `QA_URL=http://localhost:$QA_PORT`.
 
 Resolve once before the first test case. Check in order — first available wins:
 
-| Tier | Method | Detection | When |
-|------|--------|-----------|------|
-| 0 | Playwright MCP | `mcp__playwright__browser_navigate` is callable | Preferred — headless, fast |
-| 1 | CDP bridge | Script exists at resolved path | Fallback — visible Chrome |
-| 2 | Manual / human | Neither available | Last resort |
+| Tier | Method         | Detection                                       | When                       |
+| ---- | -------------- | ----------------------------------------------- | -------------------------- |
+| 0    | Playwright MCP | `mcp__playwright__browser_navigate` is callable | Preferred — headless, fast |
+| 1    | CDP bridge     | Script exists at resolved path                  | Fallback — visible Chrome  |
+| 2    | Manual / human | Neither available                               | Last resort                |
 
 **Resolve CDP bridge path:**
 
@@ -354,6 +373,7 @@ CDP_STREAM_PID=$!
 When using Playwright MCP, skip CDP launch entirely. Navigate to `$QA_URL` before the first test case.
 
 Playwright MCP tools reference:
+
 - `mcp__playwright__browser_navigate` — navigate to URLs
 - `mcp__playwright__browser_click` — click elements
 - `mcp__playwright__browser_fill_form` — fill form fields
@@ -383,7 +403,7 @@ For post-merge: `.qa/post-merge-$(date +%Y%m%d)/`
 Create before the first test case:
 
 ```json
-{"done": [], "todo": [1, 2, 3], "verdicts": {}, "qaUrl": "...", "cdpPort": 0}
+{ "done": [], "todo": [1, 2, 3], "verdicts": {}, "qaUrl": "...", "cdpPort": 0 }
 ```
 
 Save to `$QA_EVIDENCE_DIR/progress.json`. Update after each test case completes.
@@ -408,11 +428,13 @@ Log warnings if errors found.
 **Step 1 — Execute steps.**
 
 Tier 0 (Playwright):
+
 - Use `browser_snapshot` to find element references
 - Use `browser_click`, `browser_fill_form`, `browser_type` with refs
 - Use `browser_wait_for` after navigation/state changes
 
 Tier 1 (CDP):
+
 - Navigate → `node "$CDP_BRIDGE" run --port $CDP_PORT --type navigate --url "$URL"`
 - Click → `run --type evaluate --expr "document.querySelector('$S').click()"` or `run --type click --x $X --y $Y`
 - Type → `run --type focus --selector "$S"` + `run --type type --text "$TEXT"`
@@ -422,6 +444,7 @@ Tier 1 (CDP):
 
 Tier 0: `browser_take_screenshot` → save to `$QA_EVIDENCE_DIR/tc${N}-result.png`
 Tier 1:
+
 ```bash
 node "$CDP_BRIDGE" capture --port $CDP_PORT --type screenshot --save "$QA_EVIDENCE_DIR/tc${N}-result.png"
 node "$CDP_BRIDGE" capture --port $CDP_PORT --type dom
@@ -431,6 +454,7 @@ node "$CDP_BRIDGE" capture --port $CDP_PORT --type url
 **Step 3 — Auto-judge.**
 
 Compare actual state against expected result:
+
 - Check DOM content for expected text/elements
 - Check URL for expected navigation
 - Check for console errors or network failures
@@ -539,15 +563,17 @@ Generate `$QA_EVIDENCE_DIR/report.md`:
 ## Summary
 
 | Total | Pass | Fail | Skip |
-|-------|------|------|------|
+| ----- | ---- | ---- | ---- |
 | {N}   | {M}  | {K}  | {J}  |
 
 ## Results
 
 ### TC-1: {title} — PASS
+
 Evidence: tc1-result.png
 
 ### TC-2: {title} — FAIL
+
 **Actual:** {what happened}
 **Expected:** {what should have happened}
 Evidence: tc2-result.png
@@ -596,6 +622,45 @@ EOF
 )"
 ```
 
+### Update PR Checkboxes
+
+**Skip if:** `--post-merge`, `--local`, or no PR exists.
+
+After posting the QA comment, check off any PR description checkboxes whose corresponding test cases passed.
+
+**Step 1 — Identify passed checkboxes:**
+
+From the test results, collect all test cases that:
+
+- Have a verdict of `pass`
+- Have a `PR Checkbox Index` that is not `N/A`
+
+**Step 2 — Fetch current PR body:**
+
+```bash
+PR_BODY=$(gh pr view $PR_NUMBER --json body --jq .body)
+```
+
+**Step 3 — Replace checkboxes:**
+
+For each passed checkbox index, replace the Nth unchecked checkbox (`- [ ]`) with a checked one (`- [x]`). Process replacements from highest index to lowest to preserve positional accuracy.
+
+**Step 4 — Update PR description:**
+
+Use the GitHub API to update the PR body (avoids token scope issues with `gh pr edit`):
+
+```bash
+gh api repos/{owner}/{repo}/pulls/$PR_NUMBER --method PATCH --field body="$UPDATED_BODY"
+```
+
+**Step 5 — Log result:**
+
+```
+PR checkboxes updated: {N} of {total} checked off
+```
+
+If any checkbox's test case failed or was skipped, leave it unchecked.
+
 ### Output Contract
 
 Always print this block at the end for machine parsing:
@@ -609,5 +674,6 @@ result: {PASSED|FAILED|PARTIAL}
 total: {N} | pass: {M} | fail: {K} | skip: {J}
 evidence: {path to report}
 github-comment: {posted|skipped}
+pr-checkboxes: {N checked}/{total found}
 --- END QA RESULT ---
 ```
