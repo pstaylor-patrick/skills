@@ -35,20 +35,23 @@ If no `.tsx` files found on the branch, ask the user via AskUserQuestion what to
 
 ## Stage 2 — External Rules Loading
 
-Load Vercel react-best-practices as the industry baseline. These rules are optional — the skill works without them.
+Load Vercel react-best-practices as the industry baseline. These rules are installed by `install.sh` via the skills CLI (`npx skills add vercel-labs/agent-skills --skill react-best-practices -g`).
 
 **Resolution order** (first match wins):
 
-1. `~/.claude/commands/react-best-practices.md` — check if this file or symlink exists
-2. If it's a symlink, resolve it and look for `AGENTS.md` in the same directory
+1. `~/.claude/skills/react-best-practices/SKILL.md` — global skills CLI install location
+2. `./.claude/skills/react-best-practices/SKILL.md` — project-local skills CLI install
+3. `~/.claude/commands/react-best-practices.md` — legacy commands directory
 
-**If found:** Read the file with the `Read` tool. Internalize the rules as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
+If the resolved path is a symlink, also check for `references/` and `scripts/` directories alongside it — the Vercel skill ships supporting docs there.
 
-**If not found:** Log this message and proceed:
+**If found:** Read the SKILL.md (and any files in `references/`) with the `Read` tool. Internalize the rules as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
+
+**If not found:** Log this warning and proceed with personal rules only:
 
 ```
-NOTE: Vercel react-best-practices not installed. Using personal rules only.
-      Install for 64+ industry rules: npx skills add vercel-labs/agent-skills
+WARNING: Vercel react-best-practices not found.
+         Run ./install.sh or: npx -y skills add vercel-labs/agent-skills --skill react-best-practices -g -y
 ```
 
 ---

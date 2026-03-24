@@ -58,7 +58,7 @@ Extract business logic from React/Next.js components into tested custom hooks. U
 /pst:react-refactor --dry-run
 ```
 
-Optional: install Vercel rules for the full industry baseline — `npx skills add vercel-labs/agent-skills`. The skill works without them but is stronger with both layers.
+Vercel react-best-practices (64+ industry rules) is installed automatically by `./install.sh` via the skills CLI. The skill degrades gracefully if the external dependency is missing.
 
 ### `/decide-for-me`
 
