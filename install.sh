@@ -58,7 +58,7 @@ done
 
 EXTERNAL_SKILLS=(
   "vercel-labs/agent-skills --skill vercel-react-best-practices"
-  "https://github.com/figma/mcp-server-guide --skill implement-design"
+  "https://github.com/figma/mcp-server-guide --skill figma-implement-design"
 )
 
 if command -v npx &>/dev/null; then

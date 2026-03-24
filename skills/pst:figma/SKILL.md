@@ -34,12 +34,12 @@ If no Figma URL provided, ask the user via AskUserQuestion.
 
 ### Primary: Figma implement-design
 
-Load the Figma implement-design skill as the structured baseline workflow. Installed by `install.sh` via `npx skills add https://github.com/figma/mcp-server-guide --skill implement-design -g`.
+Load the Figma implement-design skill as the structured baseline workflow. Installed by `install.sh` via `npx skills add https://github.com/figma/mcp-server-guide --skill figma-implement-design -g`.
 
 **Resolution order** (first match wins):
 
-1. `~/.claude/skills/implement-design/SKILL.md` — global skills CLI install location
-2. `./.claude/skills/implement-design/SKILL.md` — project-local skills CLI install
+1. `~/.claude/skills/figma-implement-design/SKILL.md` — global skills CLI install location
+2. `./.claude/skills/figma-implement-design/SKILL.md` — project-local skills CLI install
 3. `~/.claude/plugins/cache/**/figma-implement-design/SKILL.md` — Claude plugin cache (resolve via Glob)
 
 **If found:** Read with the `Read` tool. Internalize the 7-step workflow as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
@@ -48,7 +48,7 @@ Load the Figma implement-design skill as the structured baseline workflow. Insta
 
 ```
 WARNING: Figma implement-design skill not found.
-         Run ./install.sh or: npx -y skills add https://github.com/figma/mcp-server-guide --skill implement-design -g -y
+         Run ./install.sh or: npx -y skills add https://github.com/figma/mcp-server-guide --skill figma-implement-design -g -y
 ```
 
 ### Supplementary: Vercel react-best-practices
