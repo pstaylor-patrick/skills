@@ -47,6 +47,19 @@ Autonomous QA testing that synthesizes test plans from PR context and code diffs
 /pst:qa --post-merge
 ```
 
+### `/pst:react-refactor`
+
+Extract business logic from React/Next.js components into tested custom hooks. Uses [Vercel react-best-practices](https://github.com/vercel-labs/agent-skills) (64+ rules) as the industry baseline, layered with opinionated architecture preferences: hooks in `*.ts` files, comprehensive vitest coverage, zero `eslint-disable`, named exports only.
+
+```
+/pst:react-refactor src/components/Dashboard.tsx
+/pst:react-refactor --all
+/pst:react-refactor --branch feature/new-dashboard
+/pst:react-refactor --dry-run
+```
+
+Optional: install Vercel rules for the full industry baseline — `npx skills add vercel-labs/agent-skills`. The skill works without them but is stronger with both layers.
+
 ### `/decide-for-me`
 
 Tells Claude to pick the best approach instead of presenting options. Evaluates simplicity, reliability, scalability, maintainability, and end-user experience.
