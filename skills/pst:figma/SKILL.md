@@ -1,0 +1,285 @@
+---
+name: pst:figma
+description: Implement Figma designs into production-ready code — layered on Figma implement-design with opinionated project conventions
+argument-hint: "<figma-url> [--dry-run]"
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
+---
+
+# Figma Design Implementation
+
+Translate Figma designs into production-ready code with pixel-perfect accuracy. Uses Figma's implement-design as the structured baseline, Vercel react-best-practices as the supplementary code quality layer, and personal override rules for architecture and design system integration.
+
+---
+
+## Stage 1 — Input Parsing
+
+<arguments> #$ARGUMENTS </arguments>
+
+**Parse arguments:**
+
+- Figma URL (e.g., `https://figma.com/design/:fileKey/:fileName?node-id=1-2`) — the design to implement
+- `--dry-run` — fetch design context and report what would be implemented, no file creation
+
+**Extract from URL:**
+
+- **File key:** the segment after `/design/`
+- **Node ID:** the `node-id` query parameter value (convert `-` to `:` for API calls)
+- **Branch URLs:** `figma.com/design/:fileKey/branch/:branchKey/:fileName` → use `branchKey` as fileKey
+
+If no Figma URL provided, ask the user via AskUserQuestion.
+
+---
+
+## Stage 2 — External Rules Loading
+
+### Primary: Figma implement-design
+
+Load the Figma implement-design skill as the structured baseline workflow. Installed by `install.sh` via `npx skills add https://github.com/figma/mcp-server-guide --skill implement-design -g`.
+
+**Resolution order** (first match wins):
+
+1. `~/.claude/skills/implement-design/SKILL.md` — global skills CLI install location
+2. `./.claude/skills/implement-design/SKILL.md` — project-local skills CLI install
+3. `~/.claude/plugins/cache/**/figma-implement-design/SKILL.md` — Claude plugin cache (resolve via Glob)
+
+**If found:** Read with the `Read` tool. Internalize the 7-step workflow as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
+
+**If not found:** Log this warning and proceed with personal rules only:
+
+```
+WARNING: Figma implement-design skill not found.
+         Run ./install.sh or: npx -y skills add https://github.com/figma/mcp-server-guide --skill implement-design -g -y
+```
+
+### Supplementary: Vercel react-best-practices
+
+Load Vercel react-best-practices for React/Next.js code quality rules.
+
+**Resolution order** (first match wins):
+
+1. `~/.claude/skills/vercel-react-best-practices/SKILL.md` — global skills CLI install location
+2. `./.claude/skills/vercel-react-best-practices/SKILL.md` — project-local skills CLI install
+3. `~/.claude/commands/vercel-react-best-practices.md` — legacy commands directory
+
+**If found:** Read `SKILL.md` and `AGENTS.md` with the `Read` tool. Internalize as supplementary quality layer.
+
+**If not found:** Skip silently — this is supplementary, not required.
+
+---
+
+## Stage 3 — Personal Override Rules
+
+### Shared rules (load first)
+
+Locate and read the shared rules file via Glob for `**/skills/_shared/pst-react-rules.md`. These 8 rules are the shared React/Next.js code quality baseline used across all `/pst:*` skills.
+
+**If not found:** Use these inline fallbacks — S1: Named exports only. S2: Server components by default. S3: `next/image` over `<img>`. S4: Strict TypeScript. S5: Zero `eslint-disable`. S6: ESLint `--max-warnings 0`. S7: Prettier compliance. S8: Business logic in hooks.
+
+### Figma-specific rules
+
+These 4 additional rules apply specifically to Figma design implementation:
+
+| # | Rule |
+|---|------|
+| F1 | **Project design tokens over Figma raw values.** Never hardcode hex colors, pixel font sizes, or magic-number spacing from Figma. Map every Figma value to the project's design system tokens (CSS variables, Tailwind theme, styled-components theme, etc.). If no matching token exists, flag it via AskUserQuestion: create a new token or use the closest existing one. |
+| F2 | **Reuse existing components before creating new ones.** Before implementing a Figma element, search the project for an existing component that matches (buttons, inputs, cards, modals, etc.). Extend or compose existing components rather than duplicating. Document the decision. |
+| F3 | **No inline styles except truly dynamic values** (e.g., computed positions, user-controlled colors). All static styling must go through the project's styling system (CSS modules, Tailwind classes, styled-components, etc.). |
+| F4 | **Responsive implementation required.** Do not implement only the single viewport shown in Figma. Infer responsive behavior from Figma auto-layout constraints. If breakpoint behavior is ambiguous, ask the user via AskUserQuestion. |
+
+All 12 rules (8 shared + 4 specific) are **OVERRIDE priority** — they take precedence over any Figma or Vercel baseline rule on conflict.
+
+---
+
+## Stage 4 — Design Context Fetching
+
+This stage wraps the Figma baseline Steps 1–4 with personal guardrails.
+
+1. **Fetch design context** via `get_design_context(fileKey=":fileKey", nodeId=":nodeId")`
+2. **Capture screenshot** via `get_screenshot(fileKey=":fileKey", nodeId=":nodeId")` — keep as visual reference throughout implementation
+3. **If response is truncated:** Run `get_metadata(fileKey=":fileKey", nodeId=":nodeId")` to get the node map, then fetch individual child nodes with `get_design_context`
+4. **Download assets** from Figma MCP server — use `localhost` sources directly, do not import icon packages or create placeholders
+5. **Scan project** for existing design system: search for theme files, token definitions, component libraries
+
+**If `--dry-run`:** Print the design context summary (components identified, tokens to map, assets to download, existing components that could be reused) and stop here.
+
+---
+
+## Stage 5 — Project Convention Discovery
+
+Before writing any code, survey the target project:
+
+1. **Framework:** Check for `next.config.*` (Next.js), `vite.config.*` (Vite), `remix.config.*` (Remix)
+2. **Styling system:** Check for `tailwind.config.*` (Tailwind), `*.module.css` (CSS Modules), styled-components, etc.
+3. **Component library:** Check for shadcn/ui (`components/ui/`), MUI, Chakra, Radix, etc.
+4. **Design tokens:** Search for CSS custom properties, Tailwind theme extensions, theme files
+5. **Package manager:** `pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn, else npm
+6. **Existing components:** Grep for component names matching the Figma node names
+
+**Print discovery report:**
+
+```
+PROJECT DISCOVERY
+─────────────────
+Framework:        Next.js 14 (App Router)
+Styling:          Tailwind CSS
+Component lib:    shadcn/ui
+Design tokens:    Tailwind theme + CSS variables in globals.css
+Package manager:  pnpm
+Existing matches: Button, Card, Input (reusable)
+```
+
+---
+
+## Stage 6 — Implementation
+
+Use Agent sub-tasks for complex multi-component designs. For each component/element from the Figma design:
+
+### 6a. Map to Existing Components
+
+Search the project for existing components that match the Figma element. If found, use or extend them rather than creating new ones (Rule F2).
+
+### 6b. Create New Components
+
+When no existing component matches, create new ones following all override rules:
+
+- Named exports (S1)
+- Server component by default; `'use client'` only if needed (S2)
+- `next/image` for images (S3)
+- Strict TypeScript interfaces for all props (S4)
+- Design tokens mapped from Figma values, never hardcoded (F1)
+- Styling through project's system, no inline styles (F3)
+- Responsive layout from auto-layout constraints (F4)
+
+### 6c. Handle Assets
+
+- Download from Figma MCP `localhost` URLs directly
+- Place in project's asset directory convention (e.g., `public/`, `src/assets/`)
+- Use `next/image` with proper `width`/`height` or `fill` props
+
+### 6d. Wire Interactivity
+
+- Implement hover, active, disabled, and focus states from the design
+- Extract complex interaction logic into `use*.ts` hooks (S8)
+- Ensure keyboard navigation and focus management
+
+### 6e. Accessibility
+
+- Proper ARIA attributes on all interactive elements
+- Keyboard navigation support
+- Focus management for modals, dropdowns, etc.
+- Alt text for all images
+- Color contrast meeting WCAG AA
+- Do not sacrifice accessibility for visual parity
+
+---
+
+## Stage 7 — Anti-Pattern Scan
+
+After implementation, scan all created and modified files using dedicated tools (not shell equivalents):
+
+- **Grep** for hardcoded hex colors (`#[0-9a-fA-F]{3,8}` outside token definitions) — should use design tokens (F1)
+- **Grep** for `eslint-disable` — zero tolerance (S5)
+- **Grep** for `export default` in new files — should be named exports (S1)
+- **Grep** for `: any` or `as any` — strict TypeScript violation (S4)
+- **Grep** for `@ts-ignore` and `@ts-expect-error` — violation (S4)
+- **Grep** for `<img` in `.tsx` files (Next.js only) — should be `<Image>` from `next/image` (S3)
+- **Grep** for inline `style=` attributes — should use styling system (F3)
+
+Fix all violations found. For `eslint-disable` findings, follow the AskUserQuestion workflow in shared rule S5 before taking action.
+
+---
+
+## Stage 8 — Visual Validation
+
+Compare the implemented UI against the Figma screenshot from Stage 4.
+
+**Validation checklist:**
+
+- [ ] Layout matches (spacing, alignment, sizing)
+- [ ] Typography matches (font, size, weight, line height)
+- [ ] Colors match exactly — and all use project tokens, not raw hex
+- [ ] Spacing uses project scale, no magic numbers
+- [ ] Interactive states work as designed (hover, active, disabled, focus)
+- [ ] Responsive behavior follows Figma auto-layout constraints
+- [ ] Assets render correctly
+- [ ] Keyboard navigation works for all interactive elements
+- [ ] Accessibility standards met (ARIA, contrast, alt text)
+
+---
+
+## Stage 9 — Quality Gates
+
+Detect the package manager:
+
+```bash
+if [ -f pnpm-lock.yaml ]; then PKG="pnpm"; elif [ -f yarn.lock ]; then PKG="yarn"; else PKG="npm"; fi
+```
+
+Run full quality gates:
+
+| Check | Command |
+|-------|---------|
+| Build | `$PKG run build` |
+| Lint | `$PKG run lint -- --max-warnings 0` |
+| Typecheck | `$PKG run typecheck` |
+| Prettier | `$PKG exec prettier --check .` (or `$PKG run format:check` if available) |
+| Type assertions | Grep all modified/created files for `: any`, `as any`, `@ts-ignore`, `@ts-expect-error` — zero tolerance |
+
+**Lint note:** If the project's `lint` script already includes `--max-warnings 0`, bare `$PKG run lint` is sufficient. Check `package.json` scripts first.
+
+**Prettier note:** If Prettier is not configured (no `.prettierrc`, `prettier.config.*`, or `prettier` key in `package.json`), skip and note in the summary.
+
+If any gate fails: read the error, fix the issue, re-run all gates (max 3 fix cycles). If a script doesn't exist, skip it and note.
+
+---
+
+## Stage 10 — Summary Report
+
+```
+FIGMA IMPLEMENTATION COMPLETE
+──────────────────────────────
+Components created:    {N}
+Components reused:     {M}
+Assets downloaded:     {A}
+Design tokens mapped:  {T}
+Quality gates:         {ALL PASSED | FAILED — see above}
+Prettier:              {COMPLIANT | NOT CHECKED — no config}
+ESLint warnings:       {0 | N remaining}
+Type safety:           {CLEAN | N violations}
+next/image:            {COMPLIANT | N/A — not Next.js}
+Accessibility:         {CHECKED | ISSUES — see above}
+Responsive:            {IMPLEMENTED | SINGLE VIEWPORT — see above}
+
+External rules: Figma implement-design {loaded | not installed}
+Supplementary:  Vercel react-best-practices {loaded | not installed}
+Shared rules:   8 loaded from pst-react-rules.md
+Figma rules:    4 applied
+
+Files created:
+  src/components/...
+
+Files modified:
+  ...
+
+Design token mappings:
+  Figma #1A73E8 → var(--color-primary-600)
+  Figma 16px → text-base
+  ...
+```
+
+---
+
+## Error Handling
+
+| Condition | Action |
+|-----------|--------|
+| No Figma URL provided | Ask user via AskUserQuestion |
+| Figma MCP server not connected | Exit: "Figma MCP server not accessible. Ensure it's configured." |
+| Design context too large / truncated | Use `get_metadata` + fetch child nodes individually |
+| No design system tokens found in project | Warn user, offer to create token file via AskUserQuestion |
+| No matching token for a Figma value | AskUserQuestion: create new token or use closest existing |
+| Asset download fails | Log warning, use placeholder with TODO comment |
+| Quality gate failures after 3 cycles | Report and stop |
+| Figma implement-design skill not found | Degrade gracefully, log install command |
+| Ambiguous responsive behavior | Ask user via AskUserQuestion |
+| Component already exists in project | Reuse/extend it, do not duplicate |

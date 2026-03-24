@@ -7,6 +7,7 @@ COMMANDS_DIR="$HOME/.claude/commands"
 SKILLS=(
   "decide-for-me"
   "pst:code-review"
+  "pst:figma"
   "pst:qa"
   "pst:react-refactor"
   "spec-gen"
@@ -52,10 +53,12 @@ done
 
 # ── External skill dependencies ──────────────────────────────────────
 # pst:react-refactor layers on Vercel's react-best-practices.
-# Install it globally so every project gets the latest industry rules.
+# pst:figma layers on Figma's implement-design.
+# Install globally so every project gets the latest industry rules.
 
 EXTERNAL_SKILLS=(
   "vercel-labs/agent-skills --skill vercel-react-best-practices"
+  "https://github.com/figma/mcp-server-guide --skill implement-design"
 )
 
 if command -v npx &>/dev/null; then
@@ -72,4 +75,4 @@ else
 fi
 
 echo ""
-echo "Run /decide-for-me, /pst:code-review, /pst:qa, /pst:react-refactor, /spec-gen, or /validate-quality-gates in any Claude Code session."
+echo "Run /decide-for-me, /pst:code-review, /pst:figma, /pst:qa, /pst:react-refactor, /spec-gen, or /validate-quality-gates in any Claude Code session."
