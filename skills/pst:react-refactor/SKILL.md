@@ -2,7 +2,7 @@
 name: pst:react-refactor
 description: Extract business logic from React/Next.js components into tested custom hooks — layered on Vercel react-best-practices
 argument-hint: "[file-pattern | --all | --branch <name> | --dry-run]"
-allowed-tools: Bash, Read, Edit, Grep, Glob, Agent, AskUserQuestion
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # React Refactor: Business Logic to Hooks + Tests
@@ -110,7 +110,7 @@ Skipped (already clean): {K}
 
 ## Stage 5 — Refactoring
 
-Process each candidate component. For components with independent logic blocks, spawn sub-agents in parallel:
+Process each candidate component. **If multiple candidates share a directory or imports, process them sequentially to avoid conflicting edits.** Only parallelize across independent directories.
 
 ```
 Agent:
@@ -143,6 +143,7 @@ Create `use{Name}.ts` in the same directory as the component (or in a `hooks/` s
 
 ```typescript
 // useDashboardFilters.ts
+import { useState, useMemo } from 'react';
 
 interface DashboardFiltersInput {
   initialData: DashboardItem[];
@@ -246,18 +247,12 @@ If tests fail, fix the issue and re-run (max 3 attempts). If still failing after
 
 After all refactoring, scan the modified and created files for anti-patterns:
 
-```bash
-# Check for eslint-disable in hook files
-grep -rn "eslint-disable" {hook-files}
+Use dedicated tools (not shell equivalents):
 
-# Check for .tsx extension on hook files (should be .ts)
-find {target-dirs} -name "use*.tsx" -not -name "*.test.tsx"
-
-# Check for default exports in new files
-grep -rn "export default" {new-files}
-
-# Check for business logic remaining in components (heuristic: useState count > 2)
-```
+- **Grep** for `eslint-disable` in all hook files — any match is a violation
+- **Glob** for `use*.tsx` files (excluding `*.test.tsx`) — hooks should be `.ts`, not `.tsx`
+- **Grep** for `export default` in new files — should be named exports only
+- **Grep** for `useState` in component files — more than 2 occurrences suggests business logic that should have been extracted
 
 Fix any violations found.
 
