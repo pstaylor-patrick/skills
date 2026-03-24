@@ -55,7 +55,7 @@ done
 # Install it globally so every project gets the latest industry rules.
 
 EXTERNAL_SKILLS=(
-  "vercel-labs/agent-skills --skill react-best-practices"
+  "vercel-labs/agent-skills --skill vercel-react-best-practices"
 )
 
 if command -v npx &>/dev/null; then

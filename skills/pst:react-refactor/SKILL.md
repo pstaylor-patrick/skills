@@ -35,23 +35,23 @@ If no `.tsx` files found on the branch, ask the user via AskUserQuestion what to
 
 ## Stage 2 — External Rules Loading
 
-Load Vercel react-best-practices as the industry baseline. These rules are installed by `install.sh` via the skills CLI (`npx skills add vercel-labs/agent-skills --skill react-best-practices -g`).
+Load Vercel react-best-practices as the industry baseline. These rules are installed by `install.sh` via the skills CLI (`npx skills add vercel-labs/agent-skills --skill vercel-react-best-practices -g`).
 
 **Resolution order** (first match wins):
 
-1. `~/.claude/skills/react-best-practices/SKILL.md` — global skills CLI install location
-2. `./.claude/skills/react-best-practices/SKILL.md` — project-local skills CLI install
-3. `~/.claude/commands/react-best-practices.md` — legacy commands directory
+1. `~/.claude/skills/vercel-react-best-practices/SKILL.md` — global skills CLI install location
+2. `./.claude/skills/vercel-react-best-practices/SKILL.md` — project-local skills CLI install
+3. `~/.claude/commands/vercel-react-best-practices.md` — legacy commands directory
 
-If the resolved path is a symlink, also check for `references/` and `scripts/` directories alongside it — the Vercel skill ships supporting docs there.
+The Vercel skill ships with `SKILL.md`, `AGENTS.md`, and a `rules/` directory containing categorized rule files.
 
-**If found:** Read the SKILL.md (and any files in `references/`) with the `Read` tool. Internalize the rules as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
+**If found:** Read `SKILL.md` and `AGENTS.md` with the `Read` tool. For deeper context, also read files in the `rules/` directory. Internalize these as the baseline layer. Personal override rules (Stage 3) take precedence on any conflict.
 
 **If not found:** Log this warning and proceed with personal rules only:
 
 ```
 WARNING: Vercel react-best-practices not found.
-         Run ./install.sh or: npx -y skills add vercel-labs/agent-skills --skill react-best-practices -g -y
+         Run ./install.sh or: npx -y skills add vercel-labs/agent-skills --skill vercel-react-best-practices -g -y
 ```
 
 ---
