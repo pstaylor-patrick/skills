@@ -85,20 +85,22 @@ These 4 additional rules apply specifically to Figma design implementation:
 | F2 | **Reuse existing components before creating new ones.** Before implementing a Figma element, search the project for an existing component that matches (buttons, inputs, cards, modals, etc.). Extend or compose existing components rather than duplicating. Document the decision. |
 | F3 | **No inline styles except truly dynamic values** (e.g., computed positions, user-controlled colors). All static styling must go through the project's styling system (CSS modules, Tailwind classes, styled-components, etc.). |
 | F4 | **Responsive implementation required.** Do not implement only the single viewport shown in Figma. Infer responsive behavior from Figma auto-layout constraints. If breakpoint behavior is ambiguous, ask the user via AskUserQuestion. |
+| F5 | **Progressive Figma fetching for large artboards.** Never call `get_design_context` or `get_screenshot` on a node that may contain multiple pages or states (e.g., an entire page-level frame). Start with `get_metadata` to inspect the node tree and child count. If the node has more than ~5 direct children or appears to be a page-level container, fetch each child node individually via separate `get_design_context` calls rather than pulling the entire artboard at once. This avoids MCP timeouts and oversized responses. |
 
-All 12 rules (8 shared + 4 specific) are **OVERRIDE priority** — they take precedence over any Figma or Vercel baseline rule on conflict.
+All 13 rules (8 shared + 5 specific) are **OVERRIDE priority** — they take precedence over any Figma or Vercel baseline rule on conflict.
 
 ---
 
 ## Stage 4 — Design Context Fetching
 
-This stage wraps the Figma baseline Steps 1–4 with personal guardrails.
+This stage wraps the Figma baseline Steps 1–4 with personal guardrails. Always use the progressive fetching strategy (Rule F5) to avoid MCP timeouts on large artboards.
 
-1. **Fetch design context** via `get_design_context(fileKey=":fileKey", nodeId=":nodeId")`
-2. **Capture screenshot** via `get_screenshot(fileKey=":fileKey", nodeId=":nodeId")` — keep as visual reference throughout implementation
-3. **If response is truncated:** Run `get_metadata(fileKey=":fileKey", nodeId=":nodeId")` to get the node map, then fetch individual child nodes with `get_design_context`
-4. **Download assets** from Figma MCP server — use `localhost` sources directly, do not import icon packages or create placeholders
-5. **Scan project** for existing design system: search for theme files, token definitions, component libraries
+1. **Probe node structure first** via `get_metadata(fileKey=":fileKey", nodeId=":nodeId")` — inspect the node type, child count, and tree depth before fetching design context
+2. **If node is small** (≤5 direct children, not a page-level container): proceed normally with `get_design_context` and `get_screenshot`
+3. **If node is large** (>5 direct children or is a page-level container): fetch each child node individually via separate `get_design_context` calls and capture screenshots per child — do not attempt to pull the entire artboard at once
+4. **Capture screenshot(s)** via `get_screenshot` — keep as visual reference throughout implementation (per-child if using progressive fetching)
+5. **Download assets** from Figma MCP server — use `localhost` sources directly, do not import icon packages or create placeholders
+6. **Scan project** for existing design system: search for theme files, token definitions, component libraries
 
 **If `--dry-run`:** Print the design context summary (components identified, tokens to map, assets to download, existing components that could be reused) and stop here.
 
@@ -253,7 +255,7 @@ Responsive:            {IMPLEMENTED | SINGLE VIEWPORT — see above}
 External rules: Figma implement-design {loaded | not installed}
 Supplementary:  Vercel react-best-practices {loaded | not installed}
 Shared rules:   8 loaded from pst-react-rules.md
-Figma rules:    4 applied
+Figma rules:    5 applied
 
 Files created:
   src/components/...
@@ -275,7 +277,7 @@ Design token mappings:
 |-----------|--------|
 | No Figma URL provided | Ask user via AskUserQuestion |
 | Figma MCP server not connected | Exit: "Figma MCP server not accessible. Ensure it's configured." |
-| Design context too large / truncated | Use `get_metadata` + fetch child nodes individually |
+| Design context too large, truncated, or MCP call exceeds ~2 minutes | Use `get_metadata` to probe node tree first, then fetch child nodes individually (Rule F5) |
 | No design system tokens found in project | Warn user, offer to create token file via AskUserQuestion |
 | No matching token for a Figma value | AskUserQuestion: create new token or use closest existing |
 | Asset download fails | Log warning, use placeholder with TODO comment |
