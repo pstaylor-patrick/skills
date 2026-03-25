@@ -8,6 +8,7 @@ SKILLS=(
   "decide-for-me"
   "pst:auto"
   "pst:code-review"
+  "pst:demo"
   "pst:figma"
   "pst:markdown"
   "pst:next"
@@ -80,4 +81,4 @@ else
 fi
 
 echo ""
-echo "Run /decide-for-me, /pst:auto, /pst:code-review, /pst:figma, /pst:markdown, /pst:next, /pst:push, /pst:qa, /pst:react-refactor, /pst:slop, /spec-gen, or /validate-quality-gates in any Claude Code session."
+echo "Run /decide-for-me, /pst:auto, /pst:code-review, /pst:demo, /pst:figma, /pst:markdown, /pst:next, /pst:push, /pst:qa, /pst:react-refactor, /pst:slop, /spec-gen, or /validate-quality-gates in any Claude Code session."

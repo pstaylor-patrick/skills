@@ -56,6 +56,16 @@ Code review with worktree-isolated fix verification. Every finding is validated 
 /pst:code-review --sweep
 ```
 
+### `/pst:demo`
+
+Generate a reusable demo/QA runbook from the current feature branch. Analyzes code changes, commits, and PR context to create a step-by-step walkthrough saved as a skill in the target repo's `.agents/skills/` directory. Usable for both QA testing and stakeholder Loom demos.
+
+```
+/pst:demo
+/pst:demo --update
+/pst:demo --dry-run
+```
+
 ### `/pst:push`
 
 Auto-commit, push the current branch, ensure a PR exists against the default branch, and refresh the PR title and description to reflect all changes on the branch. Then autonomously validate every unchecked test-plan checkbox via terminal commands (build, lint, typecheck, test) and code-level checks -- no browser automation. Posts a validation comment and checks off passing items.
