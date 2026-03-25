@@ -77,7 +77,7 @@ Locate and read the shared rules file via Glob for `**/skills/_shared/pst-react-
 
 ### Figma-specific rules
 
-These 4 additional rules apply specifically to Figma design implementation:
+These 5 additional rules apply specifically to Figma design implementation:
 
 | # | Rule |
 |---|------|
