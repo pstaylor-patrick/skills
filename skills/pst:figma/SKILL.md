@@ -132,6 +132,44 @@ Existing matches: Button, Card, Input (reusable)
 
 ---
 
+## Stage 5b — Target Location Confirmation
+
+Before writing any code, infer where in the application this design should be implemented and confirm with the user via AskUserQuestion.
+
+**Steps:**
+
+1. **Infer the target location** from the design context (Stage 4) and project structure (Stage 5). Use the Figma node name, page name, and visual content to identify the most likely route, page, or component location in the project. For example:
+   - A design named "Search Results" with a search bar and result cards → `src/app/search/page.tsx`
+   - A design showing a modal with form fields → a new component in the project's component directory
+   - A design matching an existing page's layout → modification of that existing page
+
+2. **Search the project** for existing files that match the inferred target — check for route directories, page files, and components that already implement similar UI.
+
+3. **Present the inference and ask for confirmation** via AskUserQuestion. Include:
+   - What the design appears to represent (e.g., "This looks like a search results page")
+   - The inferred target file path(s) (e.g., "I'd implement this at `src/app/search/page.tsx`")
+   - Whether this would create new files or modify existing ones
+   - Any ambiguity (e.g., "This could be a standalone page or a section within the dashboard — which is it?")
+
+**Example prompt:**
+
+```
+Based on the Figma design, this appears to be a **search results page** with filters and pagination.
+
+I'd implement this at:
+  → src/app/search/page.tsx (new page)
+  → src/components/search/SearchResults.tsx (new component)
+  → src/components/search/SearchFilters.tsx (new component)
+
+The project already has src/app/search/ with a basic page — I'd extend it.
+
+Is this the right location, or should this go somewhere else?
+```
+
+Do not proceed to Stage 6 until the user confirms the target location.
+
+---
+
 ## Stage 6 — Implementation
 
 Use Agent sub-tasks for complex multi-component designs. For each component/element from the Figma design:
@@ -283,5 +321,6 @@ Design token mappings:
 | Asset download fails | Log warning, use placeholder with TODO comment |
 | Quality gate failures after 3 cycles | Report and stop |
 | Figma implement-design skill not found | Degrade gracefully, log install command |
+| Target location ambiguous or no matching route found | Ask user via AskUserQuestion before proceeding |
 | Ambiguous responsive behavior | Ask user via AskUserQuestion |
 | Component already exists in project | Reuse/extend it, do not duplicate |
