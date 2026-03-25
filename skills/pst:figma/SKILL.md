@@ -151,7 +151,9 @@ Before writing any code, infer where in the application this design should be im
    - Whether this would create new files or modify existing ones
    - Any ambiguity (e.g., "This could be a standalone page or a section within the dashboard — which is it?")
 
-**Example prompt:**
+4. **If the design spans multiple locations** (e.g., a prototype showing a flow across several pages or screens), list each screen and its inferred target separately. Ask the user to confirm all locations and whether they want the full flow implemented or just a subset.
+
+**Example — single location:**
 
 ```
 Based on the Figma design, this appears to be a **search results page** with filters and pagination.
@@ -166,7 +168,42 @@ The project already has src/app/search/ with a basic page — I'd extend it.
 Is this the right location, or should this go somewhere else?
 ```
 
-Do not proceed to Stage 6 until the user confirms the target location.
+**Example — multi-location prototype:**
+
+```
+This Figma prototype covers a 3-screen flow:
+
+  1. Search page       → src/app/search/page.tsx (existing — extend)
+  2. Result detail      → src/app/results/[id]/page.tsx (new)
+  3. Booking confirm    → src/app/booking/confirm/page.tsx (new)
+
+Shared components across screens:
+  → src/components/search/SearchHeader.tsx (reuse in all 3)
+  → src/components/booking/BookingSummary.tsx (screens 2–3)
+
+Should I implement the full flow, or focus on specific screens?
+```
+
+**Example — entire app / top-level Figma:**
+
+If the design covers an entire application (many pages, flows, or the top-level Figma file), do **not** attempt to implement everything at once. Instead, ask the user to scope down:
+
+```
+This Figma file appears to contain the full application with ~12 screens across
+multiple flows (onboarding, dashboard, search, settings, etc.).
+
+Implementing everything at once would be too broad. Which section should I focus on?
+
+  1. Onboarding flow (3 screens)
+  2. Dashboard (2 screens)
+  3. Search & results (3 screens)
+  4. Settings (2 screens)
+  5. Other — tell me which screens
+
+Best practice: focus on one flow or section at a time for higher fidelity.
+```
+
+Do not proceed to Stage 6 until the user confirms the target location(s) and scope.
 
 ---
 
