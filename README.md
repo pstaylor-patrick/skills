@@ -24,6 +24,16 @@ This creates symlinks in `~/.claude/commands/` for all skills, making them avail
 
 ## Skills
 
+### `/pst:auto`
+
+High-autonomy orchestrator that turns rough, unstructured prompts into review-ready pull requests. Asks up to 3 clarifying questions, then runs autonomously through implementation, slop cleanup, quality gates, preflight code review, push/PR creation, QA, and a final autofix review pass. Opens the finished PR in your browser.
+
+```
+/pst:auto "add an org invitation flow"
+/pst:auto "fix the broken dashboard filtering and get this branch ready for review"
+/pst:auto "take this half-finished work and make the PR fully review-ready"
+```
+
 ### `/pst:next`
 
 Assess the current state of your work and get one opinionated recommendation for the best next step. Reads git state, GitHub PR status, and project context to tell you THE answer, not a menu of options.
