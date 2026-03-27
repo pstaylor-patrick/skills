@@ -21,8 +21,8 @@ Validate all `CLAUDE.md` and `MEMORY.md` files in the current project against An
 
 - `--strict` - promote all WARNs to FAILs
 - `--json` - output results as a JSON array for CI integration
-- `--fix` - eagerly fix ALL failing rules. For oversized files, analyzes sections and relocates reference material to domain-specific files (`.context/`, `.claude/rules/`) while leaving compact pointers in CLAUDE.md. For vague patterns, rewrites them to be concrete. Interactive — presents the plan before executing.
-- `--install` - install defense-in-depth: commits the checker script into the repo, creates a GitHub Actions workflow, and adds a Husky pre-commit hook. Idempotent — safe to re-run.
+- `--fix` - eagerly fix ALL failing rules. For oversized files, analyzes sections and relocates reference material to domain-specific files (`.context/`, `.claude/rules/`) while leaving compact pointers in CLAUDE.md. For vague patterns, rewrites them to be concrete. Interactive -- presents the plan before executing.
+- `--install` - install defense-in-depth: commits the checker script into the repo, creates a GitHub Actions workflow, and adds a Husky pre-commit hook. Idempotent -- safe to re-run.
 - `--no-color` - disable color output
 - `--help` - print usage and exit
 - No arguments - run all checks with color output, normal severity levels
@@ -42,7 +42,7 @@ Write this exact script to `/tmp/check-claude-md.sh` and execute it:
 set -euo pipefail
 
 # ============================================================================
-# check-claude-md.sh — CLAUDE.md & MEMORY.md Compliance Checker
+# check-claude-md.sh -- CLAUDE.md & MEMORY.md Compliance Checker
 #
 # Validates project memory files against Anthropic's official recommendations.
 # Every rule cites its source of truth from Anthropic documentation.
@@ -51,8 +51,8 @@ set -euo pipefail
 #        Defaults to current directory if no argument provided.
 #
 # Exit codes:
-#   0 — All checks passed (warnings may have been emitted)
-#   1 — One or more FAIL-severity checks did not pass
+#   0 -- All checks passed (warnings may have been emitted)
+#   1 -- One or more FAIL-severity checks did not pass
 # ============================================================================
 
 # --- Globals ---
@@ -278,7 +278,7 @@ check_rule_4() {
 }
 
 # --------------------------------------------------------------------------
-# Rule 5: Structure Check — Markdown Headers Present
+# Rule 5: Structure Check -- Markdown Headers Present
 # Severity: WARN
 # Source: https://docs.anthropic.com/en/docs/claude-code/memory
 # Rationale: "Structure: use markdown headers and bullets to group related
@@ -300,7 +300,7 @@ check_rule_5() {
 }
 
 # --------------------------------------------------------------------------
-# Rule 6: Specificity Check — Vague Instruction Patterns
+# Rule 6: Specificity Check -- Vague Instruction Patterns
 # Severity: WARN
 # Source: https://docs.anthropic.com/en/docs/claude-code/memory
 # Rationale: "Specificity: write instructions that are concrete enough to
@@ -341,7 +341,7 @@ check_rule_6() {
 }
 
 # --------------------------------------------------------------------------
-# Rule 7: Split Recommendation — Large Files Should Use Imports
+# Rule 7: Split Recommendation -- Large Files Should Use Imports
 # Severity: WARN
 # Source: https://docs.anthropic.com/en/docs/claude-code/memory
 # Rationale: "If your instructions are growing large, split them using
@@ -409,7 +409,7 @@ REOF
 #   1. A committed script at .github/scripts/check-claude-md.sh
 #   2. A GitHub Actions workflow at .github/workflows/check-claude-md.yml
 #   3. A Husky pre-commit hook entry
-# Idempotent — overwrites existing files with the latest version.
+# Idempotent -- overwrites existing files with the latest version.
 install_hooks() {
   local script_source="$0"
   local target_script="$PROJECT_ROOT/.github/scripts/check-claude-md.sh"
@@ -432,7 +432,7 @@ install_hooks() {
   mkdir -p "$PROJECT_ROOT/.github/workflows"
   cat > "$target_workflow" << 'WFEOF'
 # ==========================================================================
-# CLAUDE.md Compliance Check — GitHub Actions
+# CLAUDE.md Compliance Check -- GitHub Actions
 #
 # Runs on every PR and push to main/master to ensure CLAUDE.md and MEMORY.md
 # files comply with Anthropic's documented recommendations.
@@ -474,7 +474,7 @@ WFEOF
   # --- 3. Install Husky pre-commit hook ---
   # Check if Husky is set up in the project
   if [[ -d "$husky_dir" ]]; then
-    # Husky directory exists — add our hook if not already present
+    # Husky directory exists -- add our hook if not already present
     if [[ -f "$precommit_file" ]]; then
       if grep -qF "$hook_line" "$precommit_file" 2>/dev/null; then
         echo "${CYAN}[OK]${RESET} Husky pre-commit already contains claude-md check (no change)"
@@ -482,7 +482,7 @@ WFEOF
         # Append our check. Run only if CLAUDE.md files are staged.
         cat >> "$precommit_file" << HOOKEOF
 
-# CLAUDE.md compliance check — defense in depth
+# CLAUDE.md compliance check -- defense in depth
 # Source: https://docs.anthropic.com/en/docs/claude-code/memory
 if git diff --cached --name-only | grep -qE '(^|/)\.?claude|CLAUDE\.md'; then
   $hook_line
@@ -491,11 +491,11 @@ HOOKEOF
         echo "${GREEN}[OK]${RESET} Added claude-md check to existing .husky/pre-commit"
       fi
     else
-      # No pre-commit file yet — create one
+      # No pre-commit file yet -- create one
       cat > "$precommit_file" << HOOKEOF
 #!/usr/bin/env sh
 
-# CLAUDE.md compliance check — defense in depth
+# CLAUDE.md compliance check -- defense in depth
 # Source: https://docs.anthropic.com/en/docs/claude-code/memory
 if git diff --cached --name-only | grep -qE '(^|/)\.?claude|CLAUDE\.md'; then
   $hook_line
@@ -505,7 +505,7 @@ HOOKEOF
       echo "${GREEN}[OK]${RESET} Created .husky/pre-commit with claude-md check"
     fi
   else
-    # No Husky directory — offer to initialize
+    # No Husky directory -- offer to initialize
     echo "${YELLOW}[WARN]${RESET} No .husky/ directory found."
     echo "  To add the pre-commit hook manually, ensure Husky is installed:"
     echo "    npx husky init"
@@ -555,8 +555,8 @@ All rules cite exact Anthropic documentation URLs.
 Source: https://docs.anthropic.com/en/docs/claude-code/memory
 
 Exit codes:
-  0 — All checks passed (warnings may have been emitted)
-  1 — One or more FAIL-severity checks did not pass
+  0 -- All checks passed (warnings may have been emitted)
+  1 -- One or more FAIL-severity checks did not pass
 HELPEOF
 }
 
@@ -596,7 +596,7 @@ main() {
 
   if [[ "$JSON_OUTPUT" == false ]]; then
     echo ""
-    echo "${BOLD}CLAUDE.md Compliance Check — $PROJECT_ROOT${RESET}"
+    echo "${BOLD}CLAUDE.md Compliance Check -- $PROJECT_ROOT${RESET}"
     printf '%.0s═' {1..60}
     echo ""
     echo ""
@@ -661,7 +661,7 @@ main() {
     done
   fi
 
-  # Install mode — runs after checks so you see current state first
+  # Install mode -- runs after checks so you see current state first
   if [[ "$INSTALL_MODE" == true ]]; then
     install_hooks
   fi
@@ -714,9 +714,9 @@ After the script runs, display its output to the user as-is (the script handles 
 ### If `--install` was used
 
 Remind the user to commit the new files:
-- `.github/scripts/check-claude-md.sh` — the checker script, committed into the repo
-- `.github/workflows/check-claude-md.yml` — GitHub Action that runs on PRs touching CLAUDE.md files
-- `.husky/pre-commit` — pre-commit hook (only if Husky was already initialized)
+- `.github/scripts/check-claude-md.sh` -- the checker script, committed into the repo
+- `.github/workflows/check-claude-md.yml` -- GitHub Action that runs on PRs touching CLAUDE.md files
+- `.husky/pre-commit` -- pre-commit hook (only if Husky was already initialized)
 - Explain: the GH Action uses `--strict --no-color` so warnings become CI failures. The pre-commit hook only fires when staged files match CLAUDE.md patterns, keeping unrelated commits fast.
 
 ### If all checks passed (no `--fix`)
@@ -727,7 +727,7 @@ Print a clean confirmation. Done.
 
 Suggest specific remediation for each failed rule but do not modify files.
 
-### If `--fix` was used — Eager Fix Mode
+### If `--fix` was used -- Eager Fix Mode
 
 This is the core remediation workflow. The bash script handles detection; this phase uses Claude's tools to do the intelligent refactoring. Fix ALL failing rules, not just Rule 7.
 
@@ -739,7 +739,7 @@ Read the script output and categorize failures:
 
 | Failure | Fix Strategy |
 |---------|-------------|
-| Rule 1 (line count > 200) | Section extraction — relocate reference material |
+| Rule 1 (line count > 200) | Section extraction -- relocate reference material |
 | Rule 2 (char count > 40k) | Same as Rule 1, applied across all files |
 | Rule 3 (MEMORY.md lines > 200) | Consolidate and compress memory entries |
 | Rule 4 (MEMORY.md bytes > 25KB) | Same as Rule 3 |
@@ -753,24 +753,24 @@ Use **AskUserQuestion** to present a numbered list of proposed changes. Example:
 
 > Here's the fix plan for 3 failing rules:
 >
-> 1. **Rule 1 — CLAUDE.md is 287 lines (limit: 200)**
+> 1. **Rule 1 -- CLAUDE.md is 287 lines (limit: 200)**
 >    - Move "## Architecture" (lines 45-112) → `.context/architecture.md`
 >    - Move "## API Patterns" (lines 113-198) → `.context/api-patterns.md`
 >    - Leave 2-line pointers: `See .context/architecture.md` and `See .context/api-patterns.md`
 >    - Result: ~118 lines remaining
 >
-> 2. **Rule 6 — 2 vague patterns found**
+> 2. **Rule 6 -- 2 vague patterns found**
 >    - Line 23: "Follow best practices" → "Run `npm run lint && npm run typecheck` before committing"
 >    - Line 67: "Test your changes" → "Run `npm test` and ensure all tests pass before pushing"
 >
-> 3. **Rule 7 — No .claude/rules/ or imports**
+> 3. **Rule 7 -- No .claude/rules/ or imports**
 >    - Create `.claude/rules/` directory
 >
 > Proceed with all fixes? (yes / pick numbers / no)
 
 If the user picks specific numbers, only apply those.
 
-#### Step 3: Fix Rule 1 / Rule 2 — Section Extraction
+#### Step 3: Fix Rule 1 / Rule 2 -- Section Extraction
 
 This is the most complex fix. For each oversized CLAUDE.md:
 
@@ -784,20 +784,20 @@ This is the most complex fix. For each oversized CLAUDE.md:
 
 **3B. Choose relocation targets.** Follow established patterns in the repo:
 
-1. **If `.context/` exists** — use it. Create domain-named files:
+1. **If `.context/` exists** -- use it. Create domain-named files:
    - Architecture docs → `.context/architecture.md`
    - API patterns → `.context/api-patterns.md`
    - Database conventions → `.context/database.md`
    - Testing guidelines → `.context/testing.md`
    - General reference → `.context/conventions.md`
 
-2. **If `.claude/rules/` exists** — use it for convention-type content:
+2. **If `.claude/rules/` exists** -- use it for convention-type content:
    - Code style rules → `.claude/rules/code-style.md`
    - Git workflow → `.claude/rules/git-workflow.md`
    - PR conventions → `.claude/rules/pr-conventions.md`
    Note: `.claude/rules/*.md` files are auto-loaded by Claude Code, so they don't need explicit pointers.
 
-3. **If neither exists** — create `.context/` for reference material and `.claude/rules/` for conventions. Prefer `.claude/rules/` for anything Claude should always see (it's auto-loaded). Use `.context/` for deeper reference material that Claude can read on demand.
+3. **If neither exists** -- create `.context/` for reference material and `.claude/rules/` for conventions. Prefer `.claude/rules/` for anything Claude should always see (it's auto-loaded). Use `.context/` for deeper reference material that Claude can read on demand.
 
 **3C. Extract and relocate.** For each section being relocated:
 
@@ -809,14 +809,14 @@ This is the most complex fix. For each oversized CLAUDE.md:
    ```
 3. Replace the section in CLAUDE.md with a compact pointer:
    - For `.context/` files: `- See [Section Name](.context/filename.md) for details`
-   - For `.claude/rules/` files: *(no pointer needed — auto-loaded by Claude Code)*. Just remove the section and note in a comment: `<!-- Moved to .claude/rules/filename.md (auto-loaded) -->`
+   - For `.claude/rules/` files: *(no pointer needed -- auto-loaded by Claude Code)*. Just remove the section and note in a comment: `<!-- Moved to .claude/rules/filename.md (auto-loaded) -->`
 
 **3D. Verify budget.** After all extractions, count the remaining lines. If still over 200:
 - Look for more sections to extract (lower the "short" threshold)
 - Compress remaining content: convert paragraphs to bullet points, remove redundant phrasing
 - If still over 200 after compression, use **AskUserQuestion**: "CLAUDE.md is still at N lines after extraction. Which remaining sections should I trim or relocate?"
 
-#### Step 4: Fix Rule 3 / Rule 4 — MEMORY.md Compression
+#### Step 4: Fix Rule 3 / Rule 4 -- MEMORY.md Compression
 
 For oversized MEMORY.md:
 
@@ -829,7 +829,7 @@ For oversized MEMORY.md:
 4. For remaining entries over the limit, consolidate related entries into fewer files
 5. Rewrite the MEMORY.md index to be more compact (shorter descriptions)
 
-#### Step 5: Fix Rule 5 — Add Structure
+#### Step 5: Fix Rule 5 -- Add Structure
 
 If a CLAUDE.md has no headers:
 
@@ -838,7 +838,7 @@ If a CLAUDE.md has no headers:
 3. Add appropriate `##` headers
 4. Rewrite with Edit tool
 
-#### Step 6: Fix Rule 6 — Replace Vague Patterns
+#### Step 6: Fix Rule 6 -- Replace Vague Patterns
 
 For each vague pattern found:
 
@@ -851,7 +851,7 @@ For each vague pattern found:
    - "Write clean code" → remove entirely (too vague to be actionable)
    - "Be consistent" → replace with the specific consistency rule (e.g., "Use named exports, not default exports")
 
-#### Step 7: Fix Rule 7 — Split Scaffold
+#### Step 7: Fix Rule 7 -- Split Scaffold
 
 If the bash script's `--fix` mode already created `.claude/rules/`, this step is done. Otherwise:
 
