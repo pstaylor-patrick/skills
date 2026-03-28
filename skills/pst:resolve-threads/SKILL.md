@@ -1,13 +1,13 @@
 ---
 name: pst:resolve-threads
-description: Address every unresolved PR conversation - test fixes in worktrees, apply proven ones, reply with reasoning, and resolve threads.
+description: Address every unresolved PR conversation - test fixes in worktrees, apply proven ones, reply with reasoning, resolve threads, dismiss change requests, and re-request review from human reviewers.
 argument-hint: "[PR-number | PR-URL] [--dry-run]"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # Resolve PR Threads
 
-Fetch every unresolved conversation and comment on a GitHub pull request, classify each one, and systematically address them. For actionable suggestions: test a fix in an isolated worktree, and if it passes quality gates, squash-merge it into the branch and reply confirming the fix. For suggestions that are not applicable: reply with clear reasoning. Resolve all threads when done.
+Fetch every unresolved conversation and comment on a GitHub pull request, classify each one, and systematically address them. For actionable suggestions: test a fix in an isolated worktree, and if it passes quality gates, squash-merge it into the branch and reply confirming the fix. For suggestions that are not applicable: reply with clear reasoning. Resolve all threads, dismiss any outstanding change-request reviews, and re-request review from all human reviewers so they can take a fresh look.
 
 ---
 
@@ -435,6 +435,74 @@ For top-level issue comments that were addressed, the reply itself serves as the
 
 ---
 
+## Phase 9 -- Dismiss Change Requests
+
+After resolving all threads, dismiss any outstanding "changes requested" reviews. The feedback has been addressed (fixed, answered, or replied to with reasoning), so the blocking reviews should be cleared.
+
+**Fetch reviews with CHANGES_REQUESTED state:**
+
+```bash
+REVIEWS=$(gh api repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews --paginate \
+  | jq '[.[] | select(.state == "CHANGES_REQUESTED")]')
+```
+
+**Dismiss each one:**
+
+```bash
+for REVIEW_ID in $(echo "$REVIEWS" | jq -r '.[].id'); do
+  gh api repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/dismissals \
+    --method PUT \
+    --field message="All review feedback has been addressed. Dismissing to unblock -- re-requesting your review for a fresh look." \
+    --field event="DISMISS"
+done
+```
+
+Log:
+
+```
+Dismissed {N} change-request review(s)
+```
+
+If no CHANGES_REQUESTED reviews exist, skip silently.
+
+---
+
+## Phase 10 -- Re-request Review from Human Reviewers
+
+Re-request review from any human (non-bot) who previously left a review on this PR, so they are notified that their feedback has been addressed.
+
+**Identify human reviewers:**
+
+1. From the reviews fetched in Phase 2c and Phase 9, collect all unique `user.login` values
+2. Filter out bots using the same bot detection rules from Phase 3 (login ends with `[bot]`, known bot names)
+3. The remaining logins are human reviewers who should be re-requested
+
+**Re-request review:**
+
+```bash
+gh pr edit $PR_NUMBER --add-reviewer "$REVIEWER1,$REVIEWER2,..."
+```
+
+If `gh pr edit` fails (e.g., missing `read:org` scope), fall back to the REST API:
+
+```bash
+gh api repos/$OWNER/$REPO/pulls/$PR_NUMBER/requested_reviewers \
+  --method POST \
+  --input - <<EOF
+{"reviewers": ["$REVIEWER1", "$REVIEWER2"]}
+EOF
+```
+
+Log:
+
+```
+Re-requested review from: {reviewer1}, {reviewer2}, ...
+```
+
+If no human reviewers are found, skip silently.
+
+---
+
 ## Output Contract
 
 Always print this block at the end:
@@ -454,6 +522,8 @@ out-of-scope: {N}
 not-fixable: {N}
 answered: {N}
 threads-resolved: {N}
+reviews-dismissed: {N}
+review-re-requested: {reviewer1, reviewer2, ... | none}
 commit: {short_sha | none}
 pushed: {yes | no}
 --- END RESOLVE RESULT ---
