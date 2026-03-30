@@ -1,11 +1,11 @@
 ---
 name: pst:sweep
-description: Parallel quality sweep across open PRs — resolve threads, code review, and QA in isolated worktrees, with optional author/label filtering
+description: Parallel quality sweep across open PRs -- resolve threads, code review, and QA in isolated worktrees, with optional author/label filtering
 argument-hint: "[--author <login>] [--label <name>] [--cap N] [--dry-run] [--stages resolve,review,qa]"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion, Skill
 ---
 
-# Sweep — Parallel Quality Pipelines Across Open PRs
+# Sweep -- Parallel Quality Pipelines Across Open PRs
 
 Orchestrator that discovers open PRs, then fans out parallel quality pipelines (resolve-threads, code-review, QA) across all of them in isolated worktrees. Each PR gets its own agent. Filter by author, label, or any combination.
 
@@ -17,24 +17,24 @@ Orchestrator that discovers open PRs, then fans out parallel quality pipelines (
 
 **Parse arguments:**
 
-- `--author <login>` — only sweep PRs authored by this GitHub user (case-insensitive match)
-- `--label <name>` — only sweep PRs with this label
-- `--cap N` — override concurrency cap (max parallel pipelines, default 3)
-- `--dry-run` — discover and classify PRs but do not run pipelines
-- `--stages <list>` — comma-separated pipeline stages to run (default: `resolve,review,qa`). Valid stages: `resolve`, `review`, `qa`
-- `--no-drafts` — exclude draft PRs (default: drafts ARE included)
-- No arguments — sweep all open PRs with default pipeline
+- `--author <login>` -- only sweep PRs authored by this GitHub user (case-insensitive match)
+- `--label <name>` -- only sweep PRs with this label
+- `--cap N` -- override concurrency cap (max parallel pipelines, default 3)
+- `--dry-run` -- discover and classify PRs but do not run pipelines
+- `--stages <list>` -- comma-separated pipeline stages to run (default: `resolve,review,qa`). Valid stages: `resolve`, `review`, `qa`
+- `--no-drafts` -- exclude draft PRs (default: drafts ARE included)
+- No arguments -- sweep all open PRs with default pipeline
 
 Multiple filters combine as AND (e.g., `--author pat --label bug` = PRs by pat with label bug).
 
 Examples:
 
-- `/pst:sweep` — all open PRs, full pipeline
-- `/pst:sweep --author pstaylor-patrick` — only my PRs
-- `/pst:sweep --label "needs review"` — only PRs with that label
-- `/pst:sweep --stages review,qa` — skip resolve-threads
-- `/pst:sweep --cap 2 --dry-run` — preview what would be swept
-- `/pst:sweep --no-drafts` — skip draft PRs
+- `/pst:sweep` -- all open PRs, full pipeline
+- `/pst:sweep --author pstaylor-patrick` -- only my PRs
+- `/pst:sweep --label "needs review"` -- only PRs with that label
+- `/pst:sweep --stages review,qa` -- skip resolve-threads
+- `/pst:sweep --cap 2 --dry-run` -- preview what would be swept
+- `/pst:sweep --no-drafts` -- skip draft PRs
 
 ---
 
@@ -110,7 +110,7 @@ For each remaining PR, classify:
   ```
   Count unresolved threads. Store as `unresolvedThreads` on the PR.
 
-- **Review status:** From `reviewDecision` — `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or empty.
+- **Review status:** From `reviewDecision` -- `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`, or empty.
 
 **1.4 Present discovery**
 
@@ -123,7 +123,7 @@ SWEEP DISCOVERY
   #   PR     Author          Title                               Draft  Threads  Review
   1   #42    pstaylor        Add login flow                      no     3        CHANGES_REQUESTED
   2   #45    pstaylor        Fix auth redirect                   no     0        REVIEW_REQUIRED
-  3   #48    contributor     Update docs                         yes    1        —
+  3   #48    contributor     Update docs                         yes    1        --
 
 Filters: {author: pstaylor | label: bug | none}
 Pipeline: {resolve -> review -> qa}
@@ -138,7 +138,7 @@ Options:
 
 If "Select specific" or "Remove": prompt for numbers, filter list, re-confirm.
 
-**If no items found after filtering:** Display "Nothing to sweep — no open PRs match the filters." and exit cleanly.
+**If no items found after filtering:** Display "Nothing to sweep -- no open PRs match the filters." and exit cleanly.
 
 **If `--dry-run`:** Display the discovery table and exit. Do not proceed to Phase 2.
 
@@ -179,22 +179,22 @@ Agent:
     ```
 
     Run these stages SEQUENTIALLY. Run ALL stages to completion
-    — do NOT short-circuit on failure. Record results for each stage.
+    -- do NOT short-circuit on failure. Record results for each stage.
 
-    [STAGE: resolve-threads — INCLUDE IF "resolve" IN STAGES]
+    [STAGE: resolve-threads -- INCLUDE IF "resolve" IN STAGES]
     Stage 1: Resolve Threads
     Run: Skill("pst:resolve-threads", "$PR_NUMBER")
     Parse the --- RESOLVE RESULT --- block from the output.
     Record: total conversations, processed, fixed, threads resolved.
     If the skill pushed fixes, note the new HEAD commit.
 
-    [STAGE: code-review — INCLUDE IF "review" IN STAGES]
+    [STAGE: code-review -- INCLUDE IF "review" IN STAGES]
     Stage 2: Code Review
     Run: Skill("pst:code-review", "$PR_NUMBER")
-    This runs in standard GitHub PR mode — posts a review to the PR.
+    This runs in standard GitHub PR mode -- posts a review to the PR.
     Record: verdict (APPROVED / CHANGES_REQUESTED / COMMENT), finding count, critical count.
 
-    [STAGE: qa — INCLUDE IF "qa" IN STAGES]
+    [STAGE: qa -- INCLUDE IF "qa" IN STAGES]
     Stage 3: QA
     Run: Skill("pst:qa", "$PR_NUMBER")
     This runs fully autonomously. Record the QA result.
@@ -217,7 +217,7 @@ Agent:
 
     code-review:
       status: [COMPLETED|SKIPPED|ERROR]
-      verdict: [APPROVED|CHANGES_REQUESTED|COMMENT|—]
+      verdict: [APPROVED|CHANGES_REQUESTED|COMMENT|--]
       findings: N
       critical: N
 
@@ -246,7 +246,7 @@ Wave 1 of 2:
 
   #   PR     Author     Resolve    Review        QA         Overall
   1   #42    pstaylor   3 fixed    APPROVED      3/3 PASS   PASSED
-  2   #45    pstaylor   0 threads  CHANGES (1c)  RUNNING    —
+  2   #45    pstaylor   0 threads  CHANGES (1c)  RUNNING    --
   3   #48    contrib    SKIPPED    COMMENT       2/4 FAIL   FAILED
 ```
 
@@ -269,7 +269,7 @@ If an agent crashes or returns without a valid `SWEEP PIPELINE RESULT` block:
 Create a markdown report at `/tmp/pst-sweep-$(date +%Y%m%d-%H%M%S).md`:
 
 ```markdown
-# Sweep Report — [date]
+# Sweep Report -- [date]
 
 ## Summary
 
@@ -285,21 +285,21 @@ Stages: {resolve, review, qa}
 
 ## Results
 
-### PR #42 — Add login flow (pstaylor) — PASSED
+### PR #42 -- Add login flow (pstaylor) -- PASSED
 
 **Resolve Threads:** 3 conversations processed, 3 fixed, pushed
-**Code Review:** APPROVED — 0 findings
+**Code Review:** APPROVED -- 0 findings
 **QA:** 3/3 test cases passed
 
 ---
 
-### PR #48 — Update docs (contributor) — FAILED
+### PR #48 -- Update docs (contributor) -- FAILED
 
 **Resolve Threads:** SKIPPED (--no-drafts excluded, or not in stages)
-**Code Review:** COMMENT — 2 findings (0 critical)
-**QA:** 2/4 test cases passed — 2 FAILED
-  - TC-2: Broken link in sidebar — FAIL
-  - TC-4: Image alt text missing — FAIL
+**Code Review:** COMMENT -- 2 findings (0 critical)
+**QA:** 2/4 test cases passed -- 2 FAILED
+  - TC-2: Broken link in sidebar -- FAIL
+  - TC-4: Image alt text missing -- FAIL
 
 ---
 
@@ -315,20 +315,20 @@ For each failed/errored PR, present options via **AskUserQuestion**:
 **For failed PRs:**
 
 ```
-PR #48 — Update docs (contributor) — FAILED
+PR #48 -- Update docs (contributor) -- FAILED
 
-Resolve: — | Review: 2 findings | QA: 2/4 failed
+Resolve: -- | Review: 2 findings | QA: 2/4 failed
 
 Options:
-1. Fix now — spawn an agent to address findings and push
+1. Fix now -- spawn an agent to address findings and push
 2. Post summary comment on PR
 3. View full details
-4. Skip — acknowledge and move on
+4. Skip -- acknowledge and move on
 ```
 
 Option behaviors:
 
-- **Fix now** — launch an Agent with `isolation: worktree`:
+- **Fix now** -- launch an Agent with `isolation: worktree`:
   ```
   Agent:
     description: "Fix sweep findings for PR #N"
@@ -347,7 +347,7 @@ Option behaviors:
       gh pr checkout $PR_NUMBER
       ```
   ```
-- **Post comment** — post a summary of all pipeline findings as a PR comment:
+- **Post comment** -- post a summary of all pipeline findings as a PR comment:
   ```bash
   gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
   ## Sweep Results
@@ -358,13 +358,13 @@ Option behaviors:
   EOF
   )"
   ```
-- **View details** — display the full section from the sweep report
-- **Skip** — record decision and move on
+- **View details** -- display the full section from the sweep report
+- **Skip** -- record decision and move on
 
 **For errored items:**
 
 ```
-PR #50 — Feature X — ERROR
+PR #50 -- Feature X -- ERROR
 
 Agent crashed: [error excerpt]
 
@@ -443,7 +443,7 @@ results:
 
 ## Error Handling
 
-Graceful degradation throughout — never abort the entire sweep for a single item failure.
+Graceful degradation throughout -- never abort the entire sweep for a single item failure.
 
 - **Per-item isolation:** Each pipeline runs in its own worktree. A failure in one does not affect others.
 - **Stage completion:** All stages in a pipeline run to completion, even if earlier stages fail. This ensures the triage report has maximum information.
