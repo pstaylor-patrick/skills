@@ -80,7 +80,8 @@ Drizzle migrations typically live in directories matching patterns like:
 
 ```bash
 # Find Drizzle migration directories by looking for the journal file
-DRIZZLE_DIRS=$(find . -path '*/meta/_journal.json' -not -path '*/node_modules/*' | sed 's|/meta/_journal.json||' | sort -u)
+# Strip leading ./ so paths match git ls-tree output format
+DRIZZLE_DIRS=$(find . -path '*/meta/_journal.json' -not -path '*/node_modules/*' | sed 's|/meta/_journal.json||; s|^\./||' | sort -u)
 ```
 
 If no Drizzle directories are found, log: "No Drizzle migration directories detected. Skipping migration cleanup." and set `DRIZZLE_CLEANUP=false`.
@@ -153,16 +154,18 @@ CONFLICTS=$(git diff --name-only --diff-filter=U)
 For each file in `$CONFLICTS`:
 
 1. **Drizzle migration file** (any file under a detected Drizzle directory):
-   - These will be removed in Phase 4 regardless. Accept the incoming (base) version to keep the rebase moving:
+   - These will be removed in Phase 4 regardless. Accept the base version to keep the rebase moving.
+   - Note: during rebase, `--ours` = the base branch (being rebased onto), `--theirs` = the feature commit being replayed.
      ```bash
-     git checkout --theirs "$FILE"
+     git checkout --ours "$FILE"
      git add "$FILE"
      ```
 
 2. **Lock files** (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`):
-   - Accept the base branch version, then regenerate:
+   - Accept the base branch version, then regenerate.
+   - Note: during rebase, `--ours` = the base branch.
      ```bash
-     git checkout --theirs "$FILE"
+     git checkout --ours "$FILE"
      git add "$FILE"
      ```
    - Set `REGENERATE_LOCKFILE=true` for Phase 5.
