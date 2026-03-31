@@ -324,7 +324,7 @@ If no files needed removal, log: "No Drizzle migration cleanup needed."
 
 **Skip if `REGENERATE_LOCKFILE` is not set.**
 
-If a lock file conflict was resolved by accepting theirs, regenerate it to ensure consistency:
+If a lock file conflict was resolved by accepting the base version, regenerate it to ensure consistency with the feature branch's `package.json`:
 
 ```bash
 # Detect package manager
