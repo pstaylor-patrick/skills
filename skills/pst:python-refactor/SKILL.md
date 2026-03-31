@@ -58,12 +58,8 @@ elif [ -f "Pipfile" ]; then PKG="pipenv run"; \
 elif [ -f "uv.lock" ] || [ -f "pyproject.toml" ] && command -v uv &>/dev/null; then PKG="uv run"; \
 else PKG="python -m"; fi
 
-# Test runner
-if grep -rq "pytest" pyproject.toml setup.cfg requirements*.txt 2>/dev/null || [ -f "pytest.ini" ] || [ -f "conftest.py" ]; then
-  TEST_RUNNER="pytest"
-else
-  TEST_RUNNER="pytest"  # default to pytest regardless
-fi
+# Test runner (always pytest -- unittest.TestCase only if project uses it pervasively per rule P5)
+TEST_RUNNER="pytest"
 
 # Type checker
 if grep -rq "mypy" pyproject.toml setup.cfg requirements*.txt 2>/dev/null; then TYPE_CHECKER="mypy"; \
@@ -201,7 +197,7 @@ Create the extracted module in the appropriate location.
 
 from __future__ import annotations
 
-__all__ = ["apply_filter", "sort_items", "FilterType", "SortOrder"]
+__all__ = ["apply_filter", "sort_items", "DashboardItem", "FilterType", "SortOrder"]
 
 from dataclasses import dataclass
 from enum import Enum
@@ -322,7 +318,7 @@ class TestSortItems:
 ### 5e. Verify Tests Pass
 
 ```bash
-$PKG_RUNNER pytest {test-file-path} -v 2>&1
+$PKG pytest {test-file-path} -v 2>&1
 ```
 
 If tests fail, fix the issue and re-run (max 3 attempts). If still failing after 3 attempts, report the failure and move to the next module.
@@ -388,10 +384,10 @@ Run full quality gates using the detected tooling from Stage 2:
 
 | Check | Command |
 |-------|---------|
-| Tests | `$PKG_RUNNER pytest --tb=short` |
-| Type check | `$PKG_RUNNER $TYPE_CHECKER .` (or scoped to changed files) |
-| Lint | `$PKG_RUNNER $LINTER check .` (ruff) or `$PKG_RUNNER $LINTER .` (flake8) |
-| Format | `$PKG_RUNNER ruff format --check .` or `$PKG_RUNNER black --check .` (detect which is configured) |
+| Tests | `$PKG pytest --tb=short` |
+| Type check | `$PKG $TYPE_CHECKER .` (or scoped to changed files) |
+| Lint | `$PKG $LINTER check .` (ruff) or `$PKG $LINTER .` (flake8) |
+| Format | `$PKG ruff format --check .` or `$PKG black --check .` (detect which is configured) |
 | Type annotations | Grep all modified/created files for `: Any`, `-> Any`, `type: ignore` -- zero tolerance, fix all violations |
 
 **Formatter detection:** Check `pyproject.toml` and config files for `ruff.format`, `black`, or `autopep8`. If no formatter is configured, skip the format check and note it in the summary.
