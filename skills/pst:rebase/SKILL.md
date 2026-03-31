@@ -144,8 +144,8 @@ Proceed to Phase 4.
 Use a batch auto-resolve loop to handle conflicts efficiently, especially when the feature branch has many commits that overlap with upstream changes.
 
 **Important shell compatibility notes:**
-- Use `bash` (not `zsh`) for resolve scripts — `mapfile` and other bashisms are unavailable in zsh
-- Use `git status --porcelain` (not `git diff --name-only --diff-filter=U`) to detect conflicts — the latter can miss files with special characters (parentheses, spaces) in paths
+- Use `bash` (not `zsh`) for resolve scripts -- `mapfile` and other bashisms are unavailable in zsh
+- Use `git status --porcelain` (not `git diff --name-only --diff-filter=U`) to detect conflicts -- the latter can miss files with special characters (parentheses, spaces) in paths
 - Conflict types: `UU` = both modified, `AA` = both added, `DU` = deleted by us / modified by them, `UD` = modified by us / deleted by them
 
 **Write and run a bash resolve script** (`/tmp/rebase-resolve.sh`):
@@ -157,7 +157,6 @@ Use a batch auto-resolve loop to handle conflicts efficiently, especially when t
 set -euo pipefail
 
 MAX=100
-DRIZZLE_DIRS="${1:-}"  # Pass Drizzle dirs as first arg
 AUTO_RESOLVED=0
 USER_RESOLVED=0
 REGENERATE_LOCKFILE=false
@@ -182,14 +181,11 @@ for i in $(seq 1 $MAX); do
 
   echo "=== Iteration $i: Resolving $(echo "$conflicts" | wc -l | tr -d ' ') conflict(s) ==="
 
-  # Track if any conflict in this round needs manual intervention
-  NEEDS_MANUAL=false
-
-  echo "$conflicts" | while IFS= read -r f; do
+  while IFS= read -r f; do
     # Determine conflict type from porcelain output
     ctype=$(git status --porcelain 2>/dev/null | grep -F "$f" | head -1 | cut -c1-2)
 
-    # 1. Drizzle migration files — accept base or remove
+    # 1. Drizzle migration files -- accept base or remove
     if echo "$f" | grep -qE "(drizzle|migrations)"; then
       if [ "$ctype" = "DU" ] || [ "$ctype" = "UD" ]; then
         git rm "$f" 2>/dev/null || true
@@ -197,25 +193,25 @@ for i in $(seq 1 $MAX); do
         git checkout --ours "$f" 2>/dev/null && git add "$f" 2>/dev/null || git rm "$f" 2>/dev/null || true
       fi
 
-    # 2. Lock files — accept base, regenerate later
+    # 2. Lock files -- accept base, regenerate later
     elif echo "$f" | grep -qE '(pnpm-lock\.yaml|yarn\.lock|package-lock\.json)$'; then
       git checkout --ours "$f" 2>/dev/null && git add "$f" 2>/dev/null || true
       REGENERATE_LOCKFILE=true
 
-    # 3. All other files — accept base version
+    # 3. All other files -- accept base version
     #    (Feature commits replaying onto an updated base: base already has the latest)
     else
       if [ "$ctype" = "DU" ]; then
-        # File deleted on base, modified by feature — accept deletion
+        # File deleted on base, modified by feature -- accept deletion
         git rm "$f" 2>/dev/null || true
       elif [ "$ctype" = "UD" ]; then
-        # File modified on base, deleted by feature — keep base version
+        # File modified on base, deleted by feature -- keep base version
         git checkout --ours "$f" 2>/dev/null && git add "$f" 2>/dev/null || true
       else
         git checkout --ours "$f" 2>/dev/null && git add "$f" 2>/dev/null || git add "$f" 2>/dev/null || true
       fi
     fi
-  done
+  done <<< "$conflicts"
 
   AUTO_RESOLVED=$((AUTO_RESOLVED + $(echo "$conflicts" | wc -l | tr -d ' ')))
   GIT_EDITOR=true git rebase --continue 2>&1 | tail -5
@@ -228,7 +224,7 @@ exit 1
 Run it:
 
 ```bash
-bash /tmp/rebase-resolve.sh "$DRIZZLE_DIRS"
+bash /tmp/rebase-resolve.sh
 ```
 
 **If the batch loop completes** (`REBASE_COMPLETE`), proceed to Phase 4.
