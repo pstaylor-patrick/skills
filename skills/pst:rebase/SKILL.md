@@ -181,13 +181,13 @@ For each file in `$CONFLICTS`:
        ```
        Conflict in {file}:{lines}
 
-       BASE version:
+       BASE (upstream) version:
        {base side}
 
-       OURS version:
-       {our side}
+       FEATURE (your branch) version:
+       {feature side}
 
-       How should this be resolved? (Enter 'ours', 'theirs', or paste the desired code)
+       How should this be resolved? (Enter 'base', 'feature', or paste the desired code)
        ```
    - After resolution:
      ```bash
