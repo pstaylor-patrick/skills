@@ -37,10 +37,10 @@ If no `.py` files found on the branch, ask the user via AskUserQuestion what to 
 
 Detect the Python project type and tooling to tailor the refactoring approach.
 
-**Framework detection** (check imports and project files):
+**Project type detection** (check imports and project files):
 
-| Signal | Framework |
-|--------|-----------|
+| Signal | Project type |
+|--------|--------------|
 | `from django` / `django` in requirements | Django |
 | `from flask` / `flask` in requirements | Flask |
 | `from fastapi` / `fastapi` in requirements | FastAPI |
@@ -55,7 +55,7 @@ Detect the Python project type and tooling to tailor the refactoring approach.
 # Package manager
 if [ -f "pyproject.toml" ] && grep -q "poetry" pyproject.toml 2>/dev/null; then PKG="poetry run"; \
 elif [ -f "Pipfile" ]; then PKG="pipenv run"; \
-elif [ -f "uv.lock" ] || [ -f "pyproject.toml" ] && command -v uv &>/dev/null; then PKG="uv run"; \
+elif { [ -f "uv.lock" ] || [ -f "pyproject.toml" ]; } && command -v uv &>/dev/null; then PKG="uv run"; \
 else PKG="python -m"; fi
 
 # Test runner (always pytest -- unittest.TestCase only if project uses it pervasively per rule P5)
