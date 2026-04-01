@@ -23,3 +23,28 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
+
+  pst-context:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/pst-context
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: services/pst-context/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Lint (max-warnings=0)
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
+      - name: Test with coverage (>= 80%)
+        run: pnpm test:coverage
+      - name: Prettier format check
+        run: npx prettier --check .

@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { artifacts } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@/middleware/auth";
+import { parseLimit } from "@/lib/query";
+import { validateArtifactInput } from "@/lib/validation";
 
 export const GET = withAuth(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const runId = searchParams.get("runId");
   const artifactType = searchParams.get("type");
-  const limit = Math.min(Number(searchParams.get("limit") ?? 50), 100);
+  const limit = parseLimit(searchParams.get("limit"));
 
   const db = getDb();
   let query = db.select().from(artifacts).orderBy(desc(artifacts.createdAt));
@@ -33,26 +35,14 @@ export const POST = withAuth(async (req: NextRequest) => {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { runId, localPath, artifactType, description, metadata } = body;
 
-  if (!localPath || !artifactType) {
-    return NextResponse.json(
-      { error: "localPath and artifactType are required" },
-      { status: 400 },
-    );
+  const result = validateArtifactInput(body);
+  if (!result.valid) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
   const db = getDb();
-  const [row] = await db
-    .insert(artifacts)
-    .values({
-      runId: runId ?? null,
-      localPath,
-      artifactType,
-      description: description ?? null,
-      metadata: metadata ?? null,
-    })
-    .returning();
+  const [row] = await db.insert(artifacts).values(result.data).returning();
 
   return NextResponse.json(row, { status: 201 });
 });
