@@ -6,11 +6,18 @@ A collection of personal [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [OpenAI Codex CLI](https://github.com/openai/codex) installed
 
-## Install
+## Setup
 
 ```bash
 git clone https://github.com/pstaylor-patrick/skills.git
 cd skills
+cp .env.example .env
+# Edit .env with your actual values
+```
+
+## Install
+
+```bash
 ./install.sh
 ```
 
