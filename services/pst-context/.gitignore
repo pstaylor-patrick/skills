@@ -1,0 +1,6 @@
+node_modules
+.next
+pnpm-lock.yaml
+pnpm-workspace.yaml
+next-env.d.ts
+tsconfig.tsbuildinfo
