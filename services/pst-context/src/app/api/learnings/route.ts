@@ -21,8 +21,9 @@ export const GET = withAuth(async (req: NextRequest) => {
     query = query.where(eq(learnings.sourceRepo, sourceRepo)) as typeof query;
   }
   if (search) {
+    const escaped = search.replace(/[%_\\]/g, "\\$&");
     query = query.where(
-      ilike(learnings.content, `%${search}%`),
+      ilike(learnings.content, `%${escaped}%`),
     ) as typeof query;
   }
 
@@ -31,7 +32,12 @@ export const GET = withAuth(async (req: NextRequest) => {
 });
 
 export const POST = withAuth(async (req: NextRequest) => {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { topic, content, sourceRepo, sourceRunId, metadata } = body;
 
   if (!topic || !content) {

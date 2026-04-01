@@ -1,4 +1,15 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 export function withAuth(
   handler: (req: NextRequest) => Promise<NextResponse>,
@@ -14,7 +25,7 @@ export function withAuth(
       );
     }
 
-    if (!apiKey || apiKey !== expectedKey) {
+    if (!apiKey || !safeCompare(apiKey, expectedKey)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
