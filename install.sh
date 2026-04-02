@@ -112,17 +112,17 @@ EXTERNAL_SKILLS=(
   "https://github.com/figma/mcp-server-guide --skill figma-implement-design"
 )
 
-if command -v npx &>/dev/null; then
+if command -v claude &>/dev/null; then
   for ext in "${EXTERNAL_SKILLS[@]}"; do
     echo ""
     echo "Installing external dependency: $ext"
     # shellcheck disable=SC2086
-    npx -y skills add $ext -g -y 2>&1 | sed 's/^/  /'
+    claude skills add $ext -g -y 2>&1 | sed 's/^/  /' || echo "  WARNING: Failed to install $ext (non-fatal)"
   done
 else
   echo ""
-  echo "WARNING: npx not found - skipping external skill dependencies."
-  echo "         Install Node.js and run ./install.sh again to get Vercel react-best-practices."
+  echo "WARNING: claude CLI not found - skipping external skill dependencies."
+  echo "         Install Claude Code and run ./install.sh again to get external skills."
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────
