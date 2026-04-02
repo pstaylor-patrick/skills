@@ -286,7 +286,6 @@ After the rebase completes (with empty commits already dropped by `--empty=drop`
 
 ```bash
 POST_COMMIT_COUNT=$(git rev-list --count "origin/$BASE_BRANCH..HEAD")
-POST_DIFF_STAT=$(git diff --shortstat "origin/$BASE_BRANCH" 2>/dev/null || echo "")
 # Extract total lines changed (insertions + deletions)
 LINES_CHANGED=$(git diff --numstat "origin/$BASE_BRANCH" 2>/dev/null | awk '{s+=$1+$2} END {print s+0}')
 # Count files changed
