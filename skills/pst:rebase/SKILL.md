@@ -116,8 +116,6 @@ If `$STATUS` is non-empty:
 ORIGINAL_HEAD=$(git rev-parse HEAD)
 COMMIT_COUNT=$(git rev-list --count "origin/$BASE_BRANCH..HEAD")
 DIFF_STAT=$(git diff --shortstat "origin/$BASE_BRANCH..HEAD" 2>/dev/null || echo "")
-MERGE_BASE=$(git merge-base HEAD "origin/$BASE_BRANCH" 2>/dev/null || echo "")
-BASE_AHEAD=$(git rev-list --count "HEAD..$MERGE_BASE" 2>/dev/null || echo "0")
 ```
 
 Log:
@@ -150,7 +148,7 @@ The `--empty=drop` flag automatically removes commits that become empty after re
 
 ### If rebase completes cleanly
 
-Proceed to Phase 4.
+Proceed to Phase 3.5.
 
 ### If rebase hits conflicts
 
@@ -241,7 +239,7 @@ Run it:
 bash /tmp/rebase-resolve.sh
 ```
 
-**If the batch loop completes** (`REBASE_COMPLETE`), proceed to Phase 4.
+**If the batch loop completes** (`REBASE_COMPLETE`), proceed to Phase 3.5.
 
 **If the batch loop fails**, fall back to **manual per-file resolution** for the stuck commit:
 
@@ -297,7 +295,7 @@ FILES_CHANGED=$(git diff --name-only "origin/$BASE_BRANCH" 2>/dev/null | wc -l |
 
 ### 3.5b. Detect bloat scenarios
 
-**Scenario A -- Empty commits survived:** If `POST_COMMIT_COUNT` > `COMMIT_COUNT * 0.8` and `--empty=drop` was used, some commits may have been non-empty but functionally redundant (e.g., they only re-apply changes already on the base). This happens when development was merged to production and the branch was based on a stale development.
+**Scenario A -- Redundant commits survived empty-drop:** If `POST_COMMIT_COUNT` > `COMMIT_COUNT * 0.8` AND `LINES_CHANGED` < `POST_COMMIT_COUNT * 10`, commits may be functionally redundant even though they're not empty (e.g., they re-apply changes already on the base with minor diffs). This happens when development was merged to production and the branch was based on a stale development.
 
 **Scenario B -- Commit/change ratio is extreme:** If `POST_COMMIT_COUNT` > 5 AND `LINES_CHANGED` / `POST_COMMIT_COUNT` < 10 (fewer than 10 lines changed per commit on average), the history is bloated.
 
