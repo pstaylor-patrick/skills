@@ -41,15 +41,16 @@ else PKG="npm"; fi
 
 Determine the project's framework stack by inspecting `package.json` dependencies and config files:
 
-| Signal | Framework |
-|--------|-----------|
-| `next` in dependencies | Next.js |
-| `@remix-run/*` in dependencies | Remix |
-| `vite` in devDependencies (no framework) | Vite SPA |
-| `react` in dependencies (no Next/Remix) | React (CRA or custom) |
-| No React dependency | Non-React TypeScript project |
+| Signal                                   | Framework                    |
+| ---------------------------------------- | ---------------------------- |
+| `next` in dependencies                   | Next.js                      |
+| `@remix-run/*` in dependencies           | Remix                        |
+| `vite` in devDependencies (no framework) | Vite SPA                     |
+| `react` in dependencies (no Next/Remix)  | React (CRA or custom)        |
+| No React dependency                      | Non-React TypeScript project |
 
 Also detect:
+
 - **TypeScript** - `tsconfig.json` exists
 - **ESLint** - `.eslintrc*`, `eslint.config.*`, or `eslintConfig` in package.json
 - **Prettier** - `.prettierrc*`, `prettier.config.*`, or `prettier` key in package.json
@@ -121,12 +122,13 @@ Read `tsconfig.json`. Ensure these compiler options are set:
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "verbatimModuleSyntax": true
-  }
+    "verbatimModuleSyntax": true,
+  },
 }
 ```
 
 **Rules:**
+
 - If `strict` is already `true`, leave it. If `false` or missing, set it to `true`.
 - Do NOT remove existing options - only add or upgrade. Preserve comments.
 - If the project uses `extends` (e.g., `@tsconfig/next`), check what the base provides and only add what's missing.
@@ -159,6 +161,7 @@ If ESLint is not installed:
 Read the existing ESLint config. The goal: **all lint runs produce zero warnings**.
 
 **If the project already has an ESLint config:**
+
 - Do NOT rewrite it from scratch. Respect the team's rule choices.
 - Ensure the lint script enforces `--max-warnings 0` (see Stage 5).
 - If rules are set to `"warn"` that should be `"error"` for a strict gate, leave them - the `--max-warnings 0` flag treats warnings as errors at the CLI level.
@@ -182,7 +185,7 @@ export default tseslint.config(
   },
   {
     ignores: ["dist/", "build/", ".next/", "node_modules/", "coverage/"],
-  }
+  },
 );
 ```
 
@@ -242,16 +245,16 @@ This is the core deliverable. Ensure `package.json` has all five quality-gate sc
 
 Read the current `package.json` scripts and merge - do NOT overwrite existing scripts unless they're broken.
 
-| Script | Command | Notes |
-|--------|---------|-------|
-| `build` | Framework-dependent | Next.js: `next build`. Vite: `vite build`. Keep existing if present. |
-| `lint` | `eslint . --max-warnings 0` | If existing script lacks `--max-warnings 0`, append it. For Next.js `next lint`, use `next lint --max-warnings 0`. |
-| `typecheck` | `tsc --noEmit` | Add if missing. |
-| `format` | `prettier --write .` | Add if missing. Keep existing if present. |
-| `format:check` | `prettier --check .` | Add if missing. Used in CI. |
-| `test` | `vitest run` | Add if missing. Keep existing if present. |
-| `test:coverage` | `vitest run --coverage` | See Stage 5b for coverage config. |
-| `validate` | `$PKG run build && $PKG run lint && $PKG run typecheck && $PKG run format:check && $PKG run test:coverage` | Runs all gates in sequence. Single command for CI. |
+| Script          | Command                                                                                                    | Notes                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `build`         | Framework-dependent                                                                                        | Next.js: `next build`. Vite: `vite build`. Keep existing if present.                                               |
+| `lint`          | `eslint . --max-warnings 0`                                                                                | If existing script lacks `--max-warnings 0`, append it. For Next.js `next lint`, use `next lint --max-warnings 0`. |
+| `typecheck`     | `tsc --noEmit`                                                                                             | Add if missing.                                                                                                    |
+| `format`        | `prettier --write .`                                                                                       | Add if missing. Keep existing if present.                                                                          |
+| `format:check`  | `prettier --check .`                                                                                       | Add if missing. Used in CI.                                                                                        |
+| `test`          | `vitest run`                                                                                               | Add if missing. Keep existing if present.                                                                          |
+| `test:coverage` | `vitest run --coverage`                                                                                    | See Stage 5b for coverage config.                                                                                  |
+| `validate`      | `$PKG run build && $PKG run lint && $PKG run typecheck && $PKG run format:check && $PKG run test:coverage` | Runs all gates in sequence. Single command for CI.                                                                 |
 
 ### 5a. Script Merging Rules
 
@@ -301,6 +304,7 @@ export default defineConfig({
 ```
 
 **Critical design decision:** Coverage thresholds apply to `*.ts` files only, NOT `*.tsx` files. This is intentional:
+
 - `*.ts` files contain business logic (hooks, utilities, services) that MUST be thoroughly tested
 - `*.tsx` files contain UI components whose logic should be extracted to hooks via `/pst:react-refactor`
 - This creates a positive feedback loop: to hit 80% coverage, developers extract testable logic from `.tsx` into `.ts` hooks
@@ -422,13 +426,13 @@ If not already documented, append to the project's `CLAUDE.md` (create if it doe
 
 All PRs must pass the full validation suite (`$PKG run validate`):
 
-| Gate | Script | Standard |
-|------|--------|----------|
-| Build | `$PKG run build` | Zero errors |
-| Lint | `$PKG run lint` | Zero warnings (`--max-warnings 0`) |
-| Typecheck | `$PKG run typecheck` | Strict mode, no `any` types |
-| Format | `$PKG run format:check` | Prettier-compliant |
-| Test coverage | `$PKG run test:coverage` | 80% on all `*.ts` files |
+| Gate          | Script                   | Standard                           |
+| ------------- | ------------------------ | ---------------------------------- |
+| Build         | `$PKG run build`         | Zero errors                        |
+| Lint          | `$PKG run lint`          | Zero warnings (`--max-warnings 0`) |
+| Typecheck     | `$PKG run typecheck`     | Strict mode, no `any` types        |
+| Format        | `$PKG run format:check`  | Prettier-compliant                 |
+| Test coverage | `$PKG run test:coverage` | 80% on all `*.ts` files            |
 
 ### Coverage Policy
 
@@ -485,16 +489,16 @@ Architecture doc: {created|updated|already present}
 
 ## Error Handling
 
-| Condition | Action |
-|-----------|--------|
-| Not a Node.js project (no `package.json`) | Stop: "No package.json found. This skill requires a Node.js project." |
-| Not a TypeScript project (no `tsconfig.json` and no `.ts` files) | Stop: "No TypeScript found. This skill targets TypeScript projects." |
-| Conflicting test runners (both vitest and jest) | Ask user via AskUserQuestion which to configure for coverage |
-| `--max-warnings 0` breaks existing lint (too many warnings) | Fix the warnings. If > 50 warnings, ask user whether to fix incrementally or enforce immediately. |
-| Coverage threshold unreachable (< 80% with no testable code) | Lower threshold for initial setup, log a TODO to raise it as tests are added |
-| Package install fails | Stop with error and suggest manual installation |
-| Build fails after config changes | Revert the config change that caused it and try an alternative approach |
-| `strict: true` causes hundreds of type errors | Ask user via AskUserQuestion: (1) fix all now, (2) enable incrementally with `// @ts-expect-error` TODOs, (3) skip strict for now |
-| Project uses monorepo (workspaces) | Apply to the root or ask which workspace to configure |
-| `verbatimModuleSyntax` conflicts | Remove it and note in summary |
-| Existing vitest config has conflicting coverage settings | Merge carefully - preserve existing `include`/`exclude` and add thresholds |
+| Condition                                                        | Action                                                                                                                            |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Not a Node.js project (no `package.json`)                        | Stop: "No package.json found. This skill requires a Node.js project."                                                             |
+| Not a TypeScript project (no `tsconfig.json` and no `.ts` files) | Stop: "No TypeScript found. This skill targets TypeScript projects."                                                              |
+| Conflicting test runners (both vitest and jest)                  | Ask user via AskUserQuestion which to configure for coverage                                                                      |
+| `--max-warnings 0` breaks existing lint (too many warnings)      | Fix the warnings. If > 50 warnings, ask user whether to fix incrementally or enforce immediately.                                 |
+| Coverage threshold unreachable (< 80% with no testable code)     | Lower threshold for initial setup, log a TODO to raise it as tests are added                                                      |
+| Package install fails                                            | Stop with error and suggest manual installation                                                                                   |
+| Build fails after config changes                                 | Revert the config change that caused it and try an alternative approach                                                           |
+| `strict: true` causes hundreds of type errors                    | Ask user via AskUserQuestion: (1) fix all now, (2) enable incrementally with `// @ts-expect-error` TODOs, (3) skip strict for now |
+| Project uses monorepo (workspaces)                               | Apply to the root or ask which workspace to configure                                                                             |
+| `verbatimModuleSyntax` conflicts                                 | Remove it and note in summary                                                                                                     |
+| Existing vitest config has conflicting coverage settings         | Merge carefully - preserve existing `include`/`exclude` and add thresholds                                                        |
