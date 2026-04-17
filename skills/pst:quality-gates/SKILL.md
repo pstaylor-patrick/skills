@@ -65,7 +65,7 @@ Count files that will be subject to quality gates:
 # TypeScript source files (non-test)
 TS_FILES=$(find src -name '*.ts' ! -name '*.test.ts' ! -name '*.spec.ts' ! -path '*/node_modules/*' 2>/dev/null | wc -l)
 TSX_FILES=$(find src -name '*.tsx' ! -name '*.test.tsx' ! -name '*.spec.tsx' ! -path '*/node_modules/*' 2>/dev/null | wc -l)
-TEST_FILES=$(find src -name '*.test.ts' -o -name '*.spec.ts' ! -path '*/node_modules/*' 2>/dev/null | wc -l)
+TEST_FILES=$(find src \( -name '*.test.ts' -o -name '*.spec.ts' \) ! -path '*/node_modules/*' 2>/dev/null | wc -l)
 ```
 
 ### 1d. Discovery Report
@@ -272,6 +272,33 @@ $PKG add -D vitest @vitest/coverage-v8
 ```
 
 If the project uses Jest, do NOT migrate to vitest. Instead, configure Jest coverage equivalently and note the deviation.
+
+**Jest coverage equivalent** in `jest.config.ts` (or `jest.config.js`):
+
+```typescript
+export default {
+  collectCoverageFrom: [
+    "src/**/*.ts",
+    "!src/**/*.tsx",
+    "!src/**/*.test.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.d.ts",
+    "!src/**/index.ts",
+    "!src/**/__mocks__/**",
+    "!src/**/__tests__/**",
+    "!src/**/types.ts",
+    "!src/**/types/**",
+  ],
+  coverageThreshold: {
+    global: {
+      statements: 80,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+    },
+  },
+};
+```
 
 **Coverage threshold configuration** in `vitest.config.ts` (or equivalent):
 
