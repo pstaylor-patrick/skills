@@ -45,7 +45,7 @@ OLD_SKILLS=(
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--claude] [--codex] [--uninstall] [--help]
+Usage: ./install.sh [--claude] [--codex] [--uninstall] [-h|--help]
 
 Defaults to installing or uninstalling both Claude and Codex.
 
@@ -53,7 +53,7 @@ Options:
   --claude     Operate on Claude only
   --codex      Operate on Codex only
   --uninstall  Remove installed symlinks instead of creating them
-  --help       Show this message
+  -h, --help   Show this message
 EOF
 }
 
