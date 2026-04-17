@@ -215,12 +215,16 @@ REVIEW_URL=$(echo "$REVIEW_RESPONSE" | jq -r '.html_url')
 if [ -n "$REVIEW_URL" ] && [ "$REVIEW_URL" != "null" ]; then
   if command -v open >/dev/null 2>&1; then
     open "$REVIEW_URL"           # macOS
+    echo "Opened review in browser: $REVIEW_URL"
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open "$REVIEW_URL"       # Linux
+    echo "Opened review in browser: $REVIEW_URL"
   elif command -v start >/dev/null 2>&1; then
     start "$REVIEW_URL"          # Windows (Git Bash/WSL)
+    echo "Opened review in browser: $REVIEW_URL"
+  else
+    echo "Review posted (no browser opener available): $REVIEW_URL"
   fi
-  echo "Opened review in browser: $REVIEW_URL"
 fi
 ```
 

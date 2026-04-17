@@ -168,7 +168,7 @@ If any finding has severity `review` or `flag`, **do not push**. Present the ful
 Handle the response:
 
 - **Option 1:** Run `Skill("pst:slop", "--auto")`, commit the fixes with the message in 1.5c, then continue to Phase 2.
-- **Option 2:** Run `Skill("pst:slop", "--auto")` filtered to auto-fix severities only, commit if anything changed, then continue to Phase 2. Log the remaining review items for the terminal report.
+- **Option 2:** Invoke `Skill("pst:slop")` interactively and choose its option 2 ("Fix auto-fix items only, show me review items"). Commit if anything changed, then continue to Phase 2. Log the remaining review items for the terminal report. (`pst:slop --auto` would also apply review items, so it cannot be used here.)
 - **Option 3:** Invoke `Skill("pst:slop")` (interactive mode, no `--auto`) and let the user pick category-by-category. After it returns, commit any fixes and continue to Phase 2.
 - **Option 4:** Log the acknowledgement (`Slop gate bypassed by user: {N} review, {N} flag items acknowledged`) and continue to Phase 2. Include the unresolved findings in the final Output Contract.
 - **Option 5:** Stop with exit message `Push aborted at slop gate.` Do not push, do not create/update a PR.
