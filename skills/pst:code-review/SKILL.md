@@ -157,6 +157,13 @@ Agent:
 
 **Sub-agent workflow:**
 
+0. **Bootstrap the worktree first.** If `package.json` has a `worktree:init` script (or equivalent name like `agent:init`, `bootstrap`), run it immediately after `cd`'ing into the worktree:
+   ```bash
+   if grep -q '"worktree:init"' package.json 2>/dev/null; then
+     $PKG_MANAGER run worktree:init
+   fi
+   ```
+   This installs deps + symlinks env files + fixes husky hooks path. Without it, pre-commit/pre-push hooks will fail on missing env files and the quality-gate step below will misreport. If the script doesn't exist, fall back to `$PKG_MANAGER install --frozen-lockfile` only.
 1. Read the file and surrounding code context
 2. **Trace the dependency graph** - follow callers/callees until hitting system boundaries (API, DB, external service). Understand the blast radius.
 3. Validate against: ADRs, patterns files, inferred patterns from the Analysis stage
@@ -217,7 +224,7 @@ if [ -n "$REVIEW_URL" ] && [ "$REVIEW_URL" != "null" ]; then
 fi
 ```
 
-Fallback to `gh pr review` body-only mode: after posting, open the PR URL instead — `open "$(gh pr view $N --json url --jq .url)"`. If the browser-open command itself fails (e.g., headless CI), print the URL prominently and continue — never block on this.
+Fallback to `gh pr review` body-only mode: after posting, open the PR URL instead -- `open "$(gh pr view $N --json url --jq .url)"`. If the browser-open command itself fails (e.g., headless CI), print the URL prominently and continue -- never block on this.
 
 **Inline comment format:**
 
