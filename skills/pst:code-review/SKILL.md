@@ -198,6 +198,27 @@ Get `commit_id`: `gh pr view <N> --json headRefOid --jq .headRefOid` (validate `
 
 Write comments to a temp JSON file, pass via `--input`, clean up after.
 
+**Capture the posted review's `html_url`** from the API response and immediately open it in the user's default browser so they can see it without leaving their workflow:
+
+```bash
+REVIEW_RESPONSE=$(gh api "/repos/{owner}/{repo}/pulls/{N}/reviews" --method POST --input "$TMP_JSON")
+REVIEW_URL=$(echo "$REVIEW_RESPONSE" | jq -r '.html_url')
+
+# Open in browser (cross-platform fallback chain)
+if [ -n "$REVIEW_URL" ] && [ "$REVIEW_URL" != "null" ]; then
+  if command -v open >/dev/null 2>&1; then
+    open "$REVIEW_URL"           # macOS
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$REVIEW_URL"       # Linux
+  elif command -v start >/dev/null 2>&1; then
+    start "$REVIEW_URL"          # Windows (Git Bash/WSL)
+  fi
+  echo "Opened review in browser: $REVIEW_URL"
+fi
+```
+
+Fallback to `gh pr review` body-only mode: after posting, open the PR URL instead — `open "$(gh pr view $N --json url --jq .url)"`. If the browser-open command itself fails (e.g., headless CI), print the URL prominently and continue — never block on this.
+
 **Inline comment format:**
 
 ````markdown
@@ -302,6 +323,7 @@ All findings from all rounds are presented in the final terminal output, dedupli
 - Auto-apply all verified fixes (they've already proven to pass quality gates)
 - One squashed commit for all fixes
 - If 0 criticals remain + PR exists → auto-post APPROVE via GitHub API
+- After posting the review/approval, **open the review `html_url` in the browser** using the same `open`/`xdg-open`/`start` fallback chain described in GitHub PR Mode above. Never block on failure.
 
 ### Sweep Mode (`--sweep`)
 
