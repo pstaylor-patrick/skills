@@ -158,7 +158,7 @@ The only exception is the `observation` severity (see below), which has no fix t
 The following shortcuts have all been proposed in the past and are **explicitly rejected**. If the sub-agent's reasoning matches any of these shapes, the run has failed its invariant and the final report must flag it as a failure mode, not a "defensible shortcut."
 
 - _"`EnterWorktree` is a deferred tool requiring a schema fetch, so I used one shared worktree."_ → Wrong entry point. The `Task` tool with `isolation: "worktree"` is the mechanism, and `Task` is always live - no schema fetch required. Spawn with `Task({ subagent_type: "general-purpose", isolation: "worktree", run_in_background: true, prompt: ... })`.
-- _"Each sub-agent would re-run `pnpm run worktree:init`, which is expensive given a shared environmental gap (e.g., missing Convex env, missing secrets)."_ → Cost of correctness. `node_modules` is typically hardlink/sparse-copied by the worktree harness, so re-bootstrap is cheap. Partial environment failures (e.g., `convex codegen` unable to reach a dev deployment) are acceptable and **must not** block verification of diffs that don't exercise the unavailable service. Run `worktree:init || true` and proceed; the gate-execution step already handles partial-gate scenarios.
+- _"Each sub-agent would re-run `pnpm run worktree:init`, which is expensive given a shared environmental gap (e.g., missing service credentials, unreachable external providers)."_ → Cost of correctness. `node_modules` is typically hardlink/sparse-copied by the worktree harness, so re-bootstrap is cheap. Partial environment failures (e.g., a provider-specific codegen step unable to reach its dev backend) are acceptable and **must not** block verification of diffs that don't exercise the unavailable service. Run `worktree:init || true` and proceed; the gate-execution step already handles partial-gate scenarios.
 - _"The findings are statically verifiable (schema orphans, stale comments, routing order, missing concurrency caps) - a single quality-gate pass covers them."_ → The per-finding gate is not only about build/runtime regression. It also cross-checks that (a) the finding correctly describes the target code, (b) the proposed fix is minimal and doesn't silently break surrounding tests or types, and (c) multiple independent findings don't have conflicting or overlapping fixes. Those properties **only** hold when each fix is applied in isolation.
 
 ### Observation severity (the single escape hatch)
@@ -181,6 +181,7 @@ Task:
   description: "Verify finding R{N}: {title}"
   isolation: worktree
   run_in_background: true
+  prompt: "<self-contained per-finding verification instructions>"
 ```
 
 **All agents spawn simultaneously.** Each gets its own isolated worktree copy of the code.
@@ -241,9 +242,9 @@ Task:
 
 ## Reporting
 
-### Required review-body sections (all modes)
+### Required review-body sections (GitHub PR bodies)
 
-Every review posted or printed - regardless of mode - **must** contain the following sections in this order:
+Every review body posted to GitHub - regardless of mode (default or `--autofix`) - **must** contain the following sections in this order:
 
 1. **Summary** - max 8 bullets.
 2. **Findings** - table of `VERIFIED` findings (critical / warning / nit).
@@ -535,4 +536,4 @@ Per-finding verification: ${VERIFIED}/${TOTAL} candidates ran isolated quality g
 
 Where `TOTAL` is the count of non-`observation` candidates that survived Analysis pre-filter, and `VERIFIED` is the count that reached verdict `VERIFIED`. `DROPPED` candidates still count as having "run" the gate - what is being audited is whether the isolated-worktree loop was entered, not whether the finding survived.
 
-If `VERIFIED + DROPPED < TOTAL` - i.e., any non-`observation` finding is missing its isolated sub-agent run - the agent **must** flag this as a failure mode in its final report (not as a "defensible shortcut") and recommend re-dispatching the missing sub-agents. A ratio below 1.0 with any finding that never entered the loop means the skill's core invariant was violated.
+If `VERIFIED + DROPPED < TOTAL` - i.e., any non-`observation` finding is missing its isolated sub-agent run - the agent **must** abort the run, re-dispatch the missing sub-agents, and re-emit the self-audit line only after every non-`observation` candidate has reached VERIFIED or DROPPED. Posting (or printing a final report) with a sub-1.0 ratio is not permitted. A ratio below 1.0 with any finding that never entered the loop means the skill's core invariant was violated.
