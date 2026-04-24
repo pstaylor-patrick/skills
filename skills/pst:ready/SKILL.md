@@ -11,7 +11,7 @@ Take one or more open GitHub pull requests from wherever they are today (behind 
 
 For a **single PR**, run the full pipeline in place (or in a worktree/temp clone for cross-repo). For **multiple PRs**, dispatch each to its own background agent running the same pipeline in an isolated worktree, group PRs by repo to share temp clones where sensible, then aggregate the results at the end.
 
-The per-PR pipeline is pure composition over existing `/pst:*` skills plus one piece of new logic: a bounded CI wait + auto-fix loop. It chains them in the order a human would:
+The per-PR pipeline is pure composition over existing `/pst:*` skills plus three pieces of new logic: a bounded CI wait + auto-fix loop, a post-green PR title/description refresh, and an auto-validation pass over the test-plan checkboxes. It chains them in the order a human would:
 
 1. Rebase onto the PR's base branch (`pst:rebase`).
 2. Wait for CI; when something fails, diagnose and patch until green (new logic here).
@@ -19,7 +19,9 @@ The per-PR pipeline is pure composition over existing `/pst:*` skills plus one p
 4. Run a verified-fix code review to catch new issues (`pst:code-review --sweep`).
 5. Repeat (3) + (4) until no unresolved threads and no remaining criticals.
 6. Re-verify CI is still green after all review-loop commits.
-7. Open the PR in the browser so the human can merge.
+7. Refresh the PR title and description to describe what actually shipped.
+8. Parse the test plan, auto-validate the items that can be validated, post a validation comment, and tick the boxes that passed.
+9. Open the PR in the browser so the human can merge.
 
 ---
 
@@ -53,8 +55,8 @@ The per-PR pipeline is pure composition over existing `/pst:*` skills plus one p
 
 The router runs **before** Phase 0. It chooses between:
 
-- **Single-PR mode** -- exactly 1 URL → execute Phases 0..6 inline, as described below. This is the original pipeline; no behavior change for 1-URL invocations.
-- **Dispatcher mode** -- 2+ URLs → jump to **Phase D** (dispatcher) and skip Phases 0..6 at the top level. Each background child agent runs Phases 0..6 for its assigned PR.
+- **Single-PR mode** -- exactly 1 URL → execute Phases 0..8 inline, as described below. This is the original pipeline; no behavior change for 1-URL invocations.
+- **Dispatcher mode** -- 2+ URLs → jump to **Phase D** (dispatcher) and skip Phases 0..8 at the top level. Each background child agent runs Phases 0..8 for its assigned PR.
 
 ---
 
@@ -174,7 +176,7 @@ Head SHA:           {HEAD_SHA}
 Group root:         {GROUP_ROOT}  (shared with sibling PRs in the same repo -- treat as read-only from other siblings' perspective)
 Flags to honor:     --max-ci-attempts={N} --max-review-rounds={M} {--dry-run?}
 
-Your job is to execute Phases 0..6 from the /pst:ready single-PR pipeline entirely inside {WORKTREE_PATH}. DO NOT open the browser -- the dispatcher handles that after it collects all children. DO NOT write to the dispatcher's progress file.
+Your job is to execute Phases 0..8 from the /pst:ready single-PR pipeline entirely inside {WORKTREE_PATH}. DO NOT open the browser -- the dispatcher handles that after it collects all children. DO NOT write to the dispatcher's progress file.
 
 Write your own progress file at:
   {WORKTREE_PATH}/.pst-ready-progress.json
@@ -190,13 +192,15 @@ When you are done, return a single JSON object on the final line of your output 
     "ci_pass1_attempts": <int>,
     "review_rounds": <int>,
     "ci_pass2_attempts": <int>,
+    "pr_refresh": "updated" | "unchanged" | "skipped" | "failed",
+    "test_plan": { "validated": <int>, "failed": <int>, "manual": <int> },
     "residual": [ ... phase-scoped residual entries ... ],
     "final_head_sha": "<sha>",
     "notes": "optional short string"
   }
 
 Do not emit long progress narration -- keep the response concise. Follow the
-/pst:ready single-PR Phases 0..6 exactly as documented.
+/pst:ready single-PR Phases 0..8 exactly as documented.
 ```
 
 ### D.6 Collect and aggregate
@@ -248,7 +252,7 @@ Temp clones preserved for resume:
 
 ---
 
-## Per-PR Pipeline (Phases 0-6)
+## Per-PR Pipeline (Phases 0-8)
 
 The phases below run either inline (single-PR mode) or inside each dispatched child agent (multi-PR mode). Their behavior is identical in both cases.
 
@@ -610,7 +614,144 @@ Mark `ci-wait-2` completed.
 
 ---
 
-## Phase 6 -- Open & Summarize
+## Phase 6 -- Refresh PR Title and Description
+
+This phase runs **only after CI pass 2 is green** (i.e., after Phase 5 has cleared). The branch is now the finished product; the PR body should describe what actually shipped, not what the branch looked like at opening.
+
+### 6.1 Gather the source material
+
+```bash
+PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq .body)
+PR_TITLE=$(gh pr view "$PR_NUMBER" --json title --jq .title)
+COMMITS=$(git log --oneline "origin/$BASE_BRANCH..HEAD")
+DIFF_STAT=$(git diff --stat "origin/$BASE_BRANCH..HEAD")
+FILE_LIST=$(git diff --name-only "origin/$BASE_BRANCH..HEAD")
+```
+
+Read any top-of-file context that informs how this PR should be described:
+
+- Project `CLAUDE.md` / `AGENTS.md` for house style (e.g., "keep PR titles under 70 chars", "always include a Test Plan section").
+- `.context/` ADRs, architecture notes, patterns files -- surface relevant constraints.
+- For each non-trivial changed file, read the diff hunks to understand intent.
+
+### 6.2 Regenerate title and body
+
+**Title:** under 70 characters, imperative mood, matches the narrative of the final commits (not just the initial intent). If the existing title already accurately reflects what shipped, keep it verbatim.
+
+**Body sections (in this order):**
+
+1. **Summary** -- 3-6 bullets covering what actually changed by end of branch, written from the current HEAD's perspective.
+2. **Implementation Notes** -- key design decisions, invariants, or tradeoffs worth flagging to reviewers. Skip if nothing notable.
+3. **Test plan** -- verifiable claims. Mix of auto-checkable items (code-level assertions, CI green, command outputs) and manual items (end-to-end scenarios, UI validation). Use `- [ ]` checkboxes; Phase 7 will tick the auto-validatable ones.
+
+Preserve any existing `- [x]` items: text-match each checked item in the old body to the new body. If the new body contains the same item (same text, minus leading checkbox), keep it ticked. Never un-check a box the user or a prior validation run already ticked.
+
+### 6.3 Update the PR
+
+```bash
+gh api "repos/$PR_OWNER/$PR_REPO/pulls/$PR_NUMBER" \
+  --method PATCH \
+  --field title="$NEW_TITLE" \
+  --field body="$NEW_BODY"
+```
+
+If `gh pr edit` fails with a `read:org` scope error (common with restricted PATs), use the `gh api` REST path above as the primary -- it only needs `repo` scope.
+
+Mark `refresh-pr` completed.
+
+### 6.4 Dry-run behavior
+
+In `--dry-run`: print the proposed title and body diff vs. the current PR, but do not `PATCH`.
+
+---
+
+## Phase 7 -- Test Plan Validation
+
+This phase runs **only after Phase 6 has refreshed the PR body**, so it always validates against the latest test plan.
+
+### 7.1 Parse the test plan
+
+```bash
+PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq .body)
+```
+
+Locate a heading that matches `^#+\s*Test\s*plan\s*$` (case-insensitive; also matches "Test Plan", "TEST PLAN"). Collect every `- [ ]` checkbox **under that heading** (until the next heading or end of body). Preserve each checkbox's position index so we can patch them in order later.
+
+If no Test-plan heading is found OR no unchecked items exist, log `Test plan: nothing to validate` and skip to Phase 8.
+
+### 7.2 Classify each item
+
+For each unchecked checkbox, decide one of:
+
+- **auto-validatable** -- the item describes something testable via code analysis, shell command, or PR state query. Signals: mentions of "build", "lint", "typecheck", "test", "format", "CI is green", specific file/symbol names, behaviour claims about the diff (e.g., "no regressions in auth", "handles null case in foo()").
+- **manual-only** -- the item requires runtime/environment/stakeholder action. Signals: mentions of "browser", "staging", "UI looks", "stakeholder approval", "end-to-end scenario requiring a real second PR", "test in production".
+- **ambiguous** -- can't confidently decide from the text alone. Treat as manual-only to be safe; do not validate, do not check.
+
+### 7.3 Validate the auto-validatable ones
+
+For each auto-validatable item, run the smallest sufficient check:
+
+| Item kind                                                          | How to validate                                                                                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| "build passes" / "lint passes" / "typecheck passes" / "tests pass" | Run the repo's corresponding script; require exit 0. If script is missing, mark as manual-only with reason.                          |
+| "CI is green" / "all checks passing"                               | `gh pr checks $PR_NUMBER --json bucket --jq 'all(.[]; .bucket == "pass" or .bucket == "skipping")'`. Require `true`.                 |
+| "format is clean"                                                  | `pnpm run format:check` (or detected equivalent); exit 0.                                                                            |
+| "no regressions in $subsystem"                                     | Confirm no files under relevant paths are newly failing existing tests. Inspect diff to show touched files + existing test coverage. |
+| "$file contains $symbol / handles $case"                           | `grep` for the claim in the diff or current file contents; require match.                                                            |
+| "no em dashes" / "no AI slop"                                      | Run `bash scripts/lint-no-emdash.sh` or the equivalent repo tooling; exit 0.                                                         |
+| "rebased onto $base"                                               | `git merge-base --is-ancestor origin/$BASE_BRANCH HEAD`; exit 0.                                                                     |
+| Anything else                                                      | Attempt to derive a minimal verification command from the text; if none obvious, demote to manual-only.                              |
+
+Record each result as: `validated-pass` (check ran, exit 0), `validated-fail` (check ran, non-zero), or `demoted-manual` (couldn't derive a check).
+
+### 7.4 Post the validation comment
+
+Post **one** comment to the PR (not one per item) using `gh pr comment`. Shape:
+
+```markdown
+## Test plan validation
+
+Ran against commit `{HEAD_SHA[:12]}` on `{HEAD_BRANCH}`.
+
+**Auto-validated (checked off):** {N}
+
+- `<checkbox text>` -- {one-line evidence, e.g., "pnpm run lint exited 0"}
+- ...
+
+**Failed validation (left unchecked):** {N}
+
+- `<checkbox text>` -- {one-line failure summary + log excerpt if short}
+- ...
+
+**Manual verification required (left unchecked):** {N}
+
+- `<checkbox text>` -- {why it can't be auto-checked, e.g., "requires a real second PR in another repo"}
+- ...
+```
+
+If all three counts are 0, skip posting; just log `Test plan validation: no items to report`.
+
+### 7.5 Tick the validated-pass boxes
+
+Refetch the PR body (it may have changed since Phase 6 if an automation raced us), find each `validated-pass` checkbox by text, and replace its `- [ ]` with `- [x]`. Process from highest index to lowest to keep earlier positions stable.
+
+```bash
+gh api "repos/$PR_OWNER/$PR_REPO/pulls/$PR_NUMBER" \
+  --method PATCH \
+  --field body="$UPDATED_BODY"
+```
+
+Do not touch `validated-fail` or `manual-only` items -- the reviewer needs to see what's pending.
+
+Mark `test-plan` completed. Record `test_plan: { validated, failed, manual }` counts in the progress file.
+
+### 7.6 Dry-run behavior
+
+In `--dry-run`: parse and classify as above, print the would-be comment and the would-be checkbox diff, but do not post or `PATCH`.
+
+---
+
+## Phase 8 -- Open & Summarize
 
 Unless `--no-open` or `--dry-run`:
 
@@ -626,12 +767,14 @@ Print a final summary to the terminal:
   CI (pass 1):     green after {X} attempt(s)   ✓
   Review rounds:   {Y} of {MAX_REVIEW_ROUNDS}   ✓
   CI (pass 2):     green after {Z} attempt(s)   ✓
+  PR refresh:      title + description updated  ✓
+  Test plan:       {V} validated / {F} failed / {M} manual
   URL:             {PR_URL}
 
 Residual: none
 ```
 
-On success, delete `.pst-ready-progress.json`. On partial completion (halt in Phase 3, 4, or 5), keep it so a plain `/pst:ready $PR_URL` picks up where we left off.
+On success, delete `.pst-ready-progress.json`. On partial completion (halt in Phase 3, 4, 5, 6, or 7), keep it so a plain `/pst:ready $PR_URL` picks up where we left off.
 
 ---
 
@@ -643,9 +786,11 @@ On success, delete `.pst-ready-progress.json`. On partial completion (halt in Ph
 - Phase 3: skip sub-agent fix attempts; print failing checks and their classifications.
 - Phase 4: `pst:resolve-threads --dry-run` + `pst:code-review --sweep --dry-run`; report counts only.
 - Phase 5: identical to Phase 3 under dry-run.
-- Phase 6: skip browser; print what the final summary would look like.
+- Phase 6: print the proposed title and body diff; do not `PATCH` the PR.
+- Phase 7: parse and classify the test plan; print the would-be comment and checkbox diff; do not post or `PATCH`.
+- Phase 8: skip browser; print what the final summary would look like.
 
-No pushes, no resolutions, no browser pops. Safe to run at any time to see the state of a PR.
+No pushes, no resolutions, no PR edits, no comments, no browser pops. Safe to run at any time to see the state of a PR.
 
 ---
 
@@ -662,12 +807,21 @@ Written after every phase completes, at `$WORK_DIR/.pst-ready-progress.json`:
   "head_sha": "{latest}",
   "work_dir": "/abs/path",
   "cross_repo": false,
-  "state": "review-loop",
-  "completed": ["intake", "workspace", "rebase", "ci-wait-1"],
+  "state": "test-plan",
+  "completed": [
+    "intake",
+    "workspace",
+    "rebase",
+    "ci-wait-1",
+    "review-loop",
+    "ci-wait-2",
+    "refresh-pr"
+  ],
   "skipped": [],
   "ci_attempts_pass1": 2,
   "ci_attempts_pass2": 0,
   "review_rounds": 1,
+  "test_plan": { "validated": 3, "failed": 0, "manual": 4 },
   "residual": [],
   "updated_at": "2026-04-24T18:05:00Z"
 }
