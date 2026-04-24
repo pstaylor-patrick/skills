@@ -80,13 +80,31 @@ Assess the current state of your work and get one opinionated recommendation for
 
 ### `/pst:ready`
 
-Bring an existing open PR to merge-ready state in one invocation. Rebases onto the PR's base branch, waits for CI and auto-fixes failures (up to 3 attempts per failing check, via isolated sub-agents), then loops `pst:resolve-threads` + `pst:code-review --sweep` until threads are clean and no criticals remain. Re-verifies CI one more time and opens the PR in the browser. Cross-repo capable (clones to a temp dir if the PR lives in a different repo than cwd); resumable via a progress file if interrupted.
+Bring one or many existing open PRs to merge-ready state in a single invocation.
+
+**Single PR**: rebases onto the PR's base branch, waits for CI and auto-fixes failures (up to 3 attempts per failing check, via isolated sub-agents), then loops `pst:resolve-threads` + `pst:code-review --sweep` until threads are clean and no criticals remain. Re-verifies CI one more time and opens the PR in the browser. Cross-repo capable (clones to a temp dir if the PR lives in a different repo than cwd); resumable via a progress file if interrupted.
+
+**Multiple PRs**: pass two or more URLs and the skill dispatches each to its own background agent running the same pipeline in its own isolated git worktree. URLs spanning several repos are grouped by repo so one temp clone is shared across siblings in the same foreign repo (one temp clone per foreign repo, one worktree per PR inside). Respects `--max-parallel` (default 4) to avoid GitHub API throttling. One PR halting with a residual does not affect its siblings; the final matrix reports READY / BLOCKED / SKIPPED / ERROR per PR.
 
 ```
+# Single PR
 /pst:ready https://github.com/owner/repo/pull/42
 /pst:ready https://github.com/owner/repo/pull/42 --dry-run
 /pst:ready https://github.com/owner/repo/pull/42 --no-open
-/pst:ready https://github.com/owner/repo/pull/42 --max-ci-attempts 5 --max-review-rounds 3
+
+# Parallel batch, same repo
+/pst:ready https://github.com/owner/repo/pull/42 https://github.com/owner/repo/pull/51
+
+# Parallel batch across repos (one temp clone per foreign repo, worktrees per PR)
+/pst:ready \
+  https://github.com/owner-a/repo-x/pull/42 \
+  https://github.com/owner-a/repo-x/pull/51 \
+  https://github.com/owner-b/repo-y/pull/7
+
+# Tuning
+/pst:ready <url1> <url2> <url3> --max-parallel 2
+/pst:ready <url1> <url2> --open-all          # open BLOCKED PRs too, not just READY
+/pst:ready <url> --max-ci-attempts 5 --max-review-rounds 3
 ```
 
 ### `/pst:code-review`

@@ -1,15 +1,17 @@
 ---
 name: pst:ready
-description: Bring an open PR to merge-ready state -- rebase onto the PR base, await CI and auto-fix failures, loop resolve-threads + code-review until clean, re-verify CI, then open in the browser.
-argument-hint: "<PR-URL> [--dry-run] [--no-open] [--max-ci-attempts N] [--max-review-rounds N]"
+description: Bring one or many open PRs to merge-ready state -- rebase onto base, await CI and auto-fix failures, loop resolve-threads + code-review until clean, re-verify CI, open in the browser. Multiple PR URLs run in parallel via background agents in isolated worktrees, cross-repo capable.
+argument-hint: "<PR-URL> [<PR-URL>...] [--dry-run] [--no-open] [--open-all] [--max-parallel N] [--max-ci-attempts N] [--max-review-rounds N]"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion, Skill
 ---
 
-# Bring a PR to Merge-Ready
+# Bring PRs to Merge-Ready
 
-Take an open GitHub pull request from wherever it is today (behind base, failing CI, unresolved threads, outstanding CHANGES_REQUESTED reviews) and drive it to a merge-ready state without further user interaction.
+Take one or more open GitHub pull requests from wherever they are today (behind base, failing CI, unresolved threads, outstanding CHANGES_REQUESTED reviews) and drive each to a merge-ready state without further user interaction.
 
-This skill is pure composition over existing `/pst:*` skills plus one piece of new logic: a bounded CI wait + auto-fix loop. It chains them in the order a human would:
+For a **single PR**, run the full pipeline in place (or in a worktree/temp clone for cross-repo). For **multiple PRs**, dispatch each to its own background agent running the same pipeline in an isolated worktree, group PRs by repo to share temp clones where sensible, then aggregate the results at the end.
+
+The per-PR pipeline is pure composition over existing `/pst:*` skills plus one piece of new logic: a bounded CI wait + auto-fix loop. It chains them in the order a human would:
 
 1. Rebase onto the PR's base branch (`pst:rebase`).
 2. Wait for CI; when something fails, diagnose and patch until green (new logic here).
@@ -27,20 +29,228 @@ This skill is pure composition over existing `/pst:*` skills plus one piece of n
 
 **Parse arguments:**
 
-- `<PR-URL>` (required) -- full GitHub PR URL, e.g. `https://github.com/owner/repo/pull/42`. Bare PR numbers are rejected; this skill always takes a URL so cross-repo is unambiguous.
-- `--dry-run` -- report what would happen at every phase; no pushes, no thread resolutions, no rebase writes, no browser open.
-- `--no-open` -- run to completion but skip the browser pop at the end (useful for CI/headless use).
-- `--max-ci-attempts N` -- override the default CI auto-fix attempt budget (default `3`).
-- `--max-review-rounds N` -- override the default review-loop round cap (default `5`).
+- `<PR-URL>` (required, one or more) -- full GitHub PR URLs, e.g. `https://github.com/owner/repo/pull/42`. Bare PR numbers are rejected; URLs are always required so cross-repo is unambiguous. Multiple URLs trigger dispatcher mode (see below).
+- `--dry-run` -- report what would happen at every phase; no pushes, no thread resolutions, no rebase writes, no browser open. Flows through to every child agent in dispatcher mode.
+- `--no-open` -- skip browser pop(s) at the end. In dispatcher mode, suppresses opening any PR.
+- `--open-all` -- dispatcher mode only: also open BLOCKED PRs (default opens only READY). Ignored in single-PR mode.
+- `--max-parallel N` -- dispatcher mode only: cap concurrent background agents at N. Default `4` to avoid GitHub API throttling. Ignored with 1 URL.
+- `--max-ci-attempts N` -- override the default CI auto-fix attempt budget (default `3`). Flows through to every child.
+- `--max-review-rounds N` -- override the default review-loop round cap (default `5`). Flows through to every child.
 
 **Validate:**
 
-| Condition                                              | Action                                         |
-| ------------------------------------------------------ | ---------------------------------------------- |
-| No PR URL provided                                     | Stop with usage: `/pst:ready <PR-URL> [flags]` |
-| URL does not match `https://github.com/.+/.+/pull/\d+` | Stop: "Provide a full GitHub PR URL."          |
-| `gh` not available                                     | Stop: "GitHub CLI (gh) is required."           |
-| `git` not available                                    | Stop: "git is required."                       |
+| Condition                                         | Action                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| No PR URL provided                                | Stop with usage: `/pst:ready <PR-URL> [<PR-URL>...] [flags]`   |
+| Any URL fails `https://github.com/.+/.+/pull/\d+` | Stop with the first offender: "Provide a full GitHub PR URL."  |
+| Duplicate URLs in the list                        | De-duplicate silently; log `NOTE: deduped N duplicate URL(s)`. |
+| `gh` not available                                | Stop: "GitHub CLI (gh) is required."                           |
+| `git` not available                               | Stop: "git is required."                                       |
+
+---
+
+## Dispatch Router
+
+The router runs **before** Phase 0. It chooses between:
+
+- **Single-PR mode** -- exactly 1 URL → execute Phases 0..6 inline, as described below. This is the original pipeline; no behavior change for 1-URL invocations.
+- **Dispatcher mode** -- 2+ URLs → jump to **Phase D** (dispatcher) and skip Phases 0..6 at the top level. Each background child agent runs Phases 0..6 for its assigned PR.
+
+---
+
+## Phase D -- Dispatcher (multi-PR mode)
+
+**Runs only when 2+ URLs are provided.** The dispatcher does no pipeline work itself -- it plans, launches, and aggregates.
+
+### D.1 Fetch metadata for every URL
+
+For each URL in parallel (`gh pr view` calls are independent), collect:
+
+```bash
+gh pr view "$URL" --json number,url,title,state,isDraft,headRefName,headRefOid,baseRefName,mergeable
+```
+
+If any URL returns `state != OPEN`, record it and continue; that PR will be reported as `SKIPPED (closed|merged|draft)` in the final matrix but does not block the other PRs.
+
+### D.2 Group by repository
+
+Extract `owner/repo` from each URL. Bucket PRs into groups:
+
+- **Group A -- cwd-repo group:** PRs whose `owner/repo` matches the current working directory's repo (via `gh repo view --json nameWithOwner --jq .nameWithOwner`). Zero or one group of this kind. These children use worktrees inside the current repo: `$REPO_ROOT/.worktrees/ready-PR-<N>`.
+- **Group B..Z -- foreign-repo groups:** One group per distinct `owner/repo` not matching cwd. For each such group, the dispatcher creates **one** temp clone shared across all PRs in that group:
+
+  ```bash
+  TMPDIR="${TMPDIR:-${TEMP:-/tmp}}"
+  CLONE_DIR=$(mktemp -d "$TMPDIR/pst-ready-<owner>-<repo>-XXXXXX")
+  gh repo clone "<owner>/<repo>" "$CLONE_DIR" -- --depth=200
+  ```
+
+  Children inside this group use worktrees inside `$CLONE_DIR`: `$CLONE_DIR/.worktrees/ready-PR-<N>`.
+
+  Depth 200 (vs. 50 used by the single-PR cross-repo path) because multiple PRs in the same repo are more likely to collectively reach further back in history; `gh pr checkout` will deepen on demand anyway.
+
+Log the grouping summary:
+
+```
+Dispatching 5 PRs across 3 repo(s):
+  cwd (owner-a/repo-x):  #42, #51
+  temp clone owner-b/repo-y:  #7, #9
+  temp clone owner-c/repo-z:  #33
+```
+
+### D.3 Write dispatcher progress
+
+At the top of the caller's cwd, write `.pst-ready-dispatcher.json` (excluded from git the same way child progress files are):
+
+```json
+{
+  "started_at": "<iso8601>",
+  "urls": ["https://.../pull/42", "..."],
+  "flags": {
+    "dry_run": false,
+    "open_all": false,
+    "max_parallel": 4,
+    "max_ci_attempts": 3,
+    "max_review_rounds": 5
+  },
+  "groups": [
+    {
+      "owner_repo": "owner-a/repo-x",
+      "clone_dir": null,
+      "cwd_group": true,
+      "prs": [42, 51]
+    },
+    {
+      "owner_repo": "owner-b/repo-y",
+      "clone_dir": "/tmp/pst-ready-owner-b-repo-y-abc123",
+      "cwd_group": false,
+      "prs": [7, 9]
+    }
+  ],
+  "children": []
+}
+```
+
+### D.4 Prepare child worktrees
+
+For each PR assigned to a group, the dispatcher pre-creates its worktree before spawning the child agent, so each child agent receives a ready-to-use path:
+
+```bash
+# Inside each group's repo root ($REPO_ROOT for cwd group, $CLONE_DIR for foreign groups)
+git fetch origin pull/$N/head:refs/pst-ready/pr-$N 2>/dev/null \
+  || gh pr checkout "$N" -b "pst-ready-pr-$N"  # fallback if raw fetch fails
+
+WORKTREE_PATH="<group-root>/.worktrees/ready-PR-$N"
+git worktree remove --force "$WORKTREE_PATH" 2>/dev/null
+git worktree add "$WORKTREE_PATH" "refs/pst-ready/pr-$N"
+```
+
+Rationale: the dispatcher does worktree creation, not the child, so that the child agent's `isolation: "worktree"` budget is preserved for its own scratch work (sub-agents inside the child Phase 3 still get their own isolated worktrees for CI fixes).
+
+### D.5 Launch background agents
+
+Respecting `--max-parallel N` (default 4), spawn children in batches. For each child:
+
+```
+Agent({
+  description: "pst:ready PR #<N> (<owner>/<repo>)",
+  subagent_type: "general-purpose",
+  run_in_background: true,
+  prompt: "<see child prompt template below>"
+})
+```
+
+If the number of PRs exceeds `--max-parallel`, queue the overflow and launch replacements as earlier children complete (you will be notified of completion per Agent-tool semantics).
+
+**Child prompt template:**
+
+```
+You are a focused sub-agent running the per-PR pipeline of /pst:ready for ONE pull request.
+
+Assigned PR:        {PR_URL}
+Working directory:  {WORKTREE_PATH}  (already created, on the PR head, clean tree)
+Base branch:        {BASE_BRANCH}
+Head SHA:           {HEAD_SHA}
+Group root:         {GROUP_ROOT}  (shared with sibling PRs in the same repo -- treat as read-only from other siblings' perspective)
+Flags to honor:     --max-ci-attempts={N} --max-review-rounds={M} {--dry-run?}
+
+Your job is to execute Phases 0..6 from the /pst:ready single-PR pipeline entirely inside {WORKTREE_PATH}. DO NOT open the browser -- the dispatcher handles that after it collects all children. DO NOT write to the dispatcher's progress file.
+
+Write your own progress file at:
+  {WORKTREE_PATH}/.pst-ready-progress.json
+so a dispatcher resume can see per-PR state.
+
+When you are done, return a single JSON object on the final line of your output in this exact shape:
+
+  PST_READY_CHILD_RESULT={
+    "pr_url": "{PR_URL}",
+    "pr_number": <N>,
+    "status": "READY" | "BLOCKED" | "SKIPPED",
+    "rebase": "success" | "skipped-up-to-date" | "conflict",
+    "ci_pass1_attempts": <int>,
+    "review_rounds": <int>,
+    "ci_pass2_attempts": <int>,
+    "residual": [ ... phase-scoped residual entries ... ],
+    "final_head_sha": "<sha>",
+    "notes": "optional short string"
+  }
+
+Do not emit long progress narration -- keep the response concise. Follow the
+/pst:ready single-PR Phases 0..6 exactly as documented.
+```
+
+### D.6 Collect and aggregate
+
+As children complete, parse each child's `PST_READY_CHILD_RESULT={...}` line and append to `children` in the dispatcher progress file.
+
+Once all children have reported, classify:
+
+- `READY`: `status == "READY"` and `residual` is empty.
+- `BLOCKED`: `status == "BLOCKED"` -- child halted with residual findings or unfixable CI.
+- `SKIPPED`: `status == "SKIPPED"` -- PR was closed/merged/draft.
+- `ERROR`: child agent itself crashed (no parsable `PST_READY_CHILD_RESULT` line) -- record the last 20 lines of its output for the matrix.
+
+### D.7 Open browsers (respect flags)
+
+Unless `--no-open`:
+
+- Default: open only `READY` PRs: `for url in ${ready_urls[@]}; do gh pr view "$url" --web; done`
+- `--open-all`: open `READY` and `BLOCKED` PRs (skip `SKIPPED` and `ERROR`).
+
+### D.8 Print final matrix
+
+```
+/pst:ready dispatch complete: <N> PRs across <M> repo(s)
+
+  owner-a/repo-x  #42  READY     rebased ✓  CI 1 attempt ✓  reviews clean ✓  CI 1 attempt ✓  opened
+  owner-a/repo-x  #51  BLOCKED   rebased ✓  CI 3 attempts → residual typecheck in apps/web/src/auth.ts
+  owner-b/repo-y  #7   READY     rebased (up-to-date)  CI 1 attempt ✓  reviews clean ✓  opened
+  owner-b/repo-y  #9   SKIPPED   PR is MERGED; nothing to ready.
+  owner-c/repo-z  #33  ERROR     child agent crashed -- see /tmp/pst-ready-children/PR-33.log
+
+Temp clones preserved for resume:
+  /tmp/pst-ready-owner-b-repo-y-abc123
+  /tmp/pst-ready-owner-c-repo-z-def456
+```
+
+### D.9 Cleanup vs. resume
+
+- On full success (all `READY` or `SKIPPED`): delete `.pst-ready-dispatcher.json` and the temp clones.
+- On any `BLOCKED` / `ERROR`: preserve both. A subsequent `/pst:ready` invocation with the same URL set reads `.pst-ready-dispatcher.json`, reuses the group clones and worktrees, and only re-dispatches children whose `status != "READY"`.
+
+### D.10 Dry-run in dispatcher mode
+
+`--dry-run` at the dispatcher level:
+
+- Skip cloning foreign repos; use `gh pr view`-only analysis.
+- Skip creating worktrees.
+- Report the planned group/assignment matrix and exit. Do not spawn child agents.
+
+---
+
+## Per-PR Pipeline (Phases 0-6)
+
+The phases below run either inline (single-PR mode) or inside each dispatched child agent (multi-PR mode). Their behavior is identical in both cases.
 
 ---
 
@@ -70,7 +280,7 @@ PR_REPO=$(echo  "$PR_OWNER_REPO" | cut -d/ -f2)
 | `IS_DRAFT` is `true`                                 | Ask the user (AskUserQuestion) whether to proceed; if no, stop. |
 | `mergeable` is `CONFLICTING` and `--dry-run` not set | Proceed -- the rebase phase will surface the conflict.          |
 
-**Recovery check:** If a `.pst-ready-progress.json` exists at the repo root of the working directory chosen in Phase 1, read it. If its `pr_url` matches and no more than 24 hours have passed since its last update, resume from the first phase not in `completed`. Otherwise ignore and start fresh.
+(Recovery-from-progress-file logic is deferred to the end of Phase 1, once `$WORK_DIR` is resolved -- see Phase 1 step 7.)
 
 ---
 
@@ -119,6 +329,7 @@ Pattern mirrors `pst:code-review` workspace setup. The objective is to have a cl
    ```
 
 6. **Write initial progress:**
+
    ```json
    {
      "pr_url": "...",
@@ -135,6 +346,8 @@ Pattern mirrors `pst:code-review` workspace setup. The objective is to have a cl
      "residual": []
    }
    ```
+
+7. **Recovery from a prior run:** Now that `$WORK_DIR` is known, look for an existing progress file at `$WORK_DIR/.pst-ready-progress.json` from a previous invocation. If one exists AND its `pr_url` matches AND its `updated_at` is within the last 24 hours, read its `completed` list and resume from the first phase **not** in that list. Do not re-run Phase 2 if `"rebase"` is already completed, etc. If the file is missing, stale, or for a different PR, overwrite with the fresh progress from step 6.
 
 From this phase forward, **all commands run in `$WORK_DIR`**.
 
@@ -237,24 +450,45 @@ Classify from `$LOGS`:
         2. Fix it minimally -- no drive-by refactors, no unrelated changes.
         3. Re-run the local equivalent of the failing check to verify the fix.
         4. Commit with message: "fix(ci): {one-line summary}"
-        5. Do NOT push. Return a short report: files changed, commit SHA, verification
-           command + output.
+        5. Do NOT push. Return a machine-readable report on the last line in this
+           exact shape (single JSON object, no prose after it):
 
-      If you cannot reproduce locally (e.g., environment-only), say so and return a
-      best-effort hypothesis patch with clear caveats.
+             CI_FIX_RESULT={
+               "status": "fixed" | "no-fix",
+               "worktree_path": "/abs/path/to/this/worktree",
+               "commit_sha": "<sha of the fix commit, or null if status != fixed>",
+               "files_changed": ["path/a.ts", "path/b.ts"],
+               "verification_cmd": "pnpm run typecheck",
+               "verification_exit": 0,
+               "notes": "optional short string -- caveats, env-only hypothesis, etc."
+             }
+
+      If you cannot reproduce locally (e.g., environment-only), set status to "no-fix"
+      and put the best-effort hypothesis in notes. Always return the JSON object.
     """
   })
   ```
 
-  When the sub-agent returns:
-  - Cherry-pick its commit onto the real branch in `$WORK_DIR`:
-    ```bash
-    git fetch "$SUBAGENT_WORKTREE_PATH" HEAD
-    git cherry-pick FETCH_HEAD
-    ```
-    (Fall back to applying the returned diff with `git apply` if the cherry-pick source isn't reachable.)
-  - `git push --force-with-lease origin "$HEAD_BRANCH"`
-  - Update `HEAD_SHA`.
+  The orchestrator parses the `CI_FIX_RESULT={...}` line from the sub-agent's final
+  message. It uses `worktree_path` and `commit_sha` as the source of truth -- no
+  implicit variables.
+
+  When `status == "fixed"`, pull the commit onto the real branch in `$WORK_DIR`:
+
+  ```bash
+  # worktree_path and commit_sha come from the parsed CI_FIX_RESULT JSON above
+  git fetch "$worktree_path" "$commit_sha"
+  git cherry-pick "$commit_sha"
+  ```
+
+  If `git fetch` from the worktree path fails (e.g., the worktree was cleaned up
+  before we could reach it), fall back to requesting the sub-agent's diff inline
+  and applying with `git apply`. Either way, follow with:
+
+  ```bash
+  git push --force-with-lease origin "$HEAD_BRANCH"
+  HEAD_SHA=$(git rev-parse "origin/$HEAD_BRANCH")
+  ```
 
 - **If the sub-agent returns no viable fix for a given failure:** record it in `residual` and continue with the other failures. If every failure in this iteration failed to produce a fix, halt.
 
@@ -272,7 +506,7 @@ Remaining failures:
 Resume with: /pst:ready $PR_URL  (progress file preserved)
 ```
 
-In `--dry-run` mode: do **not** invoke sub-agents or push. Print the classifications and the patch each sub-agent _would_ attempt (by running them with `dangerouslyDisableSandbox: false` read-only mode? No -- just skip and report) and continue to Phase 4 in read-only mode.
+In `--dry-run` mode: do **not** invoke sub-agents or push. Report each failing check with its classification and continue to Phase 4 in read-only mode.
 
 Mark `ci-wait-1` completed. Record `ci_attempts_pass1` used.
 
@@ -443,7 +677,7 @@ Written after every phase completes, at `$WORK_DIR/.pst-ready-progress.json`:
 
 ## Stop Signals
 
-Halt and preserve the progress file when any of:
+**Per-PR (inside a child or single-PR run):** halt and preserve that PR's progress file when any of:
 
 - Rebase produces conflicts that `pst:rebase` could not auto-resolve.
 - `MAX_CI_ATTEMPTS` consumed in Phase 3 or Phase 5 with failures remaining.
@@ -451,7 +685,15 @@ Halt and preserve the progress file when any of:
 - Sub-agent fix attempts return no viable patch for every failing check in a round.
 - `gh` auth fails, `git push --force-with-lease` is rejected, or the PR is closed/merged mid-run.
 
-Every halt prints a clear next-action line; resuming is always `/pst:ready $PR_URL`.
+In dispatcher mode, a per-PR halt reports that PR as `BLOCKED` in the final matrix but does not stop sibling PRs. The dispatcher never aborts healthy children because one hit a residual.
+
+**Dispatcher-level:** halt the whole run only when:
+
+- `gh` or `git` is missing.
+- All provided URLs are invalid or all return non-`OPEN` state.
+- Temp-clone creation fails for every foreign-repo group (disk full, auth revoked, etc.).
+
+Every halt prints a clear next-action line; resuming is always `/pst:ready <same URL(s)>`.
 
 ---
 
@@ -459,5 +701,6 @@ Every halt prints a clear next-action line; resuming is always `/pst:ready $PR_U
 
 - **Composition, not reimplementation.** Rebase, thread resolution, and code review live in their own skills. If their behavior changes, this skill inherits the change.
 - **Force-push safety.** All pushes use `--force-with-lease`. The skill never uses `--force`.
-- **Cross-repo friendly.** Runs from anywhere; if the PR is in a different repo, the skill clones to a temp dir and operates there. The user's cwd is not mutated.
-- **Idempotent resume.** The progress file makes a second invocation after a halt skip already-completed phases. This is why every phase writes to it atomically.
+- **Cross-repo friendly.** Runs from anywhere. For a single foreign-repo URL, clones to a temp dir and operates there. For multiple URLs spanning several repos, groups URLs by repo and shares one temp clone per foreign repo with per-PR worktrees inside. The user's cwd is never mutated.
+- **Parallel by default for 2+ URLs.** Each PR is driven by its own background agent in its own worktree. Respects `--max-parallel` (default 4) to avoid GitHub API throttling. One crashed or blocked child does not affect its siblings.
+- **Idempotent resume at both levels.** Per-PR progress files let an interrupted child pick up where it stopped. The dispatcher progress file lets a re-invocation skip already-`READY` children and re-dispatch only the `BLOCKED`/`ERROR` ones, reusing existing temp clones and worktrees.
