@@ -78,6 +78,17 @@ Assess the current state of your work and get one opinionated recommendation for
 /pst:next --why
 ```
 
+### `/pst:ready`
+
+Bring an existing open PR to merge-ready state in one invocation. Rebases onto the PR's base branch, waits for CI and auto-fixes failures (up to 3 attempts per failing check, via isolated sub-agents), then loops `pst:resolve-threads` + `pst:code-review --sweep` until threads are clean and no criticals remain. Re-verifies CI one more time and opens the PR in the browser. Cross-repo capable (clones to a temp dir if the PR lives in a different repo than cwd); resumable via a progress file if interrupted.
+
+```
+/pst:ready https://github.com/owner/repo/pull/42
+/pst:ready https://github.com/owner/repo/pull/42 --dry-run
+/pst:ready https://github.com/owner/repo/pull/42 --no-open
+/pst:ready https://github.com/owner/repo/pull/42 --max-ci-attempts 5 --max-review-rounds 3
+```
+
 ### `/pst:code-review`
 
 Code review with worktree-isolated fix verification. Every finding is validated by applying the suggested fix in an isolated worktree and running quality gates - findings that break the build are dropped. Supports GitHub PR reviews, local-only output, autonomous auto-fix, and multi-round sweep mode.
