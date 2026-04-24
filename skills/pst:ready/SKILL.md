@@ -1,6 +1,6 @@
 ---
 name: pst:ready
-description: Bring an open PR to merge-ready state — rebase onto the PR base, await CI and auto-fix failures, loop resolve-threads + code-review until clean, re-verify CI, then open in the browser.
+description: Bring an open PR to merge-ready state -- rebase onto the PR base, await CI and auto-fix failures, loop resolve-threads + code-review until clean, re-verify CI, then open in the browser.
 argument-hint: "<PR-URL> [--dry-run] [--no-open] [--max-ci-attempts N] [--max-review-rounds N]"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion, Skill
 ---
