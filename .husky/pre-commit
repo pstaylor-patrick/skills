@@ -1,1 +1,11 @@
 pnpm run format:check
+
+# pst-context service quality gates
+if [ -d services/pst-context/node_modules ]; then
+  cd services/pst-context
+  pnpm lint
+  pnpm typecheck
+  pnpm test:coverage
+  npx prettier --check .
+  cd ../..
+fi

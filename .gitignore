@@ -7,3 +7,5 @@ node_modules
 .vscode/
 .claude/worktrees/
 .worktrees/
+.env*
+!.env.example
