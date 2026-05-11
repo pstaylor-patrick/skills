@@ -413,7 +413,7 @@ of GitHub checks/review threads. These must be treated like CI failures even
 when `gh pr checks` is fully green.
 
 Run the deterministic blocking-comment scanner with the already-resolved
-`$PR_OWNER`, `$PR_REPO`, and `$PR_NUMBER` from Phase 0 — never use bare
+`$PR_OWNER`, `$PR_REPO`, and `$PR_NUMBER` from Phase 0 - never use bare
 `$OWNER`/`$REPO` variables that may be unset:
 
 ```bash
@@ -423,7 +423,7 @@ SCAN_STATUS=$(echo "$SCAN_RESULT" | jq -r .status)   # none | blocking | satisfi
 ```
 
 (If the `scripts/` companion is not installed, fall back to the inline approach
-below — but prefer the script because it handles sentinel extraction and ticket
+below - but prefer the script because it handles sentinel extraction and ticket
 lookup deterministically with `set -euo pipefail`.)
 
 **Inline fallback when the script is unavailable:**
@@ -815,11 +815,11 @@ PUSHED_LINE="no commits pushed"
 
 gh pr comment "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" --body "$(cat <<'ATTESTATION'
 <!-- pst:ready-attestation -->
-✅ **\`/pst:ready\` complete — \`${HEAD_SHA:0:12}\`**
+✅ **\`/pst:ready\` complete - \`${HEAD_SHA:0:12}\`**
 
 | Phase | Result |
 |---|---|
-| Rebase | onto \`$BASE_BRANCH\` — $REBASE_SUMMARY |
+| Rebase | onto \`$BASE_BRANCH\` - $REBASE_SUMMARY |
 | CI (pass 1) | $CI_PASS1_SUMMARY |
 | Resolve threads | $THREADS_SUMMARY |
 | Code review | $REVIEW_SUMMARY |
@@ -836,7 +836,7 @@ Populate each `$*_SUMMARY` variable from what the phases recorded:
 
 | Variable             | Value                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `REBASE_SUMMARY`     | `"already current"` if up to date, `"rebased, {N} conflict(s) auto-resolved"` if rebased cleanly, `"conflict — see above"` if halted |
+| `REBASE_SUMMARY`     | `"already current"` if up to date, `"rebased, {N} conflict(s) auto-resolved"` if rebased cleanly, `"conflict - see above"` if halted |
 | `CI_PASS1_SUMMARY`   | `"green · {check} ✓ · ..."` for passed checks, `"green after {N} fix attempt(s)"` if fixes were applied                              |
 | `THREADS_SUMMARY`    | `"{N} resolved · {N} CHANGES_REQUESTED dismissed"` or `"none"`                                                                       |
 | `REVIEW_SUMMARY`     | `"{R} round(s) · 0 criticals · 0 warnings"` or `"{R} round(s) · {C} critical(s) fixed"`                                              |
@@ -844,7 +844,7 @@ Populate each `$*_SUMMARY` variable from what the phases recorded:
 | `PR_REFRESH_SUMMARY` | `"title + description updated"` or `"no changes needed"`                                                                             |
 | `TEST_PLAN_SUMMARY`  | `"{V} validated / {F} failed / {M} manual"` or `"nothing to validate"`                                                               |
 
-If `gh pr comment` fails (e.g., the PR is already merged and the repo disallows comments on merged PRs), warn but do not stop — the terminal summary in 8.2 still records the outcome.
+If `gh pr comment` fails (e.g., the PR is already merged and the repo disallows comments on merged PRs), warn but do not stop - the terminal summary in 8.2 still records the outcome.
 
 In `--dry-run`: print the would-be comment body to the terminal prefixed with `[dry-run] Would post attestation comment:` but do not call `gh pr comment`.
 
@@ -889,7 +889,7 @@ Runs **after Phase 8** (browser open + terminal summary) and **only when `--merg
 
 Before the merge (while the PR is still open and the GitHub API can enumerate
 its files), persist the exact set of files changed by this PR. This list is
-used by 8.5.5 for spot-checks — using a post-merge `git diff` boundary is
+used by 8.5.5 for spot-checks - using a post-merge `git diff` boundary is
 unreliable because the base branch may advance between merge and validation.
 
 ```bash
@@ -910,7 +910,7 @@ gh pr merge "$PR_NUMBER" --squash
 If the merge fails (branch protection, required reviews not met, mergeable_state != clean):
 
 - Print the `gh` error verbatim.
-- Stop with: `Merge failed. PR is still READY — run: gh pr merge $PR_NUMBER --squash when the blocker is cleared.`
+- Stop with: `Merge failed. PR is still READY - run: gh pr merge $PR_NUMBER --squash when the blocker is cleared.`
 - Do NOT delete the progress file; keep it so the user can resume or retry.
 
 ### 8.5.2 Confirm merge on GitHub
@@ -951,7 +951,7 @@ CI_CONCLUSION=$(echo "$POST_MERGE_CI"  | jq -r .run_conclusion)
 ```
 
 **Inline fallback when the script is unavailable** (use only if the companion
-script cannot be located — note the explicit `RUN_ID` assignment):
+script cannot be located - note the explicit `RUN_ID` assignment):
 
 ```bash
 # Poll up to 90s for a run at $MERGE_SHA to appear on $BASE_BRANCH
@@ -979,14 +979,14 @@ if [ -n "$RUN_ID" ]; then
     --repo "$PR_OWNER/$PR_REPO" \
     --json conclusion --jq '.conclusion // "unknown"')
 else
-  echo "No CI run detected on $BASE_BRANCH at $MERGE_SHA — skipping post-merge CI wait."
+  echo "No CI run detected on $BASE_BRANCH at $MERGE_SHA - skipping post-merge CI wait."
   CI_CONCLUSION="skipped"
 fi
 ```
 
 ### 8.5.5 Spot-check key files on base branch
 
-Use `$PR_FILES` captured in 8.5.1 (before merge) — **not** a post-merge
+Use `$PR_FILES` captured in 8.5.1 (before merge) - **not** a post-merge
 `git diff` boundary. A diff against `origin/$BASE_BRANCH..$MERGE_SHA` drifts
 once the base branch advances past the merge commit and can include unrelated
 changes or miss the actual PR's file set.
@@ -1000,12 +1000,12 @@ for FILE in $(echo "$PR_FILES" | jq -r '.[]'); do
   if git cat-file -e "origin/${BASE_BRANCH}:${FILE}" 2>/dev/null; then
     echo "✓  $FILE exists on $BASE_BRANCH"
   else
-    echo "✗  $FILE not found on $BASE_BRANCH — post-merge warning"
+    echo "✗  $FILE not found on $BASE_BRANCH - post-merge warning"
   fi
 done
 ```
 
-Any `✗` is a post-merge warning (not a blocker — the merge already happened).
+Any `✗` is a post-merge warning (not a blocker - the merge already happened).
 
 ### 8.5.6 Print post-merge summary and delete progress file
 
@@ -1017,8 +1017,8 @@ Post-merge validation for PR #{PR_NUMBER}
   File spot-checks:   {N passed} / {M total}
 ```
 
-**Only here** — after merge confirmation, base-branch verification, and
-post-merge CI have all completed — delete `.pst-ready-progress.json`. Do not
+**Only here** - after merge confirmation, base-branch verification, and
+post-merge CI have all completed - delete `.pst-ready-progress.json`. Do not
 delete it earlier (Phase 8 must not delete it when `--merge` is set, because
 the progress file is the recovery point if anything fails between merge and
 this step).
@@ -1097,7 +1097,7 @@ Written after every phase completes, at `$WORK_DIR/.pst-ready-progress.json`:
 | `merge_pending`          | Phase 8 done; `gh pr merge` not yet called                 | Yes                 |
 | `merged`                 | Merge confirmed; base-branch verification not yet done     | Yes                 |
 | `base_verified`          | Merge commit confirmed on base; post-merge CI not yet done | Yes                 |
-| `post_merge_ci_verified` | All post-merge checks complete — delete progress file      | **Deleted here**    |
+| `post_merge_ci_verified` | All post-merge checks complete - delete progress file      | **Deleted here**    |
 
 The file is only deleted when `state` reaches `post_merge_ci_verified` in Phase 8.5.6. Any earlier failure (e.g., merge call fails, base-branch verification fails, CI fails) leaves the file in place as a resumption point.
 

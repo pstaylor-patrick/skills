@@ -4,9 +4,9 @@
 #
 # Scans recent issue comments on a PR for known merge-blocking automation
 # sentinels. Prints a machine-readable result and exits with:
-#   0  — no blocking sentinel found (safe to proceed)
-#   1  — blocking sentinel found and NOT already satisfied (merge is blocked)
-#   2  — blocking sentinel found but already satisfied on the current branch
+#   0  - no blocking sentinel found (safe to proceed)
+#   1  - blocking sentinel found and NOT already satisfied (merge is blocked)
+#   2  - blocking sentinel found but already satisfied on the current branch
 #
 # Stdout (last line): JSON object
 #   { "status": "none" | "blocking" | "satisfied",
@@ -69,7 +69,7 @@ if [ -n "$SPEC_COMMENT" ]; then
     result_spec_pattern="\"$SPEC_PATTERN\""
     result_ticket="\"$TICKET_KEY\""
   else
-    # Comment found but couldn't extract a ticket key — treat as blocking
+    # Comment found but couldn't extract a ticket key - treat as blocking
     result_status="blocking"
   fi
 

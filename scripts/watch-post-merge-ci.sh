@@ -20,8 +20,8 @@
 #   }
 #
 # Exit codes:
-#   0 — run passed (or no run found) and all spot-checks passed
-#   1 — run failed or one or more spot-checks failed
+#   0 - run passed (or no run found) and all spot-checks passed
+#   1 - run failed or one or more spot-checks failed
 set -euo pipefail
 
 OWNER="${1:?Usage: $0 <owner> <repo> <merge_sha> <base_branch> <pr_files_json>}"
