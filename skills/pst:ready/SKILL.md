@@ -412,10 +412,24 @@ Some repo automations report merge-blocking work as PR issue comments instead
 of GitHub checks/review threads. These must be treated like CI failures even
 when `gh pr checks` is fully green.
 
-Fetch recent PR comments before declaring CI green:
+Run the deterministic blocking-comment scanner with the already-resolved
+`$PR_OWNER`, `$PR_REPO`, and `$PR_NUMBER` from Phase 0 — never use bare
+`$OWNER`/`$REPO` variables that may be unset:
 
 ```bash
-gh api "repos/$OWNER/$REPO/issues/$PR_NUMBER/comments" --paginate \
+SCAN_RESULT=$(bash "$(git rev-parse --show-toplevel)/scripts/scan-blocking-comments.sh" \
+  "$PR_OWNER" "$PR_REPO" "$PR_NUMBER")
+SCAN_STATUS=$(echo "$SCAN_RESULT" | jq -r .status)   # none | blocking | satisfied
+```
+
+(If the `scripts/` companion is not installed, fall back to the inline approach
+below — but prefer the script because it handles sentinel extraction and ticket
+lookup deterministically with `set -euo pipefail`.)
+
+**Inline fallback when the script is unavailable:**
+
+```bash
+gh api "repos/$PR_OWNER/$PR_REPO/issues/$PR_NUMBER/comments" --paginate \
   --jq '.[] | {id, user: .user.login, body, html_url, created_at}'
 ```
 
@@ -434,7 +448,7 @@ Rules:
 - Re-run this comment scan in Phase 5 as part of the final green gate, because
   bots may post these comments after the first CI pass.
 
-If zero `fail`/`cancel` checks **and** zero unsatisfied blocking comments -> Phase 4.
+If zero `fail`/`cancel` checks **and** `SCAN_STATUS` is `none` or `satisfied` -> Phase 4.
 
 ### 3.3 Diagnose failures
 
@@ -805,7 +819,12 @@ Print a final summary to the terminal:
 Residual: none
 ```
 
-On success, delete `.pst-ready-progress.json`. On partial completion (halt in Phase 3, 4, 5, 6, or 7), keep it so a plain `/pst:ready $PR_URL` picks up where we left off.
+**Progress file lifetime:**
+
+- **`--merge` NOT set:** delete `.pst-ready-progress.json` on success. On partial completion (halt in Phase 3, 4, 5, 6, or 7), keep it so a plain `/pst:ready $PR_URL` picks up where we left off.
+- **`--merge` IS set:** do **NOT** delete the progress file here. Phase 8.5 is about to call `gh pr merge`, which is irreversible. The progress file is the only recovery point if merge succeeds but post-merge validation fails. Phase 8.5.6 deletes it after `post_merge_ci_verified` completes.
+
+Update the progress `state` field to `merge_pending` before continuing to Phase 8.5 when `--merge` is set.
 
 ---
 
@@ -813,7 +832,23 @@ On success, delete `.pst-ready-progress.json`. On partial completion (halt in Ph
 
 Runs **after Phase 8** (browser open + terminal summary) and **only when `--merge` was passed**. Skipped entirely in `--dry-run` mode.
 
-### 8.5.1 Squash-merge
+### 8.5.1 Capture PR file list, then squash-merge
+
+Before the merge (while the PR is still open and the GitHub API can enumerate
+its files), persist the exact set of files changed by this PR. This list is
+used by 8.5.5 for spot-checks — using a post-merge `git diff` boundary is
+unreliable because the base branch may advance between merge and validation.
+
+```bash
+PR_FILES=$(gh pr view "$PR_NUMBER" \
+  --repo "$PR_OWNER/$PR_REPO" \
+  --json files \
+  --jq '[.files[].path]')
+# Persist into progress file so 8.5.5 can use it even on resume
+# (jq-update .pr_files in .pst-ready-progress.json)
+```
+
+Then squash-merge:
 
 ```bash
 gh pr merge "$PR_NUMBER" --squash
@@ -851,33 +886,75 @@ Log: `Merge commit $MERGE_SHA is on origin/$BASE_BRANCH ✓`
 
 ### 8.5.4 Wait for post-merge CI
 
-Look up the most recent CI run on `$BASE_BRANCH` at `$MERGE_SHA`:
+Delegate to the companion script which explicitly assigns `run_id`, handles the
+no-run case, and returns a structured JSON result:
 
 ```bash
-gh run list --branch "$BASE_BRANCH" --limit 5 \
-  --json databaseId,headSha,status,conclusion,name \
-  --jq ".[] | select(.headSha == \"$MERGE_SHA\")" | head -1
+POST_MERGE_CI=$(bash "$(git rev-parse --show-toplevel)/scripts/watch-post-merge-ci.sh" \
+  "$PR_OWNER" "$PR_REPO" "$MERGE_SHA" "$BASE_BRANCH" "$PR_FILES")
+CI_RUN_FOUND=$(echo "$POST_MERGE_CI"   | jq -r .run_found)
+CI_RUN_ID=$(echo "$POST_MERGE_CI"      | jq -r '.run_id // empty')
+CI_CONCLUSION=$(echo "$POST_MERGE_CI"  | jq -r .run_conclusion)
 ```
 
-If a run is found and `status != completed`, watch it:
+**Inline fallback when the script is unavailable** (use only if the companion
+script cannot be located — note the explicit `RUN_ID` assignment):
 
 ```bash
-gh run watch "$RUN_ID" --interval 15
-```
+# Poll up to 90s for a run at $MERGE_SHA to appear on $BASE_BRANCH
+RUN_ID=""
+for i in $(seq 1 9); do
+  RUN_ID=$(gh run list \
+    --repo "$PR_OWNER/$PR_REPO" \
+    --branch "$BASE_BRANCH" \
+    --limit 10 \
+    --json databaseId,headSha,status,conclusion \
+    --jq ".[] | select(.headSha == \"$MERGE_SHA\") | .databaseId" \
+    | head -1 || true)
+  [ -n "$RUN_ID" ] && break
+  sleep 10
+done
 
-If no run is triggered within 60s (some repos don't run CI on base-branch merges), log: `No CI run detected on $BASE_BRANCH at $MERGE_SHA — skipping post-merge CI wait.`
+if [ -n "$RUN_ID" ]; then
+  RUN_STATUS=$(gh run view "$RUN_ID" \
+    --repo "$PR_OWNER/$PR_REPO" \
+    --json status --jq .status)
+  if [ "$RUN_STATUS" != "completed" ]; then
+    gh run watch "$RUN_ID" --repo "$PR_OWNER/$PR_REPO" --interval 15
+  fi
+  CI_CONCLUSION=$(gh run view "$RUN_ID" \
+    --repo "$PR_OWNER/$PR_REPO" \
+    --json conclusion --jq '.conclusion // "unknown"')
+else
+  echo "No CI run detected on $BASE_BRANCH at $MERGE_SHA — skipping post-merge CI wait."
+  CI_CONCLUSION="skipped"
+fi
+```
 
 ### 8.5.5 Spot-check key files on base branch
 
-For each file changed in the PR (`git diff --name-only origin/$BASE_BRANCH..$MERGE_SHA`), confirm the file exists on the base branch and spot-check one key assertion from the PR's stated changes (e.g., if the PR changed a cron value, grep for the new value on the base branch):
+Use `$PR_FILES` captured in 8.5.1 (before merge) — **not** a post-merge
+`git diff` boundary. A diff against `origin/$BASE_BRANCH..$MERGE_SHA` drifts
+once the base branch advances past the merge commit and can include unrelated
+changes or miss the actual PR's file set.
+
+If the companion script ran in 8.5.4, spot-check results are already in
+`$POST_MERGE_CI`'s `spot_checks` array. Otherwise confirm manually:
 
 ```bash
-git show "origin/$BASE_BRANCH:$FILE" | grep "$EXPECTED_VALUE" > /dev/null
+# $PR_FILES is a JSON array: ["path/to/a.ts", "path/to/b.ts"]
+for FILE in $(echo "$PR_FILES" | jq -r '.[]'); do
+  if git cat-file -e "origin/${BASE_BRANCH}:${FILE}" 2>/dev/null; then
+    echo "✓  $FILE exists on $BASE_BRANCH"
+  else
+    echo "✗  $FILE not found on $BASE_BRANCH — post-merge warning"
+  fi
+done
 ```
 
-Log each check as `✓` or `✗`. Any `✗` is a post-merge warning (not a blocker — the merge already happened).
+Any `✗` is a post-merge warning (not a blocker — the merge already happened).
 
-### 8.5.6 Print post-merge summary
+### 8.5.6 Print post-merge summary and delete progress file
 
 ```
 Post-merge validation for PR #{PR_NUMBER}
@@ -887,7 +964,20 @@ Post-merge validation for PR #{PR_NUMBER}
   File spot-checks:   {N passed} / {M total}
 ```
 
-Delete `.pst-ready-progress.json` on success.
+**Only here** — after merge confirmation, base-branch verification, and
+post-merge CI have all completed — delete `.pst-ready-progress.json`. Do not
+delete it earlier (Phase 8 must not delete it when `--merge` is set, because
+the progress file is the recovery point if anything fails between merge and
+this step).
+
+```bash
+rm -f "$WORK_DIR/.pst-ready-progress.json"
+```
+
+If post-merge CI failed (`CI_CONCLUSION == "failure"`), keep the progress file
+and stop with a warning: "Post-merge CI failed on $BASE_BRANCH. The PR is
+merged but the base branch may be broken. Progress file preserved for
+investigation."
 
 ### 8.5.7 Dry-run behavior
 
@@ -940,10 +1030,23 @@ Written after every phase completes, at `$WORK_DIR/.pst-ready-progress.json`:
   "ci_attempts_pass2": 0,
   "review_rounds": 1,
   "test_plan": { "validated": 3, "failed": 0, "manual": 4 },
+  "pr_files": ["src/a.ts", "src/b.ts"],
   "residual": [],
   "updated_at": "2026-04-24T18:05:00Z"
 }
 ```
+
+**State machine transitions for `--merge` flow:**
+
+| `state` value            | Meaning                                                    | Progress file kept? |
+| ------------------------ | ---------------------------------------------------------- | ------------------- |
+| `rebase` … `test-plan`   | Normal pipeline phases                                     | Yes (resume target) |
+| `merge_pending`          | Phase 8 done; `gh pr merge` not yet called                 | Yes                 |
+| `merged`                 | Merge confirmed; base-branch verification not yet done     | Yes                 |
+| `base_verified`          | Merge commit confirmed on base; post-merge CI not yet done | Yes                 |
+| `post_merge_ci_verified` | All post-merge checks complete — delete progress file      | **Deleted here**    |
+
+The file is only deleted when `state` reaches `post_merge_ci_verified` in Phase 8.5.6. Any earlier failure (e.g., merge call fails, base-branch verification fails, CI fails) leaves the file in place as a resumption point.
 
 ---
 
