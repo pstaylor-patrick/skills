@@ -41,7 +41,7 @@ fi
 # Matches: <!-- missing-spec-check --> or "Missing specification document"
 # ------------------------------------------------------------------
 SPEC_COMMENT=$(echo "$COMMENTS" | jq -s '[.[] | select(
-    (.body | test("<!-- ?missing-spec-check ?>"; "i")) or
+    (.body | test("<!--\\s*missing-spec-check\\s*-->"; "i")) or
     (.body | test("Missing specification document"; "i"))
   )] | first // empty')
 
