@@ -798,6 +798,58 @@ In `--dry-run`: parse and classify as above, print the would-be comment and the 
 
 ## Phase 8 -- Open & Summarize
 
+### 8.1 Post attestation comment
+
+**Always post this comment** (unless `--dry-run`) so there is a GitHub-visible audit trail even when no changes were made. Without it, a clean run is indistinguishable from the skill never having run.
+
+Build the comment body from the progress file and emit it via `gh pr comment`:
+
+```bash
+# Determine whether any commits were pushed during this run
+COMMITS_PUSHED=0
+[ "$REBASE_RESULT" != "skipped-up-to-date" ] && COMMITS_PUSHED=$((COMMITS_PUSHED + 1))
+# (also count any CI-fix or review-loop commits from Phases 3/4)
+
+PUSHED_LINE="no commits pushed"
+[ "$COMMITS_PUSHED" -gt 0 ] && PUSHED_LINE="$COMMITS_PUSHED commit(s) pushed"
+
+gh pr comment "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" --body "$(cat <<'ATTESTATION'
+<!-- pst:ready-attestation -->
+✅ **\`/pst:ready\` complete — \`${HEAD_SHA:0:12}\`**
+
+| Phase | Result |
+|---|---|
+| Rebase | onto \`$BASE_BRANCH\` — $REBASE_SUMMARY |
+| CI (pass 1) | $CI_PASS1_SUMMARY |
+| Resolve threads | $THREADS_SUMMARY |
+| Code review | $REVIEW_SUMMARY |
+| CI (pass 2) | $CI_PASS2_SUMMARY |
+| PR refresh | $PR_REFRESH_SUMMARY |
+| Test plan | $TEST_PLAN_SUMMARY |
+
+*$PUSHED_LINE · $(date -u +%Y-%m-%dT%H:%M:%SZ)*
+ATTESTATION
+)"
+```
+
+Populate each `$*_SUMMARY` variable from what the phases recorded:
+
+| Variable             | Value                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `REBASE_SUMMARY`     | `"already current"` if up to date, `"rebased, {N} conflict(s) auto-resolved"` if rebased cleanly, `"conflict — see above"` if halted |
+| `CI_PASS1_SUMMARY`   | `"green · {check} ✓ · ..."` for passed checks, `"green after {N} fix attempt(s)"` if fixes were applied                              |
+| `THREADS_SUMMARY`    | `"{N} resolved · {N} CHANGES_REQUESTED dismissed"` or `"none"`                                                                       |
+| `REVIEW_SUMMARY`     | `"{R} round(s) · 0 criticals · 0 warnings"` or `"{R} round(s) · {C} critical(s) fixed"`                                              |
+| `CI_PASS2_SUMMARY`   | Same format as pass 1                                                                                                                |
+| `PR_REFRESH_SUMMARY` | `"title + description updated"` or `"no changes needed"`                                                                             |
+| `TEST_PLAN_SUMMARY`  | `"{V} validated / {F} failed / {M} manual"` or `"nothing to validate"`                                                               |
+
+If `gh pr comment` fails (e.g., the PR is already merged and the repo disallows comments on merged PRs), warn but do not stop — the terminal summary in 8.2 still records the outcome.
+
+In `--dry-run`: print the would-be comment body to the terminal prefixed with `[dry-run] Would post attestation comment:` but do not call `gh pr comment`.
+
+### 8.2 Open browser and print terminal summary
+
 Unless `--no-open` or `--dry-run`:
 
 ```bash
@@ -814,6 +866,7 @@ Print a final summary to the terminal:
   CI (pass 2):     green after {Z} attempt(s)   ✓
   PR refresh:      title + description updated  ✓
   Test plan:       {V} validated / {F} failed / {M} manual
+  Attestation:     posted to PR                 ✓
   URL:             {PR_URL}
 
 Residual: none
