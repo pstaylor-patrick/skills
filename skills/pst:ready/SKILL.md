@@ -793,7 +793,7 @@ When the loop exits cleanly, mark `settle` completed and record:
 
 ## Phase 6 -- Refresh PR Title and Description
 
-This phase runs **only after CI pass 2 is green** (i.e., after Phase 5 has cleared). The branch is now the finished product; the PR body should describe what actually shipped, not what the branch looked like at opening.
+This phase runs **only after CI pass 2 is green** (i.e., after Phase 5 has cleared and Phase 5.5 has settled or was skipped). The branch is now the finished product; the PR body should describe what actually shipped, not what the branch looked like at opening.
 
 ### 6.1 Gather the source material
 
