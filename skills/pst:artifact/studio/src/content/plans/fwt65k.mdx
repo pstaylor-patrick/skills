@@ -1,9 +1,9 @@
 ---
 title: "A private Claude Artifacts, shipped"
-permalink: "pst-plan-artifacts-studio-executive-summary"
-eyebrow: "Executive summary · pst:plan"
+permalink: "pst-artifact-studio-executive-summary"
+eyebrow: "Executive summary · pst:artifact"
 subtitle: "We replaced the wall-of-text plan generator with a studio that produces bespoke, interactive, shareable artifacts — and this page was generated and published by it."
-summary: "Executive summary of the pst:plan artifacts studio: what shipped, how it works, and the before/after."
+summary: "Executive summary of the pst:artifact studio: what shipped, how it works, and the before/after."
 theme: "editorial"
 status: "final"
 sourcePath: "github.com/pstaylor-patrick/skills · PR #50"
@@ -19,7 +19,7 @@ import {
 
 <Hero
   treatment="gradient"
-  eyebrow="Executive summary · pst:plan"
+  eyebrow="Executive summary · pst:artifact"
   title="A private Claude Artifacts,"
   titleAccent="shipped"
   subtitle="Plans used to glaze over — the same boilerplate template, every time. Now each one is a bespoke, interactive page you can comment on and share with a link."
@@ -83,7 +83,7 @@ import {
       </defs>
       <g font-family="var(--font-mono)" font-size="13" text-anchor="middle">
         <rect x="10" y="60" width="150" height="60" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" />
-        <text x="85" y="86" fill="var(--text)">/pst:plan</text>
+        <text x="85" y="86" fill="var(--text)">/pst:artifact</text>
         <text x="85" y="104" fill="var(--muted)" font-size="11">author + theme</text>
         <rect x="210" y="60" width="150" height="60" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" />
         <text x="285" y="86" fill="var(--text)">review</text>
@@ -104,11 +104,11 @@ import {
 
 <Section title="Before & after" aside="Why we did it">
   <Compare
-    caption="The old /plan-io builder vs. the new /pst:plan studio."
+    caption="The old /plan-io builder vs. the new /pst:artifact studio."
     columns={[
       { key: "dim", label: "Dimension" },
       { key: "before", label: "/plan-io (before)" },
-      { key: "after", label: "/pst:plan (after)" },
+      { key: "after", label: "/pst:artifact (after)" },
     ]}
     rows={[
       { dim: "Look", before: "One HTML template", after: "Bespoke per plan" },
@@ -123,7 +123,7 @@ import {
 <Section title="The review loop" aside="In practice" tint>
   <Steps>
     <Step title="Author" priority="P0" effort="S" owner="claude">
-      `/pst:plan` writes a bespoke page and opens it in the browser.
+      `/pst:artifact` writes a bespoke page and opens it in the browser.
     </Step>
     <Step title="Comment" priority="P1" effort="S" owner="you">
       Click anywhere to leave grounded feedback; it saves to disk automatically.
@@ -162,7 +162,7 @@ import {
 
 <Section>
   <Callout tone="tip" title="This page is the proof">
-    You're reading an artifact that <strong>pst:plan generated and published</strong> —
+    You're reading an artifact that <strong>pst:artifact generated and published</strong> —
     composed from the kit, themed, built by Astro, synced to S3, and served
     through CloudFront at a private, no-index subdomain. The dogfood worked. See
     the <Link href="https://github.com/pstaylor-patrick/skills/pull/50">pull request</Link> for the full change set.

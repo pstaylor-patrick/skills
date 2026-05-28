@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a fresh, collision-checked short id for a new pst:plan artifact.
+"""Generate a fresh, collision-checked short id for a new pst:artifact artifact.
 
 The id is the studio MDX filename and lives forever in the URL (/p/<id>/<slug>),
 so it must be stable and unique. Uses an unambiguous lowercase base32-ish

@@ -4,7 +4,7 @@
 // the toolbar's "Comment", then click anywhere on the page — the layer captures
 // the nearest [data-anchor], section heading, a CSS selector, and the local text
 // so feedback is auto-grounded. Threads persist to studio/feedback/<id>.json via
-// the dev middleware; `/pst:plan --feedback <id>` reads them back to revise.
+// the dev middleware; `/pst:artifact --feedback <id>` reads them back to revise.
 import type { Thread } from "@lib/feedback";
 
 interface Props {
@@ -73,7 +73,7 @@ const isDev = import.meta.env.DEV;
           </button>
           <p class="ps-cl-hint">
             Saved to <code>feedback/{id}.json</code> — run
-            <code>/pst:plan --feedback {id}</code> to revise.
+            <code>/pst:artifact --feedback {id}</code> to revise.
           </p>
         </footer>
       </aside>
@@ -300,7 +300,7 @@ const isDev = import.meta.env.DEV;
             } else {
               text =
                 "Revise the artifact \"" + planId + "\" with this review feedback, " +
-                "then I'll re-run /pst:plan. " + live.length + " comment(s):\n\n" +
+                "then I'll re-run /pst:artifact. " + live.length + " comment(s):\n\n" +
                 live
                   .map(function (t, i) {
                     var loc = t.anchor || t.section || "General";

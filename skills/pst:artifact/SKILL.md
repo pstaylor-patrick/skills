@@ -1,11 +1,11 @@
 ---
-name: pst:plan
+name: pst:artifact
 description: Turn a plan into a bespoke interactive artifact in the Astro studio — click-anywhere comments, one-command publish.
 argument-hint: '[<plan.md>] [--exec] [--theme <name>] [--ttl <7|30d|never>] [--title "..."] | <id|url> (iterate) | --feedback <id> | --publish <id|url> [--ttl …] | --destroy <id> | --list'
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# pst:plan — the planning artifacts studio
+# pst:artifact — the planning artifacts studio
 
 Turn a plan — recommended next steps drafted in the terminal, or a markdown plan
 file — into a **bespoke, interactive web artifact** rendered by a local Astro
@@ -21,32 +21,32 @@ no interview.
 
 ```bash
 # Pivot the plan Claude just produced in this conversation (most common)
-/pst:plan
+/pst:artifact
 
 # Executive summary of the current session: what shipped + prescriptive next steps
-/pst:plan --exec
+/pst:artifact --exec
 
 # Render a markdown plan file, pick an art direction
-/pst:plan ./docs/migration-plan.md --theme technical --title "Q3 Platform Migration"
+/pst:artifact ./docs/migration-plan.md --theme technical --title "Q3 Platform Migration"
 
 # Revise an existing artifact from the comments you left in the browser
-/pst:plan --feedback k3f9q2
+/pst:artifact --feedback k3f9q2
 
 # Publish to your subdomain (default 7-day TTL; needs plans.config.json + terraform)
-/pst:plan --publish k3f9q2
-/pst:plan --publish k3f9q2 --ttl 30d        # 30 days
-/pst:plan --publish k3f9q2 --ttl never      # keep forever
+/pst:artifact --publish k3f9q2
+/pst:artifact --publish k3f9q2 --ttl 30d        # 30 days
+/pst:artifact --publish k3f9q2 --ttl never      # keep forever
 
 # Iterate on a published artifact from ANY session — pass its id or URL.
 # Same id/URL is preserved; it's updated in place.
-/pst:plan k3f9q2 "make the hero calmer and tighten the steps"
-/pst:plan https://artifacts.pstaylor.net/p/k3f9q2/whatever "fix the third stat"
+/pst:artifact k3f9q2 "make the hero calmer and tighten the steps"
+/pst:artifact https://artifacts.pstaylor.net/p/k3f9q2/whatever "fix the third stat"
 
 # Destroy one now (the reaper also auto-destroys at TTL)
-/pst:plan --destroy k3f9q2
+/pst:artifact --destroy k3f9q2
 
 # List existing artifacts
-/pst:plan --list
+/pst:artifact --list
 ```
 
 **Defaults when bare:** source = the most recent plan / recommended next steps in
@@ -61,12 +61,12 @@ The command is a symlink into the skills repo. Resolve its real location, then
 work relative to it:
 
 ```bash
-SKILL_DIR="$(dirname "$(readlink -f "$HOME/.claude/commands/pst:plan.md" 2>/dev/null || echo "$HOME/.claude/commands/pst:plan.md")")"
+SKILL_DIR="$(dirname "$(readlink -f "$HOME/.claude/commands/pst:artifact.md" 2>/dev/null || echo "$HOME/.claude/commands/pst:artifact.md")")"
 STUDIO="$SKILL_DIR/studio"
 PLANS="$STUDIO/src/content/plans"
 ```
 
-If `readlink -f` is unavailable (older macOS), fall back to `python3 -c "import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))" "$HOME/.claude/commands/pst:plan.md"`.
+If `readlink -f` is unavailable (older macOS), fall back to `python3 -c "import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))" "$HOME/.claude/commands/pst:artifact.md"`.
 
 ## The studio (read it; don't reinvent it)
 
@@ -206,7 +206,7 @@ the same thing the reaper does at TTL, on demand.
 
 Print: the artifact id and its local URL; the theme/art direction chosen; the
 blocks used; any assumptions made when the plan was sparse; and the one-liner —
-_"In the page: click Comment, drop pins anywhere, then re-run `/pst:plan
+_"In the page: click Comment, drop pins anywhere, then re-run `/pst:artifact
 --feedback <id>` to apply."_
 
 ## Authoring rules — make it executive-friendly, never slop

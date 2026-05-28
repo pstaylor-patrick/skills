@@ -18,7 +18,8 @@ const plans = (await getCollection("plans")).sort((a, b) => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Artifacts</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-256x256.png" />
   </head>
   <body>
     <header class="hd container">
@@ -34,7 +35,7 @@ const plans = (await getCollection("plans")).sort((a, b) => {
       {
         plans.length === 0 ? (
           <p class="empty">
-            No artifacts yet. Run <code>/pst:plan</code> to create one.
+            No artifacts yet. Run <code>/pst:artifact</code> to create one.
           </p>
         ) : (
           <ul class="grid">

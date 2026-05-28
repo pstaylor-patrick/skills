@@ -50,8 +50,9 @@ const analytics = !import.meta.env.DEV && cfg.analyticsEndpoint ? cfg.analyticsE
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     <title>{plan.title}</title>
     {plan.summary && <meta name="description" content={plan.summary} />}
-    <meta name="generator" content="pst:plan studio" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="generator" content="pst:artifact studio" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-256x256.png" />
   </head>
   <body style={style}>
     <div class="plan-root">
@@ -92,7 +93,7 @@ const analytics = !import.meta.env.DEV && cfg.analyticsEndpoint ? cfg.analyticsE
           </div>
           <p class="fineprint">
             A private planning artifact · not indexed · made with the
-            <code>/pst:plan</code> studio
+            <code>/pst:artifact</code> studio
           </p>
         </div>
       </footer>

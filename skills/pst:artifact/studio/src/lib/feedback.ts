@@ -1,6 +1,6 @@
 /**
  * On-disk feedback store. The comment island (dev only) POSTs threads here via
- * src/middleware.ts; they land in studio/feedback/<id>.json. `/pst:plan
+ * src/middleware.ts; they land in studio/feedback/<id>.json. `/pst:artifact
  * --feedback <id>` reads that file back to revise the plan — a real round-trip,
  * not a clipboard paste. The published static bundle never touches this.
  */

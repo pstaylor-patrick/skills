@@ -1,12 +1,12 @@
 ---
 title: "From a wall of text to a planning studio"
 permalink: "planning-studio"
-eyebrow: "pst:plan · field guide"
+eyebrow: "pst:artifact · field guide"
 subtitle: "How an artifact is composed — and the reference for every block in the kit."
-summary: "A worked example of the pst:plan studio: bespoke art direction, the component kit, click-anywhere comments, and one-command publishing."
+summary: "A worked example of the pst:artifact studio: bespoke art direction, the component kit, click-anywhere comments, and one-command publishing."
 theme: "technical"
 status: "final"
-sourcePath: "skills/pst:plan/README.md"
+sourcePath: "skills/pst:artifact/README.md"
 tags: ["meta", "reference"]
 createdAt: 2026-05-28
 updatedAt: 2026-05-28
@@ -19,7 +19,7 @@ import {
 
 <Hero
   treatment="gradient"
-  eyebrow="pst:plan · field guide"
+  eyebrow="pst:artifact · field guide"
   title="Plans that read like a product,"
   titleAccent="not a changelog"
   subtitle="Each artifact is composed from a small kit of blocks and given its own art direction — so it fits the prompt instead of looking like the same template every time."
@@ -84,7 +84,7 @@ import {
       <g font-family="var(--font-mono)" font-size="13" text-anchor="middle">
         <g>
           <rect x="10" y="60" width="150" height="60" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" />
-          <text x="85" y="86" fill="var(--text)">/pst:plan</text>
+          <text x="85" y="86" fill="var(--text)">/pst:artifact</text>
           <text x="85" y="104" fill="var(--muted)" font-size="11">authors MDX</text>
         </g>
         <g>
@@ -130,17 +130,17 @@ import {
 <Section title="How you'd ship it" aside="Prescriptive">
   <Steps>
     <Step title="Author the artifact" priority="P0" effort="S" owner="claude">
-      `/pst:plan` writes a bespoke MDX page into the studio and opens `astro dev`.
+      `/pst:artifact` writes a bespoke MDX page into the studio and opens `astro dev`.
     </Step>
     <Step title="Review with click-anywhere comments" priority="P1" effort="S" owner="you">
       Drop pins anywhere; each captures the nearest anchor, section, and local
       text. Threads save to `feedback/<id>.json`.
     </Step>
     <Step title="Revise from feedback" priority="P1" effort="M" owner="claude">
-      `/pst:plan --feedback <id>` reads the threads back and edits the page.
+      `/pst:artifact --feedback <id>` reads the threads back and edits the page.
     </Step>
     <Step title="Publish" priority="P2" effort="S" owner="you">
-      `/pst:plan --publish <id>` builds, syncs to S3, invalidates CloudFront, and
+      `/pst:artifact --publish <id>` builds, syncs to S3, invalidates CloudFront, and
       prints the shareable URL.
     </Step>
   </Steps>

@@ -294,6 +294,19 @@ def main() -> int:
         _cp(str(dist / "404.html"), "404.html", cfg,
             "--content-type", "text/html; charset=utf-8")
 
+    # Root static assets copied verbatim from public/ (favicons, robots.txt …).
+    # These live at the bucket root, outside _astro/, so the targeted uploads
+    # above miss them. A modest cache keeps icon swaps from lingering for a year.
+    root_asset_keys: list[str] = []
+    public_dir = studio / "public"
+    if public_dir.is_dir():
+        for asset in sorted(public_dir.iterdir()):
+            shipped = dist / asset.name
+            if asset.is_file() and shipped.is_file():
+                _cp(str(shipped), asset.name, cfg,
+                    "--cache-control", "public,max-age=86400")
+                root_asset_keys.append(f"/{asset.name}")
+
     # Tag the page with its expiry — the reaper reads this to self-destruct it.
     _run([
         "aws", "s3api", "put-object-tagging", "--bucket", cfg.bucket,
@@ -301,7 +314,7 @@ def main() -> int:
         "--tagging", f"TagSet=[{{Key=expires-at,Value={expiry}}}]",
     ])
 
-    _invalidate(cfg, [f"/p/{args.id}/*", "/", "/index.html"])
+    _invalidate(cfg, [f"/p/{args.id}/*", "/", "/index.html", *root_asset_keys])
 
     print(f"\nPublished: {url}")
     if expiry == NEVER:
