@@ -564,6 +564,16 @@ def _sole_op_account(catalog: Catalog) -> OpAccount | None:
 
 # ---------------------------------------------------------------- semantic
 
+# Filler words dropped before fuzzy semantic matching, so "the family shared
+# vault" matches a "family shared" label. Kept tiny on purpose -- words like
+# "my"/"private"/"shared" are meaningful and must NOT be stripped.
+_STOPWORDS = frozenset({"the", "a", "an", "vault", "vaults", "please", "in", "to"})
+
+
+def _content_words(text: str) -> list[str]:
+    return [w for w in text.strip().lower().split() if w not in _STOPWORDS]
+
+
 def resolve_semantic_in_account(acct: OpAccount, text: str) -> list[OpVault]:
     needle = text.strip().lower()
     exact = [v for v in acct.vaults.values()
@@ -571,15 +581,19 @@ def resolve_semantic_in_account(acct: OpAccount, text: str) -> list[OpVault]:
              or needle in [s.lower() for s in v.semantic_labels]]
     if exact:
         return exact
+    words = _content_words(text)
+    if not words:
+        return []
     return [v for v in acct.vaults.values()
-            if needle in v.name.lower() or needle in v.alias.lower()
-            or any(needle in s.lower() for s in v.semantic_labels)]
+            if all(w in f"{v.name} {v.alias} {' '.join(v.semantic_labels)}".lower()
+                   for w in words)]
 
 
 def resolve_semantic(catalog: Catalog, text: str) -> list[tuple[OpAccount, OpVault]]:
     """Match a natural-language destination ("the family shared vault") to one or
     more (account, vault) candidates. Exact alias/label matches win over fuzzy."""
     needle = text.strip().lower()
+    words = _content_words(text)
     exact: list[tuple[OpAccount, OpVault]] = []
     fuzzy: list[tuple[OpAccount, OpVault]] = []
     for acct in catalog.op_accounts.values():
@@ -593,7 +607,7 @@ def resolve_semantic(catalog: Catalog, text: str) -> list[tuple[OpAccount, OpVau
             if needle == vault.alias.lower() or needle == vault.name.lower() \
                     or needle in [s.lower() for s in vault.semantic_labels]:
                 exact.append((acct, vault))
-            elif all(word in full_blob for word in needle.split()):
+            elif words and all(word in full_blob for word in words):
                 fuzzy.append((acct, vault))
     return exact or fuzzy
 

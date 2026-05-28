@@ -162,6 +162,13 @@ def test_semantic_family_shared():
     assert res.op_account_id == "A2" and res.op_vault_id == "V3"
 
 
+def test_semantic_ignores_filler_words():
+    cat = make_catalog()
+    # "the …​ vault" filler must not block the match
+    res = C.resolve(cat, None, C.ResolveFlags(semantic="the family shared vault"))
+    assert res.op_account_id == "A2" and res.op_vault_id == "V3"
+
+
 def test_semantic_no_match_raises():
     cat = make_catalog()
     with pytest.raises(C.ConfigError, match="Could not match"):
