@@ -2,7 +2,7 @@
 
 A privacy-light, per-artifact view counter that the published static pages can
 call from the browser to display a view count. It is **opt-in and off by
-default** — leaving `enable_analytics` unset creates none of these resources and
+default** - leaving `enable_analytics` unset creates none of these resources and
 changes nothing about the base site.
 
 ## Enabling
@@ -57,5 +57,5 @@ free tier. Logs auto-expire after 14 days.
 
 ## Privacy
 
-The table stores **only an incrementing integer per artifact id** — no PII, no
+The table stores **only an incrementing integer per artifact id** - no PII, no
 IP addresses, no headers, no user agents, nothing else is logged or persisted.

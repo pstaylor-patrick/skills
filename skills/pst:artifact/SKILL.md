@@ -1,14 +1,14 @@
 ---
 name: pst:artifact
-description: Turn a plan into a bespoke interactive artifact in the Astro studio — click-anywhere comments, one-command publish.
+description: Turn a plan into a bespoke interactive artifact in the Astro studio - click-anywhere comments, one-command publish.
 argument-hint: '[<plan.md>] [--exec] [--theme <name>] [--ttl <7|30d|never>] [--title "..."] | <id|url> (iterate) | --feedback <id> | --publish <id|url> [--ttl …] | --destroy <id> | --list'
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
-# pst:artifact — the planning artifacts studio
+# pst:artifact - the planning artifacts studio
 
-Turn a plan — recommended next steps drafted in the terminal, or a markdown plan
-file — into a **bespoke, interactive web artifact** rendered by a local Astro
+Turn a plan - recommended next steps drafted in the terminal, or a markdown plan
+file - into a **bespoke, interactive web artifact** rendered by a local Astro
 "studio" app. Think a private, self-hosted Claude Artifacts: each plan is its own
 page, composed (not templated) from a rich component kit, given its own art
 direction, reviewable with **click-anywhere comments**, and publishable to a
@@ -37,7 +37,7 @@ no interview.
 /pst:artifact --publish k3f9q2 --ttl 30d        # 30 days
 /pst:artifact --publish k3f9q2 --ttl never      # keep forever
 
-# Iterate on a published artifact from ANY session — pass its id or URL.
+# Iterate on a published artifact from ANY session - pass its id or URL.
 # Same id/URL is preserved; it's updated in place.
 /pst:artifact k3f9q2 "make the hero calmer and tighten the steps"
 /pst:artifact https://artifacts.pstaylor.net/p/k3f9q2/whatever "fix the third stat"
@@ -53,7 +53,7 @@ no interview.
 the current conversation; theme auto-chosen to fit the topic; opens `astro dev`
 in the browser at the new artifact. Publishing is opt-in and only lights up once
 `plans.config.json` exists. **Published artifacts self-destruct after 7 days by
-default** — pass `--ttl` to change it.
+default** - pass `--ttl` to change it.
 
 ## Resolve the skill directory first
 
@@ -70,17 +70,17 @@ If `readlink -f` is unavailable (older macOS), fall back to `python3 -c "import 
 
 ## The studio (read it; don't reinvent it)
 
-- **Component kit: `studio/src/components/kit/`** — the block vocabulary you
+- **Component kit: `studio/src/components/kit/`** - the block vocabulary you
   author with (`Hero, Section, Stats/Stat, Steps/Step, Features/Feature,
 Card/CardGrid, Compare, Ledger, Mockup, Diagram, Callout, Pill, Link, Icon`).
   Import from `@kit`. **Re-read these props each run; don't guess.**
-- **Worked example + reference: `studio/src/content/plans/welcome.mdx`** — a real
+- **Worked example + reference: `studio/src/content/plans/welcome.mdx`** - a real
   artifact using most of the kit. The best template is this example, not a blank.
-- **Art direction: `studio/src/lib/theme.ts`** — 5 themes (`editorial`,
+- **Art direction: `studio/src/lib/theme.ts`** - 5 themes (`editorial`,
   `technical`, `minimal`, `vivid`, `classic`). Pick one per plan; optionally
   override `accent`.
-- **Schema: `studio/src/content.config.ts`** — the MDX frontmatter contract.
-- Layout, comments, routing, fonts are handled for you — don't touch them.
+- **Schema: `studio/src/content.config.ts`** - the MDX frontmatter contract.
+- Layout, comments, routing, fonts are handled for you - don't touch them.
 
 ## Steps
 
@@ -119,7 +119,7 @@ The `SLUG` is cosmetic. The MDX **filename is the id**: `$PLANS/$ID.mdx`.
 
 ### 3. Author the artifact (the creative work)
 
-Re-read the kit, then **Write `$PLANS/$ID.mdx`** — frontmatter per the schema
+Re-read the kit, then **Write `$PLANS/$ID.mdx`** - frontmatter per the schema
 (`title`, `permalink: <SLUG>`, `eyebrow`, `subtitle`, `summary`, `theme`,
 optional `accent`, `tags`, `status`, `sourcePath`, `createdAt`, `updatedAt`),
 then a body composed from `@kit` blocks. Map the source onto blocks:
@@ -164,7 +164,7 @@ one-time `terraform apply` in `terraform/`. The script runs the a11y contrast
 gate, builds, uploads **just this artifact** (so other artifacts' expiry tags are
 untouched), stashes the MDX source privately to S3 for later iteration, tags the
 page with its expiry, invalidates CloudFront, and prints the URL + expiry. The
-URL is `https://<domain>/p/<id>/<slug>` — the id is canonical; the slug cosmetic.
+URL is `https://<domain>/p/<id>/<slug>` - the id is canonical; the slug cosmetic.
 
 **TTL / self-destruct.** Every published artifact carries an `expires-at` tag. A
 daily reaper (Terraform-provisioned, on by default) **deletes expired artifacts
@@ -199,20 +199,20 @@ recovered (never published, or a different bucket), say so rather than guessing.
 python3 "$SKILL_DIR/scripts/publish.py" --skill-dir "$SKILL_DIR" --id "<id>" --destroy
 ```
 
-Immediately removes the artifact's `/p/<id>/` prefix from S3 and invalidates it —
+Immediately removes the artifact's `/p/<id>/` prefix from S3 and invalidates it -
 the same thing the reaper does at TTL, on demand.
 
 ### 7. Report back
 
 Print: the artifact id and its local URL; the theme/art direction chosen; the
-blocks used; any assumptions made when the plan was sparse; and the one-liner —
+blocks used; any assumptions made when the plan was sparse; and the one-liner -
 _"In the page: click Comment, drop pins anywhere, then re-run `/pst:artifact
 --feedback <id>` to apply."_
 
-## Authoring rules — make it executive-friendly, never slop
+## Authoring rules - make it executive-friendly, never slop
 
 **Counter-inspiration (what NOT to do):** a dark background with fifteen
-visually-identical list rows, no hierarchy, no imagery — a wall of text. That is
+visually-identical list rows, no hierarchy, no imagery - a wall of text. That is
 the exact failure mode this tool exists to kill.
 
 **North star:** warm, light, editorial; generous negative space; a strong hero;
@@ -221,13 +221,13 @@ a clean footer. Production-ready, not tossed-up.
 
 - **Lead with the outcome**, not a title or a preamble.
 - **Vary the composition.** If two adjacent sections use the same block, you're
-  drifting toward a wall of text — switch it up (alternate `Section` tint, mix
+  drifting toward a wall of text - switch it up (alternate `Section` tint, mix
   `Stats`/`Compare`/`Ledger`/`Diagram`).
 - **Bespoke, not boilerplate.** Choose art direction (theme + accent), section
   order, and diagrams that fit _this_ prompt. Two different plans should not look
   like the same template.
-- **Light themes only** — never emit a dark background.
-- **Show, don't tell** — prefer a `Diagram`/`Mockup`/`Stats` over another paragraph.
+- **Light themes only** - never emit a dark background.
+- **Show, don't tell** - prefer a `Diagram`/`Mockup`/`Stats` over another paragraph.
 - **Compose the kit; don't freehand HTML/CSS.** Re-read the kit props instead of guessing.
 - **Contrast is enforced.** Theme/kit colors are gated by `studio/src/a11y.test.ts`
   (WCAG AA), which `publish.py` runs before every build. If you add a color or a
@@ -237,12 +237,12 @@ a clean footer. Production-ready, not tossed-up.
 
 ## Constraints
 
-- **Generate immediately** — no interview, even for thin plans. Surface
+- **Generate immediately** - no interview, even for thin plans. Surface
   assumptions in the report-back.
 - **Filename = stable id.** Never rename an artifact's file or change its id once
-  shared — the URL depends on it. The slug (`permalink`) is the only mutable part.
+  shared - the URL depends on it. The slug (`permalink`) is the only mutable part.
 - **Never modify the studio internals** (layout, comments, routing, kit) per
-  invocation — author content in `$PLANS/*.mdx` only. Improvements to the kit are
+  invocation - author content in `$PLANS/*.mdx` only. Improvements to the kit are
   a separate, deliberate change.
 - **Publishing is opt-in.** No `plans.config.json` → local-only; don't try to
   publish. Artifacts are **no-index/no-follow by default**.

@@ -1,4 +1,4 @@
-// The block vocabulary. Author plan bodies (MDX) by composing these — pick the
+// The block vocabulary. Author plan bodies (MDX) by composing these - pick the
 // blocks that fit the prompt; never reach for raw HTML walls of text.
 //   import { Hero, Section, Stats, Stat, Steps, Step, Features, Feature,
 //            Card, CardGrid, Compare, Ledger, Mockup, Diagram, Callout, Pill,

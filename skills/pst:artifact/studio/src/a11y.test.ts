@@ -7,7 +7,7 @@ import { contrast, composite, parseHex } from "./lib/a11y";
 // every build, so a contrast regression blocks publish.
 //
 // Thresholds: 4.5 for normal text; 3.0 for large/supplementary text. Not yet
-// gated: the semantic Pill solid tones (success/warning/danger/info) — status
+// gated: the semantic Pill solid tones (success/warning/danger/info) - status
 // chips, tuned separately.
 const AA_NORMAL = 4.5;
 const AA_SUPPLEMENTARY = 3.0;

@@ -6,7 +6,7 @@ import { THEME_KEYS } from "./lib/theme";
 // stable, collision-checked short base62 id that lives forever in the URL
 // (/p/<id>/<cosmetic-slug>). The filename IS the id, so routing never depends on
 // the human-readable slug. Author the body bespoke per plan using the kit
-// components — composition, art direction, and diagrams should fit the prompt,
+// components - composition, art direction, and diagrams should fit the prompt,
 // not a fixed template.
 const plans = defineCollection({
   loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/plans" }),

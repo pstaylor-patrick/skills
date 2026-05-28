@@ -1,4 +1,4 @@
-# Artifacts Studio — static-site hosting (Terraform)
+# Artifacts Studio - static-site hosting (Terraform)
 
 Provisions private, self-hosted "Claude Artifacts"-style static-site hosting on AWS:
 CloudFront in front of a private S3 origin (Origin Access Control), a DNS-validated
@@ -9,7 +9,7 @@ by default** (every response carries `X-Robots-Tag: noindex, nofollow`).
 ## Prerequisites
 
 - A **Route53 public hosted zone for the apex already exists** (e.g. `pstaylor.net`).
-  This module looks the zone up — it does not create it.
+  This module looks the zone up - it does not create it.
 - An AWS profile configured locally (the profile named in `aws_profile`) with
   permission to manage S3, CloudFront, ACM, and Route53.
 - Terraform `>= 1.5`.
@@ -23,7 +23,7 @@ terraform apply
 ```
 
 That's the whole one-time setup. Re-running `terraform apply` is safe and
-idempotent — nothing is recreated unless inputs change.
+idempotent - nothing is recreated unless inputs change.
 
 > **Heads up:** the first apply waits on CloudFront distribution deployment and
 > ACM DNS validation, which together typically take **15–30 minutes**. Subsequent

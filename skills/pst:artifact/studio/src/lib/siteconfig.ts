@@ -9,7 +9,7 @@ export interface SiteConfig {
   domain?: string;
   /** Lambda Function URL for the opt-in view counter (from terraform output). */
   analyticsEndpoint?: string;
-  /** Force noindex/nofollow. Default true — these are private artifacts. */
+  /** Force noindex/nofollow. Default true - these are private artifacts. */
   noindex?: boolean;
 }
 

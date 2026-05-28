@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { loadThreads, saveThreads, type Thread } from "./lib/feedback";
 
 // Dev-only comment round-trip. `astro dev` runs middleware for every request,
-// so we can serve a tiny /api/comments endpoint here WITHOUT an SSR adapter —
+// so we can serve a tiny /api/comments endpoint here WITHOUT an SSR adapter -
 // the published static build never runs this. GET returns saved threads; POST
 // writes studio/feedback/<id>.json, which `/pst:artifact --feedback <id>` reads back
 // to revise the plan. In production (import.meta.env.DEV === false) it no-ops.

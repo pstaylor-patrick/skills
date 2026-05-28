@@ -1,13 +1,13 @@
 # Artifact TTL reaper
 
 A scheduled Lambda that **destroys expired artifacts** from the static-site S3
-bucket — the source of truth — and invalidates CloudFront for them.
+bucket - the source of truth - and invalidates CloudFront for them.
 
 ## TTL self-destruct is ON by default
 
 `enable_reaper = true` by default. TTL self-destruct is a default behavior of
 this platform: artifacts published with an expiry will be permanently deleted
-once that expiry passes. There is no recycle bin — when the reaper runs, the
+once that expiry passes. There is no recycle bin - when the reaper runs, the
 artifact's S3 objects are gone.
 
 ## How it works

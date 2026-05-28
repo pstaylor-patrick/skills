@@ -3,7 +3,7 @@
  * accent) so artifacts feel bespoke to the prompt instead of looking like the
  * same boilerplate template every time. Themes set CSS custom properties on the
  * plan wrapper; the kit components consume those vars. All themes are
- * light-leaning and editorial — generous negative space, real type pairings.
+ * light-leaning and editorial - generous negative space, real type pairings.
  */
 
 export interface Theme {
@@ -43,7 +43,7 @@ const MONO =
   '"JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace';
 
 export const THEMES = {
-  /** Warm paper, serif display — long-form, narrative plans and briefs. */
+  /** Warm paper, serif display - long-form, narrative plans and briefs. */
   editorial: {
     label: "Editorial",
     bg: "#faf7f2",
@@ -59,7 +59,7 @@ export const THEMES = {
     monoFont: MONO,
     hero: "wash",
   },
-  /** Cool, geometric — architecture, migrations, systems work. */
+  /** Cool, geometric - architecture, migrations, systems work. */
   technical: {
     label: "Technical",
     bg: "#f7f9fc",
@@ -75,7 +75,7 @@ export const THEMES = {
     monoFont: MONO,
     hero: "gradient",
   },
-  /** Near-monochrome, maximal whitespace — exec summaries, crisp decisions. */
+  /** Near-monochrome, maximal whitespace - exec summaries, crisp decisions. */
   minimal: {
     label: "Minimal",
     bg: "#fbfbfa",
@@ -91,7 +91,7 @@ export const THEMES = {
     monoFont: MONO,
     hero: "rule",
   },
-  /** Soft tint, friendly geometric — prototypes, product proposals. */
+  /** Soft tint, friendly geometric - prototypes, product proposals. */
   vivid: {
     label: "Vivid",
     bg: "#f6f5ff",
@@ -107,7 +107,7 @@ export const THEMES = {
     monoFont: MONO,
     hero: "gradient",
   },
-  /** Ivory, deep green, classic serif — formal proposals, stakeholder docs. */
+  /** Ivory, deep green, classic serif - formal proposals, stakeholder docs. */
   classic: {
     label: "Classic",
     bg: "#fbfaf6",
@@ -127,7 +127,7 @@ export const THEMES = {
 
 /**
  * Solid card colors for <Stat color="…"> (the "big stockpiles" cards). White
- * text sits on these, so each must clear WCAG AA (>=4.5) against white — see
+ * text sits on these, so each must clear WCAG AA (>=4.5) against white - see
  * src/a11y.test.ts. `ochre` was darkened from #b08227 (only 3.5:1) to pass.
  */
 export const STAT_COLORS = {
