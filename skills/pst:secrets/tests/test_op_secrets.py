@@ -51,7 +51,7 @@ def backend():
 
 def test_put_creates_item_via_stdin_template(reg_path, monkeypatch):
     fake = fake_op([
-        ("whoami", 0, "", ""),
+        ("list", 0, "[]", ""),
         ("create", 0, json.dumps({"id": "item-123"}), ""),
     ])
     monkeypatch.setattr(op, "_op", fake)
@@ -69,7 +69,7 @@ def test_put_existing_edits_not_duplicates(reg_path, monkeypatch):
                   {"item_id": "item-existing", "field": "credential"},
                   backend="op", account_id="ACCT1", account="my.1password.com",
                   vault_id="VAULT1", vault="Private")
-    fake = fake_op([("whoami", 0, "", ""), ("edit", 0, json.dumps({"id": "item-existing"}), "")])
+    fake = fake_op([("list", 0, "[]", ""), ("edit", 0, json.dumps({"id": "item-existing"}), "")])
     monkeypatch.setattr(op, "_op", fake)
     backend().put("K", "newval")
     assert any("edit" in c["args"] for c in fake.calls)
@@ -83,7 +83,7 @@ def test_get_prefers_op_read(reg_path, monkeypatch):
                   {"item_id": "item-9", "field": "credential"},
                   backend="op", account_id="ACCT1", account="my.1password.com",
                   vault_id="VAULT1", vault="Private")
-    fake = fake_op([("whoami", 0, "", ""), ("read", 0, "the-value\n", "")])
+    fake = fake_op([("list", 0, "[]", ""), ("read", 0, "the-value\n", "")])
     monkeypatch.setattr(op, "_op", fake)
     assert backend().get("K") == "the-value"
     read = next(c for c in fake.calls if "read" in c["args"])
@@ -98,7 +98,7 @@ def test_get_falls_back_to_item_get_json(reg_path, monkeypatch):
     item_json = json.dumps({"id": "item-9",
                             "fields": [{"id": "credential", "value": "fallback-val"}]})
     fake = fake_op([
-        ("whoami", 0, "", ""),
+        ("list", 0, "[]", ""),
         ("read", 1, "", "reference not found"),
         ("get", 0, item_json, ""),
     ])
@@ -111,7 +111,7 @@ def test_delete_archives_and_drops_pointer(reg_path, monkeypatch):
     r.put_pointer(did, "K", {"item_id": "item-9", "field": "credential"},
                   backend="op", account_id="ACCT1", account="my.1password.com",
                   vault_id="VAULT1", vault="Private")
-    fake = fake_op([("whoami", 0, "", ""), ("delete", 0, "", "")])
+    fake = fake_op([("list", 0, "[]", ""), ("delete", 0, "", "")])
     monkeypatch.setattr(op, "_op", fake)
     backend().delete("K")
     delete = next(c for c in fake.calls if "delete" in c["args"])
@@ -120,6 +120,6 @@ def test_delete_archives_and_drops_pointer(reg_path, monkeypatch):
 
 
 def test_get_unknown_secret_raises(reg_path, monkeypatch):
-    monkeypatch.setattr(op, "_op", fake_op([("whoami", 0, "", "")]))
+    monkeypatch.setattr(op, "_op", fake_op([("list", 0, "[]", "")]))
     with pytest.raises(op.OpError, match="No secret"):
         backend().get("MISSING")

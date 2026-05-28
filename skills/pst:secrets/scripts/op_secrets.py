@@ -64,10 +64,13 @@ class OnePasswordBackend:
     # -- session -------------------------------------------------------------
 
     def ensure_session(self) -> None:
-        res = _op("whoami", "--account", self.account_selector)
+        # Under desktop-app CLI integration there is often no `op signin` session
+        # (so `op whoami` reports "not signed in") even though data commands are
+        # authorized on demand. Probe with a real read instead of trusting whoami.
+        res = _op("vault", "list", "--account", self.account_selector, "--format=json")
         if res.returncode != 0:
             raise OpError(
-                f"1Password is not unlocked for account '{self.account_selector}'.\n"
+                f"1Password is not reachable for account '{self.account_selector}'.\n"
                 "Unlock the desktop app (or run `op signin`), confirm "
                 "Settings -> Developer -> \"Integrate with 1Password CLI\" is on, "
                 "then retry.\n" + res.stderr.strip()

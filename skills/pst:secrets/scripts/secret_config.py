@@ -90,11 +90,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if acct.missing_since:
             print(f"⚠ account '{acct.handle}' missing since {acct.missing_since}")
             continue
-        res = C._op("whoami", "--account", acct.selector or acct.id)
+        # Probe with a real read; `op whoami` falsely reports "not signed in"
+        # under desktop-app integration even when commands are authorized.
+        res = C._op("vault", "list", "--account", acct.selector or acct.id, "--format=json")
         if res.returncode == 0:
-            print(f"✓ signed in: {acct.handle}")
+            print(f"✓ reachable: {acct.handle}")
         else:
-            print(f"⚠ not unlocked: {acct.handle} (run op signin / unlock app)")
+            print(f"⚠ not reachable: {acct.handle} (unlock the app / run op signin)")
     if catalog.default_profile and catalog.default_profile not in catalog.profiles:
         print(f"✗ default_profile '{catalog.default_profile}' is not a defined profile")
         problems += 1
