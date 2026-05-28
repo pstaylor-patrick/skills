@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -98,11 +99,24 @@ def read_slug(plans_dir: Path, artifact_id: str) -> str:
     return artifact_id
 
 
-def _run(cmd: list[str], cwd: Optional[Path] = None) -> None:
+def _run(
+    cmd: list[str],
+    cwd: Optional[Path] = None,
+    env: Optional[dict[str, str]] = None,
+) -> None:
     print(f"  $ {' '.join(cmd)}")
-    res = subprocess.run(cmd, cwd=cwd, check=False)
+    res = subprocess.run(cmd, cwd=cwd, env=env, check=False)
     if res.returncode != 0:
         _fail(3, f"command failed ({res.returncode}): {' '.join(cmd)}")
+
+
+def _build_env(studio: Path) -> dict[str, str]:
+    """Env with the studio's node_modules/.bin prepended to PATH, so the build
+    finds the local `astro` binary even when `npm run` doesn't augment PATH."""
+    node_bin = studio / "node_modules" / ".bin"
+    env = dict(os.environ)
+    env["PATH"] = f"{node_bin}{os.pathsep}{env.get('PATH', '')}"
+    return env
 
 
 def main() -> int:
@@ -129,7 +143,13 @@ def main() -> int:
         print(f"  [dry-run] aws s3 sync {dist} {s3_uri} --delete")
         print("  [dry-run] discover distribution by alias + invalidate /*")
     else:
-        _run(["npm", "run", "build"], cwd=studio)
+        # Prefer the local astro binary directly — some environments' `npm run`
+        # doesn't put node_modules/.bin on PATH. Fall back to the npm script.
+        astro_bin = studio / "node_modules" / ".bin" / "astro"
+        if astro_bin.exists():
+            _run([str(astro_bin), "build"], cwd=studio)
+        else:
+            _run(["npm", "run", "build"], cwd=studio, env=_build_env(studio))
         if not dist.is_dir():
             _fail(3, f"build produced no dist/ at {dist}")
         # Hashed assets are immutable; HTML must revalidate.

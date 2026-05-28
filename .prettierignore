@@ -8,3 +8,8 @@ dist
 .astro
 **/*.astro
 skills/pst:plan/studio/src/content/plans
+
+# Terraform state + lock (generated locally, git-ignored)
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform
