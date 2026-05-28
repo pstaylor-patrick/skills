@@ -32,6 +32,7 @@ SKILLS=(
   "pst:markdown"
   "pst:next"
   "pst:patch"
+  "pst:plan"
   "pst:push"
   "pst:python-refactor"
   "pst:quality-gates"

@@ -1,3 +1,10 @@
 node_modules
 pnpm-lock.yaml
 .qa
+
+# pst:plan studio — Astro files have no prettier parser without the astro
+# plugin; build output and MDX content are generated/JSX-heavy.
+dist
+.astro
+**/*.astro
+skills/pst:plan/studio/src/content/plans

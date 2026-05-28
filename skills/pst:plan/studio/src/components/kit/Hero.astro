@@ -1,0 +1,235 @@
+---
+// The opening statement of an artifact. Lead with the outcome, not a title.
+// `treatment` overrides the theme's default hero style:
+//   wash      soft accent radial on the page bg (default)
+//   gradient  full accent gradient, light text
+//   rule      thick accent top rule, plain bg
+//   framed    centered, bordered "cover card" (the editorial field-guide look)
+// Slot `figure` (non-framed) for a hand-authored diagram/mockup beside the copy.
+// `titleAccent` renders as an italic continuation of the title.
+import Pill from "./Pill.astro";
+
+interface Props {
+  eyebrow?: string;
+  title: string;
+  titleAccent?: string;
+  subtitle?: string;
+  kicker?: string;
+  treatment?: "gradient" | "wash" | "rule" | "framed";
+  meta?: { label: string; value: string }[];
+  status?: string;
+  anchor?: string;
+}
+const {
+  eyebrow,
+  title,
+  titleAccent,
+  subtitle,
+  kicker,
+  treatment = "wash",
+  meta = [],
+  status,
+  anchor = "hero",
+} = Astro.props;
+const hasFigure = Astro.slots.has("figure") && treatment !== "framed";
+---
+
+<header class:list={["ps-hero", `t-${treatment}`]} data-anchor={anchor}>
+  <div class="container container-wide">
+    {
+      treatment === "framed" ? (
+        <div class="frame">
+          {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+          <h1>
+            {title}
+            {titleAccent && <em>{titleAccent}</em>}
+          </h1>
+          {subtitle && <p class="sub framed-sub">{subtitle}</p>}
+          {kicker && (
+            <>
+              <span class="hairline" aria-hidden="true" />
+              <p class="kicker">{kicker}</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div class:list={["grid", { split: hasFigure }]}>
+          <div class="copy">
+            {(eyebrow || status) && (
+              <div class="topline">
+                {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+                {status && (
+                  <Pill tone="accent" solid>
+                    {status}
+                  </Pill>
+                )}
+              </div>
+            )}
+            <h1>
+              {title}
+              {titleAccent && <em>{titleAccent}</em>}
+            </h1>
+            {subtitle && <p class="sub">{subtitle}</p>}
+            <slot name="actions" />
+            {meta.length > 0 && (
+              <dl class="meta">
+                {meta.map((m) => (
+                  <div>
+                    <dt>{m.label}</dt>
+                    <dd>{m.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+          {hasFigure && (
+            <div class="figure">
+              <slot name="figure" />
+            </div>
+          )}
+        </div>
+      )
+    }
+  </div>
+</header>
+
+<style>
+  .ps-hero {
+    position: relative;
+    padding-block: clamp(3rem, 9vw, 7rem);
+    overflow: hidden;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: inherit;
+    color: var(--accent);
+  }
+  .t-wash {
+    background:
+      radial-gradient(
+        80% 120% at 0% 0%,
+        color-mix(in srgb, var(--accent) 9%, transparent),
+        transparent 60%
+      ),
+      var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .t-gradient {
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--accent) 90%, #000) 0%,
+        var(--accent) 55%,
+        color-mix(in srgb, var(--accent) 55%, #fff) 100%
+      );
+    color: var(--accent-text);
+  }
+  .t-gradient .eyebrow,
+  .t-gradient .sub {
+    color: color-mix(in srgb, var(--accent-text) 82%, transparent);
+  }
+  .t-gradient h1 em {
+    color: color-mix(in srgb, var(--accent-text) 88%, transparent);
+  }
+  .t-gradient dt {
+    color: color-mix(in srgb, var(--accent-text) 70%, transparent);
+  }
+  .t-gradient .meta {
+    border-color: color-mix(in srgb, var(--accent-text) 25%, transparent);
+  }
+  .t-rule {
+    border-top: 4px solid var(--accent);
+    background: var(--bg);
+  }
+  .grid.split {
+    display: grid;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+  @media (min-width: 56rem) {
+    .grid.split {
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+  }
+  .topline {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1.1rem;
+  }
+  h1 {
+    font-size: var(--step-5);
+    max-width: 18ch;
+  }
+  .sub {
+    margin-top: 1.2rem;
+    font-size: var(--step-2);
+    line-height: 1.45;
+    color: var(--muted);
+    max-width: 46ch;
+    text-wrap: pretty;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin-top: 2.2rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--border);
+  }
+  .meta dt {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .meta dd {
+    font-family: var(--font-display);
+    font-size: var(--step-1);
+    font-weight: 560;
+    margin-top: 0.15rem;
+  }
+  .figure :global(> *) {
+    margin: 0;
+  }
+
+  /* framed / cover-card treatment */
+  .t-framed {
+    background: var(--bg);
+  }
+  .frame {
+    max-width: 52rem;
+    margin-inline: auto;
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--text);
+    outline: 1px solid var(--text);
+    outline-offset: 6px;
+    border-radius: 4px;
+    padding: clamp(2.2rem, 6vw, 4rem) clamp(1.5rem, 6vw, 4rem);
+  }
+  .frame h1 {
+    max-width: none;
+    font-size: var(--step-5);
+    margin-top: 0.6rem;
+  }
+  .framed-sub {
+    margin-inline: auto;
+    font-style: italic;
+    max-width: 40ch;
+  }
+  .hairline {
+    display: block;
+    width: 5rem;
+    height: 1px;
+    background: var(--accent);
+    margin: 1.6rem auto 1rem;
+  }
+  .kicker {
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+</style>
