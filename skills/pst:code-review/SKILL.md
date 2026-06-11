@@ -21,10 +21,10 @@ Perform a **context-aware code review** where every finding is validated by appl
 - PR URL (e.g., `https://github.com/{owner}/{repo}/pull/{N}`) - including cross-repo
 - `--local` - terminal output only, no GitHub interaction (single pass)
 - `--preflight` - multi-round local review with auto-fix (min 3, max 5 rounds). No GitHub interaction. Applies all verified fixes and commits.
-- `--autofix` - fully autonomous: apply all verified fixes + auto-approve the PR
+- `--autofix` - fully autonomous: apply all verified fixes + post the review per the event policy (APPROVE when clean, REQUEST_CHANGES when blocking findings remain)
 - `--sweep` - multi-round autonomous review-and-fix loop until clean or max rounds
 
-**Default: GitHub PR mode** (post review to PR). `--local` for single-pass terminal output. `--preflight` for multi-round review with auto-fix (min 3, max 5 rounds). `--autofix` for autonomous fix + approve. `--sweep` for iterative cleanup.
+**Default: GitHub PR mode** (post review to PR). `--local` for single-pass terminal output. `--preflight` for multi-round review with auto-fix (min 3, max 5 rounds). `--autofix` for autonomous fix + review (approve when clean, else request changes). `--sweep` for iterative cleanup.
 
 **Cross-repo detection:** If URL points to a different repo than the current directory:
 
@@ -254,7 +254,7 @@ Every review body posted to GitHub - regardless of mode (default or `--autofix`)
 
 ### Review event policy (never a bare COMMENT)
 
-A code review must **always** land as an explicit GitHub review event — `APPROVE` or `REQUEST_CHANGES`. It must **never** post a plain `COMMENT` as the terminal review event, except in the two cases below.
+A code review must **always** land as an explicit GitHub review event - `APPROVE` or `REQUEST_CHANGES`. It must **never** post a plain `COMMENT` as the terminal review event, except in the two cases below.
 
 **Event selection:**
 
@@ -263,24 +263,24 @@ A code review must **always** land as an explicit GitHub review event — `APPRO
 
 **The only two exceptions where `COMMENT` is permitted as the terminal event:**
 
-1. **Self-authored PR.** The PR author equals the authenticated gh user — GitHub forbids approving your own PR. Detect with:
+1. **Self-authored PR.** The PR author equals the authenticated gh user. GitHub forbids submitting **both** `APPROVE` and `REQUEST_CHANGES` on your own PR - the reviews API returns `422 Unprocessable Entity` for either. `COMMENT` is the only review event the author may post. Detect with:
    ```bash
-   CURRENT_USER=$(gh api /user --jq .login)
-   PR_AUTHOR=$(gh pr view $N --json author --jq .author.login)
+   CURRENT_USER=$(gh api /user --jq .login 2>/dev/null)
+   PR_AUTHOR=$(gh pr view "$N" --json author --jq '.author.login // empty' 2>/dev/null)
    ```
-   If `PR_AUTHOR == CURRENT_USER` and there are no blocking (critical/warning) findings, fall back to `COMMENT` (the `APPROVE` path is unavailable). Blocking findings on a self-authored PR still post `REQUEST_CHANGES`.
+   Treat the PR as self-authored **only** when both values are non-empty and equal: `[ -n "$CURRENT_USER" ] && [ "$PR_AUTHOR" = "$CURRENT_USER" ]`. If `CURRENT_USER` is empty (e.g. a CI `GITHUB_TOKEN` with no `/user`) or `PR_AUTHOR` is empty (deleted/ghost author), do **not** infer self-authorship - proceed with the normal `APPROVE`/`REQUEST_CHANGES` selection. When the PR _is_ self-authored, fall back to `COMMENT` for **every** outcome - blocking findings included (they still render in the body; only the event type changes), because GitHub rejects both non-COMMENT events with 422.
 2. **Explicit user instruction.** The user explicitly told this run to post the review as a comment.
 
-In every other case, `COMMENT` is forbidden — pick `APPROVE` or `REQUEST_CHANGES`.
+In every other case, `COMMENT` is forbidden - pick `APPROVE` or `REQUEST_CHANGES`.
 
 ### GitHub PR Mode (default)
 
 Post a single grouped review via `gh api POST /repos/{owner}/{repo}/pulls/{N}/reviews`:
 
-- Event: per the **Review event policy** above — `REQUEST_CHANGES` if any verified critical or warning finding, else `APPROVE`. `COMMENT` only under exception (1) self-authored PR or (2) explicit user instruction.
+- Event: per the **Review event policy** above - `REQUEST_CHANGES` if any verified critical or warning finding, else `APPROVE`. `COMMENT` only under exception (1) self-authored PR (GitHub rejects both `APPROVE` and `REQUEST_CHANGES` on your own PR with 422) or (2) explicit user instruction.
 - Body: the 5 required sections above, in order
 
-Get `commit_id`: `gh pr view <N> --json headRefOid --jq .headRefOid` (validate `^[0-9a-f]{40}$`; fallback: `git rev-parse HEAD`; both fail → body-only review via `gh pr review`).
+Get `commit_id`: `gh pr view <N> --json headRefOid --jq .headRefOid` (validate `^[0-9a-f]{40}$`; fallback: `git rev-parse HEAD`; both fail → body-only review via `gh pr review` using the policy-selected event flag (`--approve` or `--request-changes`, never a bare `--comment` outside the two exceptions)).
 
 Write comments to a temp JSON file, pass via `--input`, clean up after.
 
@@ -335,7 +335,7 @@ if [ -n "$REVIEW_URL" ] && [ "$REVIEW_URL" != "null" ]; then
 fi
 ```
 
-Fallback to `gh pr review` body-only mode: after posting, open the PR URL instead -- `open "$(gh pr view $N --json url --jq .url)"`. If the browser-open command itself fails (e.g., headless CI), print the URL prominently and continue -- never block on this.
+Fallback to `gh pr review` body-only mode (still passing the policy-selected `--approve`/`--request-changes` flag, never a bare `--comment` outside the two exceptions): after posting, open the PR URL instead -- `open "$(gh pr view $N --json url --jq .url)"`. If the browser-open command itself fails (e.g., headless CI), print the URL prominently and continue -- never block on this.
 
 **Inline comment format:**
 
@@ -440,7 +440,7 @@ All findings from all rounds are presented in the final terminal output, dedupli
 - Fully autonomous (no AskUserQuestion calls)
 - Auto-apply all verified fixes (they've already proven to pass quality gates)
 - One squashed commit for all fixes
-- Post the review per the **Review event policy** (see GitHub PR Mode): any remaining verified critical or warning → `REQUEST_CHANGES`; otherwise (0 criticals + 0 warnings remain) and PR exists → auto-post `APPROVE` via GitHub API. `COMMENT` only under the two exceptions — (1) self-authored PR (GitHub forbids self-approval) or (2) explicit user instruction.
+- Post the review per the **Review event policy** (see GitHub PR Mode): any remaining verified critical or warning → `REQUEST_CHANGES`; otherwise (0 criticals + 0 warnings remain) and PR exists → auto-post `APPROVE` via GitHub API. `COMMENT` only under the two exceptions - (1) self-authored PR (GitHub rejects both `APPROVE` and `REQUEST_CHANGES` on your own PR with 422) or (2) explicit user instruction.
 - After posting the review/approval, **open the review `html_url` in the browser** using the same `open`/`xdg-open`/`start` fallback chain described in GitHub PR Mode above. Never block on failure.
 
 ### Sweep Mode (`--sweep`)
@@ -561,17 +561,17 @@ If removal fails, warn with manual cleanup command.
 
 ### Error Handling
 
-| Condition                  | Action                                                                      |
-| -------------------------- | --------------------------------------------------------------------------- |
-| 401/403 from GitHub        | Instruct `gh auth login`                                                    |
-| 422 (invalid line comment) | Remove invalid comments, retry                                              |
-| 429 (rate limit)           | Wait, retry, fallback to body-only                                          |
-| Empty diff                 | Exit with message                                                           |
-| Sub-agent worktree failure | Verdict `DROPPED` for that finding (record reason). No "unverified" bypass. |
-| All sub-agents fail        | Abort the review. Do not post "unverified" findings to the PR.              |
-| Worktree creation fails    | Retry once; on second failure, abort the review with clear error.           |
-| Worktree cleanup fails     | Warn with manual cleanup command                                            |
-| Sweep max rounds exceeded  | Report remaining issues, exit                                               |
+| Condition                  | Action                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| 401/403 from GitHub        | Instruct `gh auth login`                                                                       |
+| 422 (invalid line comment) | Remove invalid comments, retry                                                                 |
+| 429 (rate limit)           | Wait, retry, fallback to body-only carrying the policy event (`--approve`/`--request-changes`) |
+| Empty diff                 | Exit with message                                                                              |
+| Sub-agent worktree failure | Verdict `DROPPED` for that finding (record reason). No "unverified" bypass.                    |
+| All sub-agents fail        | Abort the review. Do not post "unverified" findings to the PR.                                 |
+| Worktree creation fails    | Retry once; on second failure, abort the review with clear error.                              |
+| Worktree cleanup fails     | Warn with manual cleanup command                                                               |
+| Sweep max rounds exceeded  | Report remaining issues, exit                                                                  |
 
 ---
 
