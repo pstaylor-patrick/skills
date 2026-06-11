@@ -35,7 +35,7 @@ gh repo clone {owner}/{repo} "$REVIEW_DIR" -- --depth=50
 cd "$REVIEW_DIR" && gh pr checkout {N}
 ```
 
-**Re-review detection:** Check for an existing review from a prior run via `gh api /repos/{owner}/{repo}/pulls/{N}/reviews`. If a previous review exists, scope the diff to changes since the last reviewed commit. Only report critical and warning findings (no nits on re-review). If 0 criticals + 0 warnings → post APPROVE.
+**Re-review detection:** Check for an existing review from a prior run via `gh api /repos/{owner}/{repo}/pulls/{N}/reviews`. If a previous review exists, scope the diff to changes since the last reviewed commit. Only report critical and warning findings (no nits on re-review). If 0 criticals + 0 warnings → post APPROVE; any critical or warning → REQUEST_CHANGES (see the Reporting section's "Review event policy" for the bare-COMMENT exceptions).
 
 ---
 
@@ -252,11 +252,32 @@ Every review body posted to GitHub - regardless of mode (default or `--autofix`)
 4. **Dropped during verification** - enumerate every candidate finding that ended the Verification stage with a `DROPPED` verdict, one line each, with the one-line reason (filter-discard rule matched, gate regression, no gate runnable, etc.).
 5. **Verification integrity** - a single assertion line: `VERIFIED (${V}) + DROPPED (${D}) = ${V+D} non-observation candidates.` This number **must** match the total candidates produced by Analysis after pre-filter. If it doesn't, the run is invalid.
 
+### Review event policy (never a bare COMMENT)
+
+A code review must **always** land as an explicit GitHub review event — `APPROVE` or `REQUEST_CHANGES`. It must **never** post a plain `COMMENT` as the terminal review event, except in the two cases below.
+
+**Event selection:**
+
+- Any `VERIFIED` **critical or warning** finding → `REQUEST_CHANGES`.
+- Otherwise (0 verified criticals and 0 verified warnings) → `APPROVE`.
+
+**The only two exceptions where `COMMENT` is permitted as the terminal event:**
+
+1. **Self-authored PR.** The PR author equals the authenticated gh user — GitHub forbids approving your own PR. Detect with:
+   ```bash
+   CURRENT_USER=$(gh api /user --jq .login)
+   PR_AUTHOR=$(gh pr view $N --json author --jq .author.login)
+   ```
+   If `PR_AUTHOR == CURRENT_USER` and there are no blocking (critical/warning) findings, fall back to `COMMENT` (the `APPROVE` path is unavailable). Blocking findings on a self-authored PR still post `REQUEST_CHANGES`.
+2. **Explicit user instruction.** The user explicitly told this run to post the review as a comment.
+
+In every other case, `COMMENT` is forbidden — pick `APPROVE` or `REQUEST_CHANGES`.
+
 ### GitHub PR Mode (default)
 
 Post a single grouped review via `gh api POST /repos/{owner}/{repo}/pulls/{N}/reviews`:
 
-- Event: `REQUEST_CHANGES` if any critical finding, else `COMMENT`
+- Event: per the **Review event policy** above — `REQUEST_CHANGES` if any verified critical or warning finding, else `APPROVE`. `COMMENT` only under exception (1) self-authored PR or (2) explicit user instruction.
 - Body: the 5 required sections above, in order
 
 Get `commit_id`: `gh pr view <N> --json headRefOid --jq .headRefOid` (validate `^[0-9a-f]{40}$`; fallback: `git rev-parse HEAD`; both fail → body-only review via `gh pr review`).
@@ -419,7 +440,7 @@ All findings from all rounds are presented in the final terminal output, dedupli
 - Fully autonomous (no AskUserQuestion calls)
 - Auto-apply all verified fixes (they've already proven to pass quality gates)
 - One squashed commit for all fixes
-- If 0 criticals remain + PR exists → auto-post APPROVE via GitHub API
+- Post the review per the **Review event policy** (see GitHub PR Mode): any remaining verified critical or warning → `REQUEST_CHANGES`; otherwise (0 criticals + 0 warnings remain) and PR exists → auto-post `APPROVE` via GitHub API. `COMMENT` only under the two exceptions — (1) self-authored PR (GitHub forbids self-approval) or (2) explicit user instruction.
 - After posting the review/approval, **open the review `html_url` in the browser** using the same `open`/`xdg-open`/`start` fallback chain described in GitHub PR Mode above. Never block on failure.
 
 ### Sweep Mode (`--sweep`)
