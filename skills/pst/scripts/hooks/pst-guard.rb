@@ -30,6 +30,7 @@ end
 def merge_guard(cmd, cwd)
   return unless cmd =~ /\bgh\s+pr\s+merge\b/
   return if ENV['PST_ALLOW_RED_MERGE'] == '1'
+  return if cmd =~ /\s--auto\b/ # auto-merge defers to GitHub's approval + checks gate
 
   require 'open3'
   require 'timeout'

@@ -25,10 +25,23 @@ installs the shim the guards engage from the next session onward. In all later
 sessions the shim is already bound at startup, so arming via `/pst` takes effect
 immediately.
 
+## Merge modes (asked at every invoke)
+
+`/pst` asks via `AskUserQuestion` how PRs should land this session, and re-asks
+on every re-invocation so it can change per repo:
+
+1. **Admin-bypass squash:** `gh pr merge <pr> --squash --admin` as PRs go green.
+   For repos you can self-merge.
+2. **Auto-merge on approval:** `gh pr merge <pr> --auto --squash`. GitHub merges
+   each PR once required approvals and checks pass. For approval-gated repos
+   (for example ShirePath, where Conner must approve).
+3. **Merge-ready only:** bring PRs to merge-ready, do not enable auto-merge, do
+   not admin-bypass; leave the merge to the user.
+
 ## Merge guard (rule 4)
 
-`pst-guard.rb` intercepts `gh pr merge` and runs `gh pr checks`. It blocks the
-merge unless every check has passed (pending or failing both block). Cases:
+`pst-guard.rb` intercepts a direct `gh pr merge` and runs `gh pr checks`. It
+blocks unless every check has passed (pending or failing both block). Cases:
 
 - All checks passed: allow.
 - Pending or failing checks: deny with the failing summary.
@@ -36,6 +49,8 @@ merge unless every check has passed (pending or failing both block). Cases:
   red CI, not forcing CI to exist).
 - Cannot determine status (timeout or error): deny, since green cannot be
   confirmed.
+- `--auto` present: allow, because GitHub holds the merge until its own approval
+  and checks gate is satisfied (this is how mode 2 works).
 
 Override for a single command by prefixing `PST_ALLOW_RED_MERGE=1`, for example
 `PST_ALLOW_RED_MERGE=1 gh pr merge 53 --squash --admin`.
@@ -59,6 +74,7 @@ Override for a single command by prefixing `PST_ALLOW_RED_MERGE=1`, for example
 5. For a cluster app, run the local k8s QA arsenal with discernment and prove it
    works end-to-end (rules 7, 7a, 12). If CI auto-deploys to remote on merge, do
    this BEFORE merge via blue-green.
-6. Squash-merge via admin bypass, only on green CI (rule 4, merge-guard enforced).
+6. Land the PR by the chosen merge mode: admin-bypass squash on green CI,
+   auto-merge on approval, or hand off merge-ready (rule 4, merge-guard enforced).
 7. If not gated pre-merge, validate locally before any remote promotion (rule 7).
 8. Run `pst-worktrees.rb` and offer to prune orphaned worktrees (rule 3).

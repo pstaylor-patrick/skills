@@ -26,9 +26,27 @@ request until the session ends or the user explicitly overrides a rule.
    under this skill's `scripts/` directory directly. All PST helper scripts are
    deterministic Ruby (no model judgment in the mechanical steps).
 
-2. Acknowledge that PST mode is active with a short confirmation listing the
-   gates now in force (one line each), then continue with whatever the user
-   actually asked for, now governed by these rules.
+2. Ask the merge-strategy question with `AskUserQuestion`. Ask it **every time**
+   `/pst` is invoked, including re-invocations in the same session, so the choice
+   can change per repo or per batch of work. The question ("How should I land PRs
+   this session?") offers three paths:
+
+   - **Admin-bypass squash:** squash-merge with admin bypass as PRs go green, for
+     repos where you can self-merge.
+   - **Auto-merge on approval:** enable auto-merge (`gh pr merge --auto --squash`)
+     so each PR merges itself once required approvals and checks pass. Right for
+     approval-gated repos (for example ShirePath, where Conner must approve before
+     anything merges).
+   - **Merge-ready only:** bring PRs to merge-ready but do not enable auto-merge
+     and do not admin-bypass merge; leave the actual merge to the user.
+
+   Hold the chosen mode for the rest of the session (until `/pst` is invoked
+   again). When unsure which repos are approval-gated, prefer auto-merge or
+   merge-ready over admin bypass.
+
+3. Acknowledge that PST mode is active with a short confirmation listing the
+   gates now in force (one line each) plus the chosen merge mode, then continue
+   with whatever the user actually asked for, now governed by these rules.
 
 `/pst off` disarms this session (removes the per-session marker); the global
 shim stays registered but inert.
@@ -94,12 +112,16 @@ a green light unless trivial and in scope.
 
 ### Merge and CI gates
 
-**4. PR plus squash-merge, green CI is a hard precondition.**
-Create a PR, then merge to `main` via admin bypass plus squash (squash is the
-default unless told otherwise). The green-CI precondition is hook-enforced: the
-`pst-guard.rb` merge guard blocks `gh pr merge` unless every CI check has passed
-(override with `PST_ALLOW_RED_MERGE=1`). Use `/pst:ready` to reach merge-ready
-and `/pst:rebase` to rebase onto base.
+**4. PR plus squash-merge, by the chosen merge mode.**
+Create a PR and prefer squash merge to `main`. How it lands follows the
+merge mode chosen at invoke (admin-bypass squash, auto-merge on approval, or
+merge-ready only). Admin bypass is not universal: some repos legitimately require
+review approval and must not be bypassed (for example ShirePath needs Conner's
+approval), so use auto-merge or merge-ready there. Whatever the mode, green CI is
+hook-enforced: `pst-guard.rb` blocks a direct `gh pr merge` unless every check
+has passed. Auto-merge (`--auto`) is allowed through because GitHub itself holds
+it until approvals and checks pass. Override with `PST_ALLOW_RED_MERGE=1`. Use
+`/pst:ready` to reach merge-ready and `/pst:rebase` to rebase onto base.
 
 **5. CI fixes, root cause, never band-aids.**
 Do whatever it takes to get CI green, but prioritize systemic root-cause fixes
