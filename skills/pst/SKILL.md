@@ -21,8 +21,11 @@ rules a hook reminds about (non-blocking). Detail and examples are in
    arm this session): `ruby "$(dirname "$0")/scripts/pst-mode.rb"`
 2. Ask the merge mode with `AskUserQuestion`, re-asking on every invoke so it can
    change per repo: **admin-bypass squash** / **auto-merge on approval** /
-   **merge-ready only**. Hold the choice for the session. Approval-gated repos
-   (for example ShirePath, where Conner must approve) must not be admin-bypassed.
+   **merge-ready only** / **local only**. Hold the choice for the session.
+   Approval-gated repos (for example ShirePath, where Conner must approve) must not
+   be admin-bypassed. If **local only** is chosen, run `ruby
+"$(dirname "$0")/scripts/pst-mode.rb" local on` so the guard enforces it (rule
+   18).
 3. Confirm PST mode active in one line plus the chosen merge mode, and state the
    delegate-by-default rule (implementation goes to background worktree agents,
    not inline), then continue.
@@ -93,6 +96,15 @@ rules a hook reminds about (non-blocking). Detail and examples are in
     PR/issue or Jira comment posted, a Jira issue created, and a PR/issue/Jira
     description updated. Side effect, not a block. Skip a run with
     `PST_NO_BROWSER=1`.
+18. **Local-only mode (merge mode 4)** `[HOOK]`. When chosen, the guard denies
+    every remote GitHub mutation (`git push`, `gh pr` and `gh issue`
+    create/merge/ready/edit/comment/close); work stays in local worktrees and
+    commits. This is the mode for validating a complex feature set end to end in
+    the local k3s cluster first (rules 8, 14): build it across stacked local
+    feature branches, deploy to an arbitrary `*.pstaylor.net` subdomain, prove it
+    there, and only later reconcile the stack into real GitHub PRs under another
+    merge mode. Arm with `pst-mode.rb local on`; bootstrap resets it each invoke.
+    Override once with `PST_ALLOW_REMOTE=1`.
 
 ## Usage
 

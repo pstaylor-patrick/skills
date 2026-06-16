@@ -58,4 +58,13 @@ module Pst
     FileUtils.mkdir_p(reviewed_dir)
     FileUtils.touch(File.join(reviewed_dir, sha))
   end
+
+  def local_dir
+    File.join(HOME, 'local')
+  end
+
+  # Merge mode 4: this session may not mutate remote GitHub state.
+  def local_only?(sid = session_id)
+    !sid.to_s.empty? && File.exist?(File.join(local_dir, sid))
+  end
 end

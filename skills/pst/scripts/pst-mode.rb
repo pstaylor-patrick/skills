@@ -50,6 +50,20 @@ if ARGV[0] == 'foreground'
   exit 0
 end
 
+if ARGV[0] == 'local'
+  sid = resolve_sid
+  ldir = File.join(PST_HOME, 'local')
+  FileUtils.mkdir_p(ldir)
+  if ARGV[1] == 'off'
+    FileUtils.rm_f(File.join(ldir, sid)) if sid
+    puts "pst: local-only mode off#{sid ? " (session #{sid})" : ''}; remote pushes and PRs follow the chosen merge mode"
+  else
+    FileUtils.touch(File.join(ldir, sid)) if sid
+    puts "pst: local-only mode on#{sid ? " (session #{sid})" : ''}; git push and gh pr/issue mutations are blocked"
+  end
+  exit 0
+end
+
 # 1. Remove any prior non-Ruby hook scripts, then install the Ruby ones (plus the
 #    shared lib) to a stable, repo-independent location.
 %w[pst-guard.py pst-session-start.sh pst-session-end.sh].each { |f| FileUtils.rm_f(File.join(BIN, f)) }
@@ -75,6 +89,8 @@ system(RbConfig.ruby, File.join(SRC, 'register-hooks.rb'), SETTINGS, BIN)
 sid = resolve_sid
 if sid
   FileUtils.touch(File.join(ARMED, sid))
+  # Reset local-only mode each invoke; the merge-mode question re-arms it if chosen.
+  FileUtils.rm_f(File.join(PST_HOME, 'local', sid))
   puts "pst: armed session #{sid}"
   puts 'delegate by default: independent, well-scoped, non-gating work goes to ' \
        'background Sonnet worktree agents; foreground is planning, choices, ' \

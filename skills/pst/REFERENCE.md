@@ -15,6 +15,14 @@ every re-invocation so it can change per repo:
    example ShirePath, where Conner must approve).
 3. **Merge-ready only:** bring PRs to merge-ready, do not enable auto-merge, do
    not admin-bypass; leave the merge to the user.
+4. **Local only (rule 18):** never push a branch or touch a remote PR/issue; all
+   work stays in local git worktrees and commits, enforced by the guard. The
+   intended workflow: validate a complex feature set end to end in the local k3s
+   cluster before any GitHub round-trip. Build it across stacked local feature
+   branches, deploy to an arbitrary `*.pstaylor.net` subdomain, prove it there
+   (rules 8, 14), and only afterward reconcile the stack into real GitHub PRs by
+   re-invoking `/pst` under another merge mode. `pst-mode.rb local on` arms it;
+   bootstrap clears the marker each invoke, so it resets unless re-selected.
 
 ## Deterministic gates in pst-guard.rb (PreToolUse, armed only)
 
@@ -32,13 +40,20 @@ every re-invocation so it can change per repo:
     (`pst-reviewed.rb mark`). Override `PST_ALLOW_UNREVIEWED_MERGE=1`.
   - `--auto`: allowed; GitHub holds the merge until its own approval and checks
     gate is satisfied (merge mode 2).
+- **Local-only (rule 18, merge mode 4):** when local-only is armed for the
+  session, denies any remote-mutating command: `git push`, `gh pr
+create|merge|ready|edit|comment|close|reopen`, and `gh issue
+create|edit|comment|close|reopen`. Read commands (`gh pr view|checks|list`) are
+  unaffected, so local CI inspection and review still work. Armed with
+  `pst-mode.rb local on`, reset on each bootstrap. Override `PST_ALLOW_REMOTE=1`.
 
 Example override: `PST_ALLOW_RED_MERGE=1 PST_ALLOW_UNREVIEWED_MERGE=1 gh pr merge 53 --squash --admin`.
 
 ## Deterministic helper scripts (Ruby)
 
 - `scripts/pst-mode.rb` bootstrap: install shim, git identity guard, arm session
-  (`off` disarms; `foreground on|off` toggles the delegate-nudge escape hatch).
+  (`off` disarms; `foreground on|off` toggles the delegate-nudge escape hatch;
+  `local on|off` toggles merge-mode-4 local-only remote-mutation enforcement).
 - `scripts/register-hooks.rb` idempotently registers the shim in settings.json.
 - `scripts/pst-emdash.rb check|prune [path ...]` finds or strips em dashes.
 - `scripts/pst-worktrees.rb [repo_dir]` lists prunable worktrees (rule 4).

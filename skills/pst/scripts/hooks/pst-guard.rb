@@ -66,6 +66,26 @@ def merge_guard(cmd, cwd)
             "`pst-reviewed.rb mark`, then merge. Override PST_ALLOW_UNREVIEWED_MERGE=1.")
 end
 
+# Local-only mode (merge mode 4): block any command that mutates remote GitHub
+# state (push a branch, create/merge/ready/edit/close a PR or issue, post a
+# comment). Read commands (gh pr view|checks|list) are untouched. Work stays in
+# local worktrees and commits. Override once with PST_ALLOW_REMOTE=1.
+def local_guard(cmd)
+  return unless Pst.local_only?
+  return if ENV['PST_ALLOW_REMOTE'] == '1'
+
+  remote =
+    cmd =~ /\bgit\s+push\b/ ||
+    cmd =~ /\bgh\s+pr\s+(create|merge|ready|edit|comment|close|reopen)\b/ ||
+    cmd =~ /\bgh\s+issue\s+(create|edit|comment|close|reopen)\b/
+  return unless remote
+
+  Pst.deny!('PST local-only mode (merge mode 4): no remote GitHub mutations this ' \
+            'session. This command pushes a branch or changes a remote PR or issue. ' \
+            'Keep work in local worktrees and commits. To go remote, re-invoke /pst ' \
+            'and pick another merge mode, or override once with PST_ALLOW_REMOTE=1.')
+end
+
 Pst.allow! unless Pst.armed?
 
 tool = Pst.payload['tool_name'].to_s
@@ -85,6 +105,7 @@ when 'Bash'
     Pst.deny!('PST mode: em dash (U+2014) detected in a git commit message. ' \
               'Rephrase the message without em dashes.')
   end
+  local_guard(cmd)
   merge_guard(cmd, Pst.payload['cwd'])
 when 'Agent', 'Task'
   # Rule 2: spawns must set an explicit model. Effort is not a spawn parameter,
