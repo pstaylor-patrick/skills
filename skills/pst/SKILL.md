@@ -10,9 +10,9 @@ allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion, Skil
 Invoking installs the rules below as standing preferences for the rest of the
 session, layered over everything else until the session ends or a rule is
 overridden. Comply silently; do not re-announce the doctrine each turn; surface a
-rule only when it changes what you are about to do. `[HOOK]` marks rules a
-session-scoped hook enforces deterministically; detail and examples are in
-`REFERENCE.md`.
+rule only when it changes what you are about to do. `[HOOK]` marks rules a hook
+blocks deterministically; `[NUDGE]` marks rules a hook reminds about
+(non-blocking). Detail and examples are in `REFERENCE.md`.
 
 ## On invoke
 
@@ -22,15 +22,26 @@ session-scoped hook enforces deterministically; detail and examples are in
    change per repo: **admin-bypass squash** / **auto-merge on approval** /
    **merge-ready only**. Hold the choice for the session. Approval-gated repos
    (for example ShirePath, where Conner must approve) must not be admin-bypassed.
-3. Confirm PST mode active in one line plus the chosen merge mode, then continue.
+3. Confirm PST mode active in one line plus the chosen merge mode, and state the
+   delegate-by-default rule (implementation goes to background worktree agents,
+   not inline), then continue.
 
 `/pst off` disarms this session.
 
 ## Doctrine
 
-1. **Swarm, foreground clean.** Foreground orchestrates (plan, decompose,
-   validate); background agents do the work. Fan independent units out in
-   parallel via `/pst:sweep`, `/pst:ready`, `/pst:auto`, and workflow fan-out.
+1. **Delegate by default** `[NUDGE]`. Before doing a unit of work inline, test
+   it: (1) independent (no live user back-and-forth), (2) well-scoped (clear
+   inputs, verifiable done-condition), (3) not a gating judgment (a plan, a
+   choice between options, or accept-reject validation). All three yes: spawn a
+   background agent in an isolated worktree (Sonnet/medium by default, tier per
+   rule 2). Any no: foreground is right. Legitimately foreground: conversational
+   replies, planning and decomposition, choosing between options, spawning and
+   monitoring and merging agents, final validation, and a lone trivial edit
+   (batch several trivial edits to one Haiku agent). The default verb for
+   implementation, research, format fixes, and sequential mechanical work is
+   delegate; inline work is the exception to justify. Fan out via `/pst:sweep`,
+   `/pst:ready`, `/pst:auto`, and workflow.
 2. **Model tiers** `[HOOK]` (default, not absolute): foreground Opus/high;
    background implementers Sonnet/medium; Opus only for deep audits; Haiku/low for
    trivial, well-defined mechanical work. Spawns must set an explicit model

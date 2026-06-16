@@ -54,6 +54,13 @@ prompt = strip.call(hooks['UserPromptSubmit'])
 prompt << { 'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-prompt-reminder.rb') }] }
 hooks['UserPromptSubmit'] = prompt
 
+post = strip.call(hooks['PostToolUse'])
+post << {
+  'matcher' => 'Write|Edit|MultiEdit',
+  'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-delegate-nudge.rb') }]
+}
+hooks['PostToolUse'] = post
+
 FileUtils.mkdir_p(File.dirname(settings))
 File.write(settings, "#{JSON.pretty_generate(cfg)}\n")
 puts "pst: registered global hook shim in #{settings}"

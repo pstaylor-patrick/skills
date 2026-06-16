@@ -38,7 +38,7 @@ Example override: `PST_ALLOW_RED_MERGE=1 PST_ALLOW_UNREVIEWED_MERGE=1 gh pr merg
 ## Deterministic helper scripts (Ruby)
 
 - `scripts/pst-mode.rb` bootstrap: install shim, git identity guard, arm session
-  (`off` disarms).
+  (`off` disarms; `foreground on|off` toggles the delegate-nudge escape hatch).
 - `scripts/register-hooks.rb` idempotently registers the shim in settings.json.
 - `scripts/pst-emdash.rb check|prune [path ...]` finds or strips em dashes.
 - `scripts/pst-worktrees.rb [repo_dir]` lists prunable worktrees (rule 4).
@@ -74,8 +74,24 @@ to `~/.claude/pst/bin/` and registers them once in `~/.claude/settings.json`:
 - `pst-guard.rb` (`PreToolUse`) runs the em-dash, model-tier, and merge gates
   above, only when armed.
 - `pst-prompt-reminder.rb` (`UserPromptSubmit`) re-injects the compressed rule
-  checklist each turn so the doctrine cannot drift, only when armed.
+  checklist each turn, leading with the delegate-by-default test (rule 1), only
+  when armed. Drops the delegation lead under foreground mode.
+- `pst-delegate-nudge.rb` (`PostToolUse`, `Write|Edit|MultiEdit`) counts inline
+  implementation edits and, after the 3rd, surfaces a non-blocking reminder to
+  delegate (rule 1). Never blocks. See "Delegation and foreground mode".
 - `pst-session-end.rb` (`SessionEnd`) removes the per-session marker.
+
+### Delegation and foreground mode
+
+The delegate nudge counts only implementation-looking edits (it skips `*.md`,
+docs, lockfiles, `*.tfvars`, JSON/YAML/TOML config, and dotfiles, favoring
+under-counting). It is non-blocking and resets its per-session counter after each
+reminder. Silence it when foreground work is intentional (a planning or
+conversation-heavy session) via either:
+
+- `pst-mode.rb foreground on` (creates `~/.claude/pst/foreground/<sid>`; `off`
+  removes it). This also drops the per-turn reminder's delegation lead.
+- env `PST_FOREGROUND_OK=1` for a single command.
 
 A session is armed only if `~/.claude/pst/armed/<session_id>` exists, which
 `/pst` creates (`/pst off` removes it). Otherwise the hooks are inert. Because
@@ -85,8 +101,9 @@ immediately.
 
 ## Order of operations for a typical change
 
-1. Plan in the foreground (Opus high); fan implementation to background Sonnet
-   agents in isolated worktrees (rules 1, 2, 3).
+1. Plan in the foreground (Opus high). Implementation does not run inline: fan it
+   out to background Sonnet agents in isolated worktrees (rules 1, 2, 3). The
+   foreground keeps only planning, choices, orchestration, and validation.
 2. Open a PR (rule 5). Separate refactor commits from behavior changes (rule 15).
 3. Get CI green with root-cause fixes (rules 5, 6). De-slop the diff (rule 12).
 4. Run adversarial review; implement findings; re-review to clean (rule 7).
