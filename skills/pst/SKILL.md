@@ -46,14 +46,38 @@ before I can squash-merge").
 
 **1. Eager background-agent swarms, keep the foreground clean.**
 Default to offloading heavy lifting to swarms of background agents. The
-foreground orchestrator (you, on Opus) plans, decomposes, and validates; it does
-not do the grunt work. Background sub-agents run on Sonnet. Decompose work into
-independent units and fan them out in parallel rather than serially. Reach for
-`/pst:sweep` and `/pst:ready` (both already parallelize across PRs via background
-agents in isolated worktrees) and the harness workflow / agent fan-out tooling
-for structured parallelism. Use `/pst:auto` as the high-autonomy rough-prompt to
-PR orchestrator. Keep work in the foreground only when it genuinely needs the
+foreground is the orchestrator, planner, and strategist; it does not do the
+grunt work. The background is the implementer. Decompose work into independent
+units and fan them out in parallel rather than serially. Reach for `/pst:sweep`
+and `/pst:ready` (both already parallelize across PRs via background agents in
+isolated worktrees) and the harness workflow / agent fan-out tooling for
+structured parallelism. Use `/pst:auto` as the high-autonomy rough-prompt to PR
+orchestrator. Keep work in the foreground only when it genuinely needs the
 orchestrator's judgment.
+
+**1a. Model and effort tiers (default preference, not a hard rule).**
+Match the model and reasoning effort to the role, and pass them explicitly when
+spawning agents (for example `model: sonnet, effort: medium`) so the tier is
+intentional rather than inherited by accident:
+
+- **Foreground orchestrator: Opus, effort high. Always.** This is where
+  planning, decomposition, strategy, and final validation happen.
+- **Background implementers: Sonnet, effort medium.** The default workhorse tier
+  for implementing well-scoped units of work.
+- **Background audit or deep reasoning: Opus** is acceptable for a background
+  agent when a task genuinely needs a thorough audit or hard reasoning
+  (adversarial review, tricky root-cause hunt, security analysis). Use it
+  deliberately, not by habit.
+- **Background trivial mechanical work: Haiku, effort low** for changes that are
+  simple, primitive, and very clearly well-defined, with no design judgment and
+  an easily verified result. Good fits: a mechanical rename or import-path
+  rewrite across files, applying a lint or format autofix, a single-string copy
+  change, bumping a version or changelog line, deleting already-identified dead
+  code, or generating boilerplate from an exact template.
+
+Escalate a tier the moment ambiguity, design judgment, or cross-cutting impact
+appears (Haiku to Sonnet, Sonnet to Opus). When in doubt, default to Sonnet at
+effort medium. Whatever the tier, rule 12 still applies: prove the change works.
 
 **2. Isolated git worktrees, eagerly, to avoid races.**
 Any agent that mutates files runs in its own isolated git worktree, so
@@ -138,14 +162,10 @@ global).
 ### Craft and voice
 
 **9. No em dashes, ever (hook-enforced).**
-Never use the em dash character (Unicode U+2014, the long dash) in any output,
-file, commit message, PR body, or comment. Rewrite with commas, colons,
-parentheses, or two sentences. This is enforced deterministically by a
-session-scoped `PreToolUse` Ruby guard that blocks `Write` / `Edit` calls and
-`git commit` commands containing an em dash, so honor it proactively rather than
-getting bounced. To find or strip em dashes deterministically (instead of
-hand-editing), use `scripts/pst-emdash.rb check <path>` and
-`scripts/pst-emdash.rb prune <path>`.
+Enforced deterministically by the session-scoped `pst-guard.rb` hook, which
+blocks `Write` / `Edit` content and `git commit` messages containing U+2014.
+Rewrite with commas, colons, parentheses, or two sentences. To find or strip
+them, use `scripts/pst-emdash.rb check|prune <path>`.
 
 **10. De-slop, in prose and in architecture.**
 Say less. Cut hedging, filler ("Certainly", "Great question"), marketing
