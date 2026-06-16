@@ -86,19 +86,20 @@ agent or workflow work that writes. Read-only exploration does not need a
 worktree.
 
 **3. Continuous tidying, prompt before destroying.**
-Continuously watch for refactor and cleanup opportunities as you work. When you
-notice orphaned or stale git worktrees (from `git worktree list`, worktrees
-whose branch is merged or gone), prompt the user about pruning them. Never
-auto-prune. Surface other tidy-ups (dead code, duplicated logic, drifted config)
-as suggestions; act on them only with a green light unless trivial and in scope.
+Watch for refactor and cleanup opportunities as you work. For worktrees, run
+`scripts/pst-worktrees.rb` to list prunable ones (branch merged or upstream
+gone), then prompt the user before pruning; never auto-prune. Surface other
+tidy-ups (dead code, duplication, drifted config) as suggestions; act only with
+a green light unless trivial and in scope.
 
 ### Merge and CI gates
 
 **4. PR plus squash-merge, green CI is a hard precondition.**
-Strongly prefer: create a PR, then merge to `main` via admin bypass plus squash
-merge. Squash is the default unless the user says otherwise. NEVER squash-merge
-unless CI is green; no exceptions without explicit per-merge user override. Use
-`/pst:ready` to drive a PR to merge-ready and `/pst:rebase` to rebase onto base.
+Create a PR, then merge to `main` via admin bypass plus squash (squash is the
+default unless told otherwise). The green-CI precondition is hook-enforced: the
+`pst-guard.rb` merge guard blocks `gh pr merge` unless every CI check has passed
+(override with `PST_ALLOW_RED_MERGE=1`). Use `/pst:ready` to reach merge-ready
+and `/pst:rebase` to rebase onto base.
 
 **5. CI fixes, root cause, never band-aids.**
 Do whatever it takes to get CI green, but prioritize systemic root-cause fixes
@@ -218,29 +219,6 @@ clumps, message chains, speculative generality.
 
 ---
 
-## How the session hooks work
-
-`scripts/pst-mode.rb` installs three small Ruby scripts to `~/.claude/pst/bin/`
-and registers them once in `~/.claude/settings.json`:
-
-- `pst-session-start.rb` (`SessionStart`) writes `CLAUDE_SESSION_ID` into
-  `$CLAUDE_ENV_FILE` so a skill can learn its own session id.
-- `pst-guard.rb` (`PreToolUse`) blocks `Write` / `Edit` / `MultiEdit` /
-  `NotebookEdit` content and `git commit` commands that contain an em dash, but
-  only when this session is armed.
-- `pst-session-end.rb` (`SessionEnd`) removes the per-session marker.
-
-A session is armed only if `~/.claude/pst/armed/<session_id>` exists, which
-`/pst` creates. In every other session the hooks are present but inert. `/pst
-off` removes the marker for the current session.
-
-Because Claude Code binds hooks at session startup, the em-dash guard enforces
-from the next session onward in the session that first installs the shim. In all
-later sessions the shim is already bound at startup, so arming via `/pst` takes
-effect immediately.
-
----
-
 ## Usage
 
 ```
@@ -248,16 +226,7 @@ effect immediately.
 /pst off        # disarm this session
 ```
 
-## Order of operations for a typical change under PST mode
-
-1. Plan in the foreground (Opus). Fan implementation out to background Sonnet
-   agents in isolated worktrees (rules 1, 2).
-2. Open a PR (rule 4). Separate refactor commits from behavior changes (rule 13).
-3. Get CI green with root-cause fixes (rules 4, 5). De-slop the diff (rule 10).
-4. Run adversarial review and implement the fixes; re-review to clean (rule 6).
-5. For a cluster app, run the local k8s QA arsenal with discernment and prove it
-   works end-to-end (rules 7, 7a, 12). If CI auto-deploys to remote on merge, do
-   this BEFORE merge via blue-green.
-6. Squash-merge via admin bypass, only on green CI (rule 4).
-7. If not gated pre-merge, validate locally before any remote promotion (rule 7).
-8. Offer to prune orphaned worktrees created along the way (rule 3).
+The mechanics (hook shim, session arming, the merge guard and its
+`PST_ALLOW_RED_MERGE` override, and the typical order of operations) live in
+`REFERENCE.md` beside this file. Consult it only when you need those details; it
+is not required to follow the doctrine.
