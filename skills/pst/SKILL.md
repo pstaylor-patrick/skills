@@ -5,250 +5,73 @@ argument-hint: "[off]"
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion, Skill
 ---
 
-# /pst, Patrick's engineering doctrine (session-wide mode)
+# /pst, Patrick's engineering doctrine (session mode)
 
-Invoking this skill installs the rules below as **standing preferences for the
-remainder of the session**. They are not a one-shot task list. Treat them as a
-hard policy layered on top of everything else, re-applied to every subsequent
-request until the session ends or the user explicitly overrides a rule.
+Invoking installs the rules below as standing preferences for the rest of the
+session, layered over everything else until the session ends or a rule is
+overridden. Comply silently; do not re-announce the doctrine each turn; surface a
+rule only when it changes what you are about to do. `[HOOK]` marks rules a
+session-scoped hook enforces deterministically; detail and examples are in
+`REFERENCE.md`.
 
-## On invoke, do this immediately
+## On invoke
 
-1. Run the bootstrap helper, which (a) installs the inert global hook shim once
-   if missing, (b) runs the git identity guard, and (c) arms the no-em-dash
-   guard for THIS session:
+1. Bootstrap (install the inert global hook shim if missing, git identity guard,
+   arm this session): `ruby "$(dirname "$0")/scripts/pst-mode.rb"`
+2. Ask the merge mode with `AskUserQuestion`, re-asking on every invoke so it can
+   change per repo: **admin-bypass squash** / **auto-merge on approval** /
+   **merge-ready only**. Hold the choice for the session. Approval-gated repos
+   (for example ShirePath, where Conner must approve) must not be admin-bypassed.
+3. Confirm PST mode active in one line plus the chosen merge mode, then continue.
 
-   ```bash
-   ruby "$(dirname "$0")/scripts/pst-mode.rb"
-   ```
+`/pst off` disarms this session.
 
-   If `$0` is not the skill directory in your harness, run the `pst-mode.rb`
-   under this skill's `scripts/` directory directly. All PST helper scripts are
-   deterministic Ruby (no model judgment in the mechanical steps).
+## Doctrine
 
-2. Ask the merge-strategy question with `AskUserQuestion`. Ask it **every time**
-   `/pst` is invoked, including re-invocations in the same session, so the choice
-   can change per repo or per batch of work. The question ("How should I land PRs
-   this session?") offers three paths:
-
-   - **Admin-bypass squash:** squash-merge with admin bypass as PRs go green, for
-     repos where you can self-merge.
-   - **Auto-merge on approval:** enable auto-merge (`gh pr merge --auto --squash`)
-     so each PR merges itself once required approvals and checks pass. Right for
-     approval-gated repos (for example ShirePath, where Conner must approve before
-     anything merges).
-   - **Merge-ready only:** bring PRs to merge-ready but do not enable auto-merge
-     and do not admin-bypass merge; leave the actual merge to the user.
-
-   Hold the chosen mode for the rest of the session (until `/pst` is invoked
-   again). When unsure which repos are approval-gated, prefer auto-merge or
-   merge-ready over admin bypass.
-
-3. Acknowledge that PST mode is active with a short confirmation listing the
-   gates now in force (one line each) plus the chosen merge mode, then continue
-   with whatever the user actually asked for, now governed by these rules.
-
-`/pst off` disarms this session (removes the per-session marker); the global
-shim stays registered but inert.
-
-For the rest of the session, silently honor every rule below. Do not re-announce
-the full doctrine on each turn; just comply. Surface a rule explicitly only when
-it changes what you're about to do (for example "CI is red, fixing root cause
-before I can squash-merge").
-
----
-
-## The doctrine
-
-### Workflow and agents
-
-**1. Eager background-agent swarms, keep the foreground clean.**
-Default to offloading heavy lifting to swarms of background agents. The
-foreground is the orchestrator, planner, and strategist; it does not do the
-grunt work. The background is the implementer. Decompose work into independent
-units and fan them out in parallel rather than serially. Reach for `/pst:sweep`
-and `/pst:ready` (both already parallelize across PRs via background agents in
-isolated worktrees) and the harness workflow / agent fan-out tooling for
-structured parallelism. Use `/pst:auto` as the high-autonomy rough-prompt to PR
-orchestrator. Keep work in the foreground only when it genuinely needs the
-orchestrator's judgment.
-
-**1a. Model and effort tiers (default preference, not a hard rule).**
-Match the model and reasoning effort to the role, and pass them explicitly when
-spawning agents (for example `model: sonnet, effort: medium`) so the tier is
-intentional rather than inherited by accident:
-
-- **Foreground orchestrator: Opus, effort high. Always.** This is where
-  planning, decomposition, strategy, and final validation happen.
-- **Background implementers: Sonnet, effort medium.** The default workhorse tier
-  for implementing well-scoped units of work.
-- **Background audit or deep reasoning: Opus** is acceptable for a background
-  agent when a task genuinely needs a thorough audit or hard reasoning
-  (adversarial review, tricky root-cause hunt, security analysis). Use it
-  deliberately, not by habit.
-- **Background trivial mechanical work: Haiku, effort low** for changes that are
-  simple, primitive, and very clearly well-defined, with no design judgment and
-  an easily verified result. Good fits: a mechanical rename or import-path
-  rewrite across files, applying a lint or format autofix, a single-string copy
-  change, bumping a version or changelog line, deleting already-identified dead
-  code, or generating boilerplate from an exact template.
-
-Escalate a tier the moment ambiguity, design judgment, or cross-cutting impact
-appears (Haiku to Sonnet, Sonnet to Opus). When in doubt, default to Sonnet at
-effort medium. Whatever the tier, rule 12 still applies: prove the change works.
-
-**2. Isolated git worktrees, eagerly, to avoid races.**
-Any agent that mutates files runs in its own isolated git worktree, so
-concurrent agents never collide in the same tree. Prefer worktree isolation for
-agent or workflow work that writes. Read-only exploration does not need a
-worktree.
-
-**3. Continuous tidying, prompt before destroying.**
-Watch for refactor and cleanup opportunities as you work. For worktrees, run
-`scripts/pst-worktrees.rb` to list prunable ones (branch merged or upstream
-gone), then prompt the user before pruning; never auto-prune. Surface other
-tidy-ups (dead code, duplication, drifted config) as suggestions; act only with
-a green light unless trivial and in scope.
-
-### Merge and CI gates
-
-**4. PR plus squash-merge, by the chosen merge mode.**
-Create a PR and prefer squash merge to `main`. How it lands follows the
-merge mode chosen at invoke (admin-bypass squash, auto-merge on approval, or
-merge-ready only). Admin bypass is not universal: some repos legitimately require
-review approval and must not be bypassed (for example ShirePath needs Conner's
-approval), so use auto-merge or merge-ready there. Whatever the mode, green CI is
-hook-enforced: `pst-guard.rb` blocks a direct `gh pr merge` unless every check
-has passed. Auto-merge (`--auto`) is allowed through because GitHub itself holds
-it until approvals and checks pass. Override with `PST_ALLOW_RED_MERGE=1`. Use
-`/pst:ready` to reach merge-ready and `/pst:rebase` to rebase onto base.
-
-**5. CI fixes, root cause, never band-aids.**
-Do whatever it takes to get CI green, but prioritize systemic root-cause fixes
-over short-term band-aids that merely mask a deeper issue (skipping tests,
-loosening thresholds, retry-until-green, swallowing errors). If a quick fix is
-the only option under time pressure, say so explicitly and flag the debt.
-
-**6. Mandatory adversarial review before merge, and implement the fixes.**
-At least one round of adversarial review must run against a PR before it merges.
-Use `/pst:adversarial-review` and `/pst:code-review` (and the cluster QA audit
-for cluster apps, which includes a multi-agent adversarial review). When a review
-round produces findings, implement the fixes; do not just report them. Re-review
-until clean. Only then is the PR eligible to merge, and still only on green CI.
-
-### Validation and environments
-
-**7. Local Kubernetes is the quality gate before any remote deploy.**
-Remote and deployed environments (AWS, staging, prod) are quality-gated on local
-Kubernetes validation first. The local k3s private cloud is a safe sandbox: it
-sidesteps the roadblocks common to AWS-deployed environments (needing to be
-inside the VPC, needing permission to deploy arbitrary resources), so heavyweight
-automated testing is actually feasible there.
-
-- If the app is configured in the local k3s private cloud as a shared local-dev
-  resource, then after a merge ensure it deploys successfully there and passes
-  real end-to-end validation before anything promotes to a higher or remote
-  environment.
-- Timing depends on the repo's GitHub Actions config. If merge to remote is
-  automatic, do the local k8s deploy and validation manually via the blue-green
-  deployment capability BEFORE merging the PR, so the remote env is never reached
-  before local validation passes. Inspect `.github/workflows/` to decide:
-  automatic merge-to-remote means gate pre-merge; otherwise gate post-merge but
-  pre-promotion.
-
-**7a. The local QA arsenal, used with discernment.**
-Because the local cluster is a safe sandbox, the full QA artillery is at your
-disposal there via the cluster QA-audit capability (`cluster-qa-audit`) and the
-private-cloud deploy capability (`private-cloud-deploy`):
-
-- Playwright end-to-end tests across viewports
-- axe accessibility (a11y) compliance checks
-- OWASP ZAP penetration testing, baseline and active scanning
-- k6 load and DDoS-simulation testing
-- multi-agent adversarial review
-
-Use discernment. Deploy the heavy artillery when the change warrants it (new
-endpoints, auth, data flows, UI surfaces, anything user-facing or
-security-relevant). Do NOT run the full suite for small copy changes or
-documentation changes, where it is overkill; a targeted check or none is right.
-
-### Identity
-
-**8. Anonymized GitHub no-reply on every commit.**
-All commits (foreground AND every background agent) use Patrick's GitHub
-anonymized no-reply email, `1963845+pstaylor-patrick@users.noreply.github.com`.
-The bootstrap sets it globally if missing. When spawning background agents that
-commit, instruct them to use this same email; check `git config user.email`
-inside a repo if a commit shows the wrong author (a repo-local override wins over
-global).
-
-### Craft and voice
-
-**9. No em dashes, ever (hook-enforced).**
-Enforced deterministically by the session-scoped `pst-guard.rb` hook, which
-blocks `Write` / `Edit` content and `git commit` messages containing U+2014.
-Rewrite with commas, colons, parentheses, or two sentences. To find or strip
-them, use `scripts/pst-emdash.rb check|prune <path>`.
-
-**10. De-slop, in prose and in architecture.**
-Say less. Cut hedging, filler ("Certainly", "Great question"), marketing
-adjectives, and restatements of the obvious. No emoji unless asked. In code, the
-same instinct applies as design: YAGNI, KISS, no speculative generality, no
-error theater (no empty catches, no swallowed exceptions, which also reinforces
-rule 5), delete dead code rather than commenting it out. Run `/pst:slop` on the
-diff before opening or merging a PR as a gate.
-
-### Working style
-
-**11. Run to completion, do not stop until it is done.**
-When the user signals completion-intent, work autonomously through every gate to
-the actual finish line without handing control back to ask "should I keep going?"
-Recognize cue phrases ("don't stop until you're done", "all the way", "keep going
-till it's green") as that signal. Bias toward seeing things through; only stop
-early for a genuine blocker or a decision that is truly the user's to make.
-
-**12. Prove it works, never assume it.**
-Waiting for green in the target environment and validating via real end-to-end
-automation is the standing default, not something the user must restate each
-time. Do not report success on the basis of "it should work" or a passing unit
-test alone. Wait for the relevant environment to go green (CI, deploy, cluster
-health), then confirm the behavior with a real end-to-end check appropriate to
-the change (per rule 7a, scaled with discernment). Silence from the user means
-this standard still applies.
-
-### Refactoring discipline (Fowler / Beck / Feathers)
-
-**13. Refactor like a craftsman.**
-
-- **Two hats** (Beck): never mix a refactoring with a behavior change in the same
-  commit. Refactor commits and feature commits are separate, ideally separate
-  PRs (use `/pst:stacked-pr` thinking when a change is naturally layered).
-- **Refactor only under green tests.** If the code has no coverage, write
-  characterization tests first to pin current behavior (Feathers, *Working
-  Effectively with Legacy Code*), then refactor.
-- **Tidy First** (Beck): small structural tidyings (rename, extract, reorder)
-  ship as tiny reviewable changes sequenced before the behavioral change, not
-  smuggled inside it.
-- **Coverage on changed lines must not regress.**
-- **Rule of three before abstracting.** Two occurrences is a coincidence, three
-  is a pattern. This is de-slop for architecture; it kills premature DRY.
-- **Boy Scout rule, scoped.** Leave code cleaner than you found it, but only
-  within the change's blast radius (this is rule 3, not a license to sprawl).
-
-Name the smell when you review, so feedback is precise: long method, large class,
-feature envy, primitive obsession, shotgun surgery, divergent change, data
-clumps, message chains, speculative generality.
-
----
+1. **Swarm, foreground clean.** Foreground orchestrates (plan, decompose,
+   validate); background agents do the work. Fan independent units out in
+   parallel via `/pst:sweep`, `/pst:ready`, `/pst:auto`, and workflow fan-out.
+2. **Model tiers** (default, not absolute): foreground Opus/high; background
+   implementers Sonnet/medium; Opus only for deep audits; Haiku/low for trivial,
+   well-defined mechanical work. Pass model and effort explicitly; escalate on
+   ambiguity; default Sonnet/medium.
+3. **Isolated worktrees.** Any file-mutating agent runs in its own worktree.
+   Read-only exploration does not.
+4. **Tidy, prompt before destroying.** Run `scripts/pst-worktrees.rb`, prompt
+   before pruning; never auto-prune. Surface other cleanups as suggestions.
+5. **Merge** `[HOOK]`. PR then prefer squash, by the chosen merge mode. A direct
+   `gh pr merge` is blocked unless CI is fully green; `--auto` defers to GitHub;
+   override `PST_ALLOW_RED_MERGE=1`. `/pst:ready` and `/pst:rebase` assist.
+6. **CI root cause.** Fix CI for real; no band-aids that mask the issue. Flag any
+   unavoidable quick fix as debt.
+7. **Adversarial review before merge.** At least one round
+   (`/pst:adversarial-review`, `/pst:code-review`); implement findings and
+   re-review to clean before the PR is merge-eligible.
+8. **Local k8s gate before remote.** If the app runs in the local k3s cloud,
+   deploy and pass real E2E there before any remote (AWS, staging, prod). Gate
+   pre-merge via blue-green when CI auto-deploys on merge, else pre-promotion.
+9. **QA arsenal, with discernment.** Use `cluster-qa-audit` (Playwright, axe, ZAP
+   active, k6) and `private-cloud-deploy` when a change warrants it; skip for copy
+   or docs changes.
+10. **Identity.** Every commit, including background agents, uses the no-reply
+    email `1963845+pstaylor-patrick@users.noreply.github.com`.
+11. **No em dashes** `[HOOK]`. Rewrite with commas, colons, parentheses, or two
+    sentences. Find or strip with `scripts/pst-emdash.rb check|prune`.
+12. **De-slop.** Cut filler, hedging, marketing, restated obvious, emoji. In
+    code: YAGNI, KISS, no speculative generality, no error theater, delete dead
+    code. Gate with `/pst:slop`.
+13. **Run to completion.** On completion-intent ("don't stop until you're done"
+    and similar), work autonomously through every gate; stop early only for a
+    real blocker or a user-only decision.
+14. **Prove it works.** Wait for green in the target environment, then validate
+    with real E2E (scaled per rule 9). Never report success from "should work"
+    or a passing unit test alone.
+15. **Refactor like a craftsman.** Two hats (never mix refactor with behavior
+    change), refactor only under green tests (characterization tests first), Tidy
+    First, no coverage regression on changed lines, rule of three before
+    abstracting. Smell vocabulary in `REFERENCE.md`.
 
 ## Usage
 
-```
-/pst            # activate PST mode for the rest of this session
-/pst off        # disarm this session
-```
-
-The mechanics (hook shim, session arming, the merge guard and its
-`PST_ALLOW_RED_MERGE` override, and the typical order of operations) live in
-`REFERENCE.md` beside this file. Consult it only when you need those details; it
-is not required to follow the doctrine.
+`/pst` activates, `/pst off` disarms. Mechanics, merge modes, and rule detail are
+in `REFERENCE.md` beside this file; read it only when you need specifics.
