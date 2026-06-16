@@ -59,6 +59,10 @@ post << {
   'matcher' => 'Write|Edit|MultiEdit',
   'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-delegate-nudge.rb') }]
 }
+post << {
+  'matcher' => 'Bash|mcp__.*Atlassian__(createJiraIssue|editJiraIssue|addCommentToJiraIssue)',
+  'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-open-on-post.rb') }]
+}
 hooks['PostToolUse'] = post
 
 FileUtils.mkdir_p(File.dirname(settings))

@@ -63,6 +63,13 @@ Example override: `PST_ALLOW_RED_MERGE=1 PST_ALLOW_UNREVIEWED_MERGE=1 gh pr merg
 - **Rule 15 smell vocabulary:** long method, large class, feature envy, primitive
   obsession, shotgun surgery, divergent change, data clumps, message chains,
   speculative generality.
+- **Rule 17 open-on-post triggers:** `gh pr create`, `gh pr|issue comment`,
+  `gh pr|issue edit --body`, and the Jira `createJiraIssue` / `editJiraIssue` /
+  `addCommentToJiraIssue` MCP tools. It opens the GitHub URL scraped from command
+  output, or a Jira browse URL built from the response host plus the issue key
+  (from the input for edit/comment, from the response for create). Scans only the
+  tool response, so a URL inside a comment body is not opened by mistake. Uses
+  macOS `open` (else `xdg-open`); set `PST_NO_BROWSER=1` to skip a run.
 
 ## Session hooks
 
@@ -79,6 +86,11 @@ to `~/.claude/pst/bin/` and registers them once in `~/.claude/settings.json`:
 - `pst-delegate-nudge.rb` (`PostToolUse`, `Write|Edit|MultiEdit`) counts inline
   implementation edits and, after the 3rd, surfaces a non-blocking reminder to
   delegate (rule 1). Never blocks. See "Delegation and foreground mode".
+- `pst-open-on-post.rb` (`PostToolUse`, `Bash` and the Jira create/edit/comment
+  MCP tools) opens the resulting page in the browser after an action under
+  Patrick's name: a PR created, a PR/issue or Jira comment posted, a Jira issue
+  created, or a description updated (rule 17). Side effect only, never blocks.
+  Skip a run with `PST_NO_BROWSER=1`.
 - `pst-session-end.rb` (`SessionEnd`) removes the per-session marker.
 
 ### Delegation and foreground mode

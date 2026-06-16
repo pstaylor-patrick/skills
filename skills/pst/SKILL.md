@@ -11,8 +11,9 @@ Invoking installs the rules below as standing preferences for the rest of the
 session, layered over everything else until the session ends or a rule is
 overridden. Comply silently; do not re-announce the doctrine each turn; surface a
 rule only when it changes what you are about to do. `[HOOK]` marks rules a hook
-blocks deterministically; `[NUDGE]` marks rules a hook reminds about
-(non-blocking). Detail and examples are in `REFERENCE.md`.
+enforces deterministically (a block or an automatic action); `[NUDGE]` marks
+rules a hook reminds about (non-blocking). Detail and examples are in
+`REFERENCE.md`.
 
 ## On invoke
 
@@ -87,6 +88,11 @@ blocks deterministically; `[NUDGE]` marks rules a hook reminds about
     long prose into multiple short paragraphs rather than one long one.
     Enumerations the user asks for (PR lists, Jira tasks) may exceed the bullet
     count.
+17. **Open on post** `[HOOK]`. Actions taken under Patrick's name open in the
+    browser so he sees what went out with his face on it: a PR created, a
+    PR/issue or Jira comment posted, a Jira issue created, and a PR/issue/Jira
+    description updated. Side effect, not a block. Skip a run with
+    `PST_NO_BROWSER=1`.
 
 ## Usage
 
