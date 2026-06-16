@@ -83,11 +83,16 @@ to `~/.claude/pst/bin/` and registers them once in `~/.claude/settings.json`:
 
 ### Delegation and foreground mode
 
-The delegate nudge counts only implementation-looking edits (it skips `*.md`,
-docs, lockfiles, `*.tfvars`, JSON/YAML/TOML config, and dotfiles, favoring
-under-counting). It is non-blocking and resets its per-session counter after each
-reminder. Silence it when foreground work is intentional (a planning or
-conversation-heavy session) via either:
+The delegate nudge counts only foreground grunt work: an edit counts only when
+the file is in the **primary** git worktree. Delegated work runs in linked
+worktrees (rules 2, 3), so those edits are never counted, which makes the nudge
+correct whether or not sub-agents share the parent session id. It also skips
+`*.md`, docs, lockfiles, `*.tfvars`, JSON/YAML/TOML config, and dotfiles, and
+edits outside a repo (favoring under-counting). It is non-blocking and resets its
+per-session counter after each reminder. Set `PST_DEBUG_DELEGATE=1` to log each
+edit's session id, primary-worktree verdict, cwd, and path to
+`~/.claude/pst/delegate/debug.log` for verification. Silence it when foreground
+work is intentional (a planning or conversation-heavy session) via either:
 
 - `pst-mode.rb foreground on` (creates `~/.claude/pst/foreground/<sid>`; `off`
   removes it). This also drops the per-turn reminder's delegation lead.
