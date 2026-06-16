@@ -82,6 +82,11 @@ blocks deterministically; `[NUDGE]` marks rules a hook reminds about
     change), refactor only under green tests (characterization tests first), Tidy
     First, no coverage regression on changed lines, rule of three before
     abstracting. Smell vocabulary in `REFERENCE.md`.
+16. **Response brevity** (soft default). Keep each paragraph to 320 characters or
+    less and each flat-list bullet to 160 or less; prefer at most 5 bullets. Split
+    long prose into multiple short paragraphs rather than one long one.
+    Enumerations the user asks for (PR lists, Jira tasks) may exceed the bullet
+    count.
 
 ## Usage
 
