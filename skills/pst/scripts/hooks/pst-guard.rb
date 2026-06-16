@@ -1,96 +1,101 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 # PST PreToolUse guard. Deterministic enforcement, inert unless this session is
-# armed (~/.claude/pst/armed/<session_id>). Reads the hook JSON payload on stdin
-# and signals a deny via the permissionDecision field per the PreToolUse
-# contract. Two policies:
+# armed. Policies:
 #   1. No em dash (U+2014) in Write/Edit content or git commit messages.
-#   2. Merge guard: block `gh pr merge` unless every CI check has passed
-#      (rule 4). Override with PST_ALLOW_RED_MERGE=1.
-require 'json'
+#   2. Merge guard: block a direct `gh pr merge` unless CI is fully green (rule 5)
+#      AND an adversarial review is recorded for the head commit (rule 7).
+#      `--auto` defers to GitHub. Overrides: PST_ALLOW_RED_MERGE=1 (CI),
+#      PST_ALLOW_UNREVIEWED_MERGE=1 (review).
+require_relative 'pst_common'
+require 'open3'
+require 'timeout'
 
-EM = [0x2014].pack('U') # em dash (long dash); built so no literal glyph appears
-
-def allow
-  exit 0
+def capture(*argv, dir:)
+  Timeout.timeout(25) { Open3.capture2e(*argv, chdir: dir) }
 end
 
-def deny(reason)
-  puts JSON.generate(
-    'hookSpecificOutput' => {
-      'hookEventName' => 'PreToolUse',
-      'permissionDecision' => 'deny',
-      'permissionDecisionReason' => reason
-    }
-  )
-  exit 0
+def head_sha(pr, dir)
+  if pr
+    out, st = capture('gh', 'pr', 'view', pr, '--json', 'headRefOid', '-q', '.headRefOid', dir: dir)
+    return out.strip if st.success?
+  end
+  out, st = capture('git', 'rev-parse', 'HEAD', dir: dir)
+  st.success? ? out.strip : ''
 end
 
-# Block `gh pr merge` unless CI is fully green. Returns normally to allow.
+# Block a direct `gh pr merge` unless green CI and a recorded review. Returns to allow.
 def merge_guard(cmd, cwd)
   return unless cmd =~ /\bgh\s+pr\s+merge\b/
-  return if ENV['PST_ALLOW_RED_MERGE'] == '1'
   return if cmd =~ /\s--auto\b/ # auto-merge defers to GitHub's approval + checks gate
 
-  require 'open3'
-  require 'timeout'
-  pr = cmd[%r{\bgh\s+pr\s+merge\b.*?\s(\d+|https?://\S+)}, 1]
-  argv = ['gh', 'pr', 'checks']
-  argv << pr if pr
   dir = cwd && File.directory?(cwd) ? cwd : Dir.pwd
+  pr = cmd[%r{\bgh\s+pr\s+merge\b.*?\s(\d+|https?://\S+)}, 1]
 
-  out = ''
-  status = nil
-  begin
-    Timeout.timeout(25) { out, status = Open3.capture2e(*argv, chdir: dir) }
-  rescue Timeout::Error
-    deny('PST merge guard: timed out verifying CI status. Rule 4 requires fully ' \
-         'green CI before merge. Re-run after CI reports, or set ' \
-         'PST_ALLOW_RED_MERGE=1 to override.')
-  rescue StandardError => e
-    deny("PST merge guard: could not verify CI status (#{e.class}). Set " \
-         'PST_ALLOW_RED_MERGE=1 to override if you are certain CI is green.')
+  # CI gate (rule 5)
+  unless ENV['PST_ALLOW_RED_MERGE'] == '1'
+    argv = ['gh', 'pr', 'checks']
+    argv << pr if pr
+    begin
+      out, status = capture(*argv, dir: dir)
+    rescue Timeout::Error
+      Pst.deny!('PST merge guard: timed out verifying CI. Rule 5 needs fully green ' \
+                'CI. Re-run after CI reports, or set PST_ALLOW_RED_MERGE=1.')
+    rescue StandardError => e
+      Pst.deny!("PST merge guard: could not verify CI (#{e.class}). Set " \
+                'PST_ALLOW_RED_MERGE=1 to override if CI is green.')
+    end
+    code = status&.exitstatus
+    unless code.zero? || out =~ /no check|no checks reported/i
+      summary = out.to_s.lines.first(10).map(&:rstrip).join("\n")
+      Pst.deny!("PST merge guard: CI is not fully green, rule 5 blocks this merge " \
+                "(gh pr checks exit #{code}). Wait for all checks, or set " \
+                "PST_ALLOW_RED_MERGE=1.\n#{summary}")
+    end
   end
 
-  code = status&.exitstatus
-  return if code.zero? # all checks passed
-  return if out =~ /no check|no checks reported/i # no CI to gate; allow
+  # Review gate (rule 7)
+  return if ENV['PST_ALLOW_UNREVIEWED_MERGE'] == '1'
 
-  summary = out.to_s.lines.first(12).map(&:rstrip).join("\n")
-  deny("PST merge guard: CI is not fully green, so rule 4 blocks this merge " \
-       "(gh pr checks exit #{code}: pending or failing checks). Wait for all " \
-       "checks to pass, or set PST_ALLOW_RED_MERGE=1 to override.\n#{summary}")
+  sha = head_sha(pr, dir)
+  return if Pst.reviewed?(sha)
+
+  Pst.deny!("PST review gate: no adversarial review recorded for commit " \
+            "#{sha.empty? ? '(unknown)' : sha[0, 12]} (rule 7). Run " \
+            '/pst:adversarial-review or /pst:code-review, record it with ' \
+            "`pst-reviewed.rb mark`, then merge. Override PST_ALLOW_UNREVIEWED_MERGE=1.")
 end
 
-data =
-  begin
-    JSON.parse($stdin.read)
-  rescue StandardError
-    allow
-  end
+Pst.allow! unless Pst.armed?
 
-sid = data['session_id'].to_s
-allow if sid.empty?
-allow unless File.exist?(File.expand_path("~/.claude/pst/armed/#{sid}"))
-
-tool = data['tool_name'].to_s
-ti = data['tool_input'] || {}
+tool = Pst.payload['tool_name'].to_s
+ti = Pst.payload['tool_input'] || {}
 
 case tool
 when 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'
   texts = %w[content new_string new_source].map { |k| ti[k] }.select { |v| v.is_a?(String) }
   (ti['edits'] || []).each { |e| texts << e['new_string'] if e.is_a?(Hash) && e['new_string'].is_a?(String) }
-  if texts.any? { |t| t.include?(EM) }
-    deny('PST mode: the em dash (U+2014) is not allowed. Rewrite with commas, ' \
-         'colons, parentheses, or two sentences before writing this file.')
+  if texts.any? { |t| t.include?(Pst::EM) }
+    Pst.deny!('PST mode: the em dash (U+2014) is not allowed. Rewrite with commas, ' \
+              'colons, parentheses, or two sentences before writing this file.')
   end
 when 'Bash'
   cmd = ti['command'].to_s
-  if cmd.include?('git commit') && cmd.include?(EM)
-    deny('PST mode: em dash (U+2014) detected in a git commit message. ' \
-         'Rephrase the message without em dashes.')
+  if cmd.include?('git commit') && cmd.include?(Pst::EM)
+    Pst.deny!('PST mode: em dash (U+2014) detected in a git commit message. ' \
+              'Rephrase the message without em dashes.')
   end
-  merge_guard(cmd, data['cwd'])
+  merge_guard(cmd, Pst.payload['cwd'])
+when 'Agent', 'Task'
+  # Rule 2: spawns must set an explicit model. Effort is not a spawn parameter,
+  # so only model is enforceable. Denies only when model is absent, so it can
+  # never block a spawn that does set one.
+  if ti['model'].to_s.empty? && ENV['PST_ALLOW_DEFAULT_MODEL'] != '1'
+    Pst.deny!('PST tier guard (rule 2): set an explicit model on the agent. Use ' \
+              'sonnet for implementers, haiku for trivial well-defined mechanical ' \
+              'work, opus only for deep audits. Re-spawn with model set. Override ' \
+              'PST_ALLOW_DEFAULT_MODEL=1.')
+  end
 end
 
-allow
+Pst.allow!

@@ -31,10 +31,10 @@ session-scoped hook enforces deterministically; detail and examples are in
 1. **Swarm, foreground clean.** Foreground orchestrates (plan, decompose,
    validate); background agents do the work. Fan independent units out in
    parallel via `/pst:sweep`, `/pst:ready`, `/pst:auto`, and workflow fan-out.
-2. **Model tiers** (default, not absolute): foreground Opus/high; background
-   implementers Sonnet/medium; Opus only for deep audits; Haiku/low for trivial,
-   well-defined mechanical work. Pass model and effort explicitly; escalate on
-   ambiguity; default Sonnet/medium.
+2. **Model tiers** `[HOOK]` (default, not absolute): foreground Opus/high;
+   background implementers Sonnet/medium; Opus only for deep audits; Haiku/low for
+   trivial, well-defined mechanical work. Spawns must set an explicit model
+   (enforced); escalate on ambiguity; default Sonnet/medium.
 3. **Isolated worktrees.** Any file-mutating agent runs in its own worktree.
    Read-only exploration does not.
 4. **Tidy, prompt before destroying.** Run `scripts/pst-worktrees.rb`, prompt
@@ -44,9 +44,10 @@ session-scoped hook enforces deterministically; detail and examples are in
    override `PST_ALLOW_RED_MERGE=1`. `/pst:ready` and `/pst:rebase` assist.
 6. **CI root cause.** Fix CI for real; no band-aids that mask the issue. Flag any
    unavoidable quick fix as debt.
-7. **Adversarial review before merge.** At least one round
+7. **Adversarial review before merge** `[HOOK]`. At least one round
    (`/pst:adversarial-review`, `/pst:code-review`); implement findings and
-   re-review to clean before the PR is merge-eligible.
+   re-review to clean. Record it with `scripts/pst-reviewed.rb mark` so the merge
+   guard allows the merge.
 8. **Local k8s gate before remote.** If the app runs in the local k3s cloud,
    deploy and pass real E2E there before any remote (AWS, staging, prod). Gate
    pre-merge via blue-green when CI auto-deploys on merge, else pre-promotion.

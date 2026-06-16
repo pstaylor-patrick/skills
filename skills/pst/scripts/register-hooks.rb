@@ -37,7 +37,7 @@ end
 
 pre = strip.call(hooks['PreToolUse'])
 pre << {
-  'matcher' => 'Write|Edit|MultiEdit|NotebookEdit|Bash',
+  'matcher' => 'Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task',
   'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-guard.rb') }]
 }
 hooks['PreToolUse'] = pre
@@ -49,6 +49,10 @@ hooks['SessionStart'] = start
 ending = strip.call(hooks['SessionEnd'])
 ending << { 'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-session-end.rb') }] }
 hooks['SessionEnd'] = ending
+
+prompt = strip.call(hooks['UserPromptSubmit'])
+prompt << { 'hooks' => [{ 'type' => 'command', 'command' => cmd.call('pst-prompt-reminder.rb') }] }
+hooks['UserPromptSubmit'] = prompt
 
 FileUtils.mkdir_p(File.dirname(settings))
 File.write(settings, "#{JSON.pretty_generate(cfg)}\n")

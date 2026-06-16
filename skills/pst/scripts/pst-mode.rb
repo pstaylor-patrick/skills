@@ -36,10 +36,10 @@ if ARGV[0] == 'off'
   exit 0
 end
 
-# 1. Remove any prior non-Ruby hook scripts, then install the Ruby ones to a
-#    stable, repo-independent location.
+# 1. Remove any prior non-Ruby hook scripts, then install the Ruby ones (plus the
+#    shared lib) to a stable, repo-independent location.
 %w[pst-guard.py pst-session-start.sh pst-session-end.sh].each { |f| FileUtils.rm_f(File.join(BIN, f)) }
-%w[pst-guard.rb pst-session-start.rb pst-session-end.rb].each do |f|
+%w[pst_common.rb pst-guard.rb pst-session-start.rb pst-session-end.rb pst-prompt-reminder.rb].each do |f|
   FileUtils.install(File.join(HOOKS, f), File.join(BIN, f), mode: 0o755)
 end
 

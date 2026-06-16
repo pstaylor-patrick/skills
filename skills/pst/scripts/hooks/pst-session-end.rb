@@ -1,14 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-# PST SessionEnd hook: remove this session's armed marker so the guard goes inert.
-require 'json'
-require 'fileutils'
+# PST SessionEnd hook: remove this session's armed marker so the guards go inert.
+require_relative 'pst_common'
 
-sid =
-  begin
-    JSON.parse($stdin.read)['session_id'].to_s
-  rescue StandardError
-    ''
-  end
-
-FileUtils.rm_f(File.expand_path("~/.claude/pst/armed/#{sid}")) unless sid.empty?
+sid = Pst.session_id
+FileUtils.rm_f(File.join(Pst::HOME, 'armed', sid)) unless sid.empty?

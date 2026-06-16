@@ -16,20 +16,24 @@ every re-invocation so it can change per repo:
 3. **Merge-ready only:** bring PRs to merge-ready, do not enable auto-merge, do
    not admin-bypass; leave the merge to the user.
 
-## Merge guard (rule 5)
+## Deterministic gates in pst-guard.rb (PreToolUse, armed only)
 
-`pst-guard.rb` intercepts a direct `gh pr merge` and runs `gh pr checks`. It
-blocks unless every check has passed (pending or failing both block):
+- **No em dash (rule 11):** denies Write/Edit content or git commit messages
+  containing U+2014.
+- **Model tier (rule 2):** denies an `Agent`/`Task` spawn whose `tool_input.model`
+  is unset. Only model is enforceable (effort is not a spawn parameter). Denies
+  only when model is absent, so it never blocks a spawn that sets one. Override
+  `PST_ALLOW_DEFAULT_MODEL=1`.
+- **Merge gate (rules 5 and 7):** intercepts a direct `gh pr merge`:
+  - CI (rule 5): runs `gh pr checks`; blocks unless all pass (pending or failing
+    block). No checks: allow. Unverifiable (timeout/error): deny. Override
+    `PST_ALLOW_RED_MERGE=1`.
+  - Review (rule 7): blocks unless a review marker exists for the head commit
+    (`pst-reviewed.rb mark`). Override `PST_ALLOW_UNREVIEWED_MERGE=1`.
+  - `--auto`: allowed; GitHub holds the merge until its own approval and checks
+    gate is satisfied (merge mode 2).
 
-- All checks passed: allow.
-- Pending or failing: deny with the failing summary.
-- No CI checks at all: allow (no CI to gate).
-- Status unverifiable (timeout or error): deny.
-- `--auto` present: allow; GitHub holds the merge until its own approval and
-  checks gate is satisfied (mode 2).
-
-Override one command with `PST_ALLOW_RED_MERGE=1`, for example
-`PST_ALLOW_RED_MERGE=1 gh pr merge 53 --squash --admin`.
+Example override: `PST_ALLOW_RED_MERGE=1 PST_ALLOW_UNREVIEWED_MERGE=1 gh pr merge 53 --squash --admin`.
 
 ## Deterministic helper scripts (Ruby)
 
@@ -38,8 +42,9 @@ Override one command with `PST_ALLOW_RED_MERGE=1`, for example
 - `scripts/register-hooks.rb` idempotently registers the shim in settings.json.
 - `scripts/pst-emdash.rb check|prune [path ...]` finds or strips em dashes.
 - `scripts/pst-worktrees.rb [repo_dir]` lists prunable worktrees (rule 4).
-- `scripts/hooks/*.rb` installed hook bodies (SessionStart, PreToolUse guard,
-  SessionEnd).
+- `scripts/pst-reviewed.rb mark|check [sha]` records or checks the review marker
+  the merge guard requires (rule 7).
+- `scripts/hooks/*.rb` installed hook bodies plus `pst_common.rb` (shared lib).
 
 ## Rule detail and examples
 
@@ -61,13 +66,15 @@ Override one command with `PST_ALLOW_RED_MERGE=1`, for example
 
 ## Session hooks
 
-`scripts/pst-mode.rb` installs Ruby scripts to `~/.claude/pst/bin/` and registers
-them once in `~/.claude/settings.json`:
+`scripts/pst-mode.rb` installs Ruby scripts (and `pst_common.rb`, the shared lib)
+to `~/.claude/pst/bin/` and registers them once in `~/.claude/settings.json`:
 
 - `pst-session-start.rb` (`SessionStart`) writes `CLAUDE_SESSION_ID` into
   `$CLAUDE_ENV_FILE` so a skill can learn its own session id.
-- `pst-guard.rb` (`PreToolUse`) enforces, only when armed: no em dash in Write or
-  Edit content or git commit messages, and the merge guard.
+- `pst-guard.rb` (`PreToolUse`) runs the em-dash, model-tier, and merge gates
+  above, only when armed.
+- `pst-prompt-reminder.rb` (`UserPromptSubmit`) re-injects the compressed rule
+  checklist each turn so the doctrine cannot drift, only when armed.
 - `pst-session-end.rb` (`SessionEnd`) removes the per-session marker.
 
 A session is armed only if `~/.claude/pst/armed/<session_id>` exists, which

@@ -2,16 +2,8 @@
 # frozen_string_literal: true
 # PST SessionStart hook: expose the current session id to later Bash tool calls
 # by appending CLAUDE_SESSION_ID to the harness env file, so /pst can arm itself.
-require 'json'
+require_relative 'pst_common'
 
-sid =
-  begin
-    JSON.parse($stdin.read)['session_id'].to_s
-  rescue StandardError
-    ''
-  end
-
+sid = Pst.session_id
 env = ENV['CLAUDE_ENV_FILE']
-if env && !env.empty? && !sid.empty?
-  File.open(env, 'a') { |f| f.puts "CLAUDE_SESSION_ID=#{sid}" }
-end
+File.open(env, 'a') { |f| f.puts "CLAUDE_SESSION_ID=#{sid}" } if env && !env.empty? && !sid.empty?
