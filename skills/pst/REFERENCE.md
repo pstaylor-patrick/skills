@@ -183,9 +183,9 @@ After gate approval, before implementation. Turns the plan's acceptance criteria
 
 Sample prompt: "From these acceptance criteria, write test stubs and fixture files in the project's test framework. Stubs must assert the criteria and fail until implemented. Do not write production code. Criteria: `<criteria>`."
 
-Output: test and fixture files committed in the worktree, plus `{ "files": [string], "framework": string }` passed to the implementer.
+Output: test and fixture files committed in the worktree, plus `{ "files": [string], "framework": string }` passed to the implementer. Stage 3 continues in this same worktree so the implementer inherits the committed stubs.
 
-**Stage 3: Sonnet implementer** (background, model: sonnet, effort: medium, isolated worktree)
+**Stage 3: Sonnet implementer** (background, model: sonnet, effort: medium, same worktree as Stage 2.5 (inherited from the test-scaffolding commit))
 Receives the approved plan verbatim plus the scaffolded tests. Implements exactly that plan: no scope additions, no creative departures, making the stubs pass. Commits in the worktree.
 
 **Stage 3.5: Haiku lint/format pass** (background, model: haiku, same worktree)
@@ -211,9 +211,7 @@ The Stage 0 Haiku classifier owns this decision. It returns `trivial` only on a 
 ## Order of operations for a typical change
 
 0. Run the pipeline before opening a PR: Haiku classify, Haiku pre-flight, Opus plan, Haiku distill, plan-gate approval, Haiku scaffold tests, Sonnet implement, Haiku lint/format, Opus validate, Haiku commit message (rule 19). Haiku stages handle mechanical work; Opus and Sonnet own thinking and implementation.
-1. Plan in the foreground (Opus high). Implementation does not run inline: fan it
-   out to background Sonnet agents in isolated worktrees (rules 1, 2, 3). The
-   foreground keeps only planning, choices, orchestration, and validation.
+1. For feature/fix work, planning and validation run as rule-19 pipeline stages (background Opus); the foreground keeps only orchestration, choices, and gate decisions. For all other work, plan in the foreground (Opus high) and fan implementation out to background Sonnet agents in isolated worktrees (rules 1, 2, 3).
 2. Open a PR (rule 5). Separate refactor commits from behavior changes (rule 15).
 3. Get CI green with root-cause fixes (rules 5, 6). De-slop the diff (rule 12).
 4. Run adversarial review; implement findings; re-review to clean (rule 7).

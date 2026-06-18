@@ -4,4 +4,7 @@
 require_relative 'pst_common'
 
 sid = Pst.session_id
-FileUtils.rm_f(File.join(Pst::HOME, 'armed', sid)) unless sid.empty?
+unless sid.empty?
+  FileUtils.rm_f(File.join(Pst::HOME, 'armed', sid))
+  FileUtils.rm_f(File.join(Pst::HOME, 'reminder-turns', sid))
+end

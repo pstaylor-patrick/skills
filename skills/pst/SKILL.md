@@ -40,8 +40,8 @@ rules a hook reminds about (non-blocking). Detail and examples are in
    choice between options, or accept-reject validation). All three yes: spawn a
    background agent in an isolated worktree (Sonnet/medium by default, tier per
    rule 2). Any no: foreground is right. Legitimately foreground: conversational
-   replies, planning and decomposition, choosing between options, spawning and
-   monitoring and merging agents, final validation, and a lone trivial edit
+   replies, planning and decomposition (for non-rule-19 work), choosing between options, spawning and
+   monitoring and merging agents, final validation (for non-rule-19 work), and a lone trivial edit
    (batch several trivial edits to one Haiku agent). The default verb for
    implementation, research, format fixes, and sequential mechanical work is
    delegate; inline work is the exception to justify. Fan out via `/pst:sweep`,
@@ -111,7 +111,7 @@ rules a hook reminds about (non-blocking). Detail and examples are in
        1.5. **Haiku distiller** (background, `model: haiku`): compress the Opus plan into a 320-character exec summary for the plan gate. Haiku compresses; Opus thinks.
     2. **Plan gate**: foreground `AskUserQuestion` presents the distilled summary (320 characters max). Up to two additional questions if needed. Proceed only on approval; treat no objection as approval.
        2.5. **Haiku test scaffolder** (background, `model: haiku`, isolated worktree per rule 3): from the plan's acceptance criteria, write failing test stubs and fixture files so the implementer has a concrete target.
-    3. **Sonnet implementer** (background, `model: sonnet`, `effort: medium`, isolated worktree per rule 3): implement the plan exactly as written, no additions, making the scaffolded stubs pass.
+    3. **Sonnet implementer** (background, `model: sonnet`, `effort: medium`, same worktree as Stage 2.5): implement the plan exactly as written, no additions, making the scaffolded stubs pass.
        3.5. **Haiku lint/format** (background, `model: haiku`): cleanup pass after implementation (em-dash check via `scripts/pst-emdash.rb`, import sorting, trailing whitespace, obvious style) so the validator sees clean output.
     4. **Opus validator** (background, `model: opus`, `effort: high`): verify the implementation matches the plan, run smoke/integration tests, apply any inline fixes, then report results.
        4.5. **Haiku commit writer** (background, `model: haiku`): after validation passes, read the diff and the original plan and produce a conventional-commit message (rule-10 co-author trailer, no em dashes).
