@@ -1,22 +1,44 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-# PST UserPromptSubmit hook: re-inject the compressed rule checklist each turn so
-# the doctrine cannot drift over a long session. Leads with the delegate-by-default
-# test (rule 1, the most easily-decayed rule) unless foreground mode is set. Inert
-# unless armed. For UserPromptSubmit, plain stdout is added to the model context.
+# PST UserPromptSubmit hook: re-inject a compressed doctrine anchor each turn so
+# rules cannot drift over a long session. Inert unless armed. Silent for the first
+# 3 turns (the model just read SKILL.md fresh). Outputs the short anchor from turn
+# 4 onward; every 10th turn appends a reload note. For UserPromptSubmit, plain
+# stdout is added to the model context.
 require_relative 'pst_common'
+require 'fileutils'
 
 Pst.allow! unless Pst.armed?
 
-foreground = File.exist?(File.join(Pst::HOME, 'foreground', Pst.session_id))
-unless foreground
-  puts 'DELEGATE FIRST (rule 1): work that is independent, well-scoped, and not a ' \
-       'gating judgment goes to a background Sonnet agent in an isolated worktree, ' \
-       'not inline. Foreground is for conversation, planning, choices, agent ' \
-       'orchestration, and final validation.'
-end
+sid = Pst.session_id
 
-puts <<~PST
-  [PST mode active] Standing rules (full doctrine in the /pst skill):
-  1 delegate by default. 2 tiers: Opus/high foreground, Sonnet/medium background, Haiku/low trivial; set model explicitly. 3 isolated worktree per file-mutating agent. 4 tidy, prompt before pruning. 5 PR + squash, never merge red CI. 6 fix CI at root cause, no band-aids. 7 adversarial review + implement fixes before merge. 8 local k8s gate before any remote. 9 QA arsenal (E2E, a11y, ZAP, k6) with discernment. 10 no-reply commit identity. 11 no em dashes. 12 de-slop, prose and code. 13 run to completion. 14 prove it works: green + real E2E. 15 refactor: two hats, under green tests, rule of three. 16 brevity (soft): paragraphs <=320 chars, flat bullets <=160 chars, <=5 bullets (requested PR/Jira lists may exceed). 17 open-on-post: PRs/Jira issues created, comments posted, and description edits open in the browser for visibility. 18 local-only mode (merge mode 4): when armed, no remote pushes or PR/issue mutations; validate the feature set in the local k3s cluster on a *.pstaylor.net subdomain first, reconcile to real PRs later.
-PST
+# Per-session turn counter stored at ~/.claude/pst/reminder-turns/<session_id>
+turns_dir = File.join(Pst::HOME, 'reminder-turns')
+FileUtils.mkdir_p(turns_dir)
+counter_file = File.join(turns_dir, sid)
+turn = begin
+  File.read(counter_file).to_i
+rescue StandardError
+  0
+end + 1
+File.write(counter_file, turn.to_s)
+
+# Silent for the first 3 turns -- doctrine is fresh from arming.
+Pst.allow! if turn <= 3
+
+anchor = <<~ANCHOR.chomp
+  [PST mode armed] Doctrine: SKILL.md. Standing judgment rules (no hook enforces these):
+  1 delegate-by-default: independent, scoped, non-gating work -> background Sonnet worktree agent (use rule-19 pipeline for features/fixes).
+  12 de-slop: no filler, hedging, YAGNI in code.
+  13 run-to-completion: work through gates autonomously on completion-intent.
+  14 prove-it: green + real E2E, never "should work".
+  16 brevity: paragraphs <=320 chars, bullets <=160.
+  19 pipeline: features/fixes run the 10-stage Haiku/Opus/Sonnet sequence; Stage 0 classifier decides.
+  Hard rules (em-dash, model-tier, merge-gate, review-gate, open-on-post, local-only) are hook-enforced.
+ANCHOR
+
+if (turn % 10).zero?
+  puts anchor + "\nFull doctrine: SKILL.md (reload if needed)."
+else
+  puts anchor
+end
