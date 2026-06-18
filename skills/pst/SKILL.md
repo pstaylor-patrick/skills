@@ -45,7 +45,7 @@ rules a hook reminds about (non-blocking). Detail and examples are in
    (batch several trivial edits to one Haiku agent). The default verb for
    implementation, research, format fixes, and sequential mechanical work is
    delegate; inline work is the exception to justify. Fan out via `/pst:sweep`,
-   `/pst:ready`, `/pst:auto`, and workflow.
+   `/pst:ready`, `/pst:auto`, and workflow. For feature and fix work specifically, prefer the three-agent pipeline (rule 19).
 2. **Model tiers** `[HOOK]` (default, not absolute): foreground Opus/high;
    background implementers Sonnet/medium; Opus only for deep audits; Haiku/low for
    trivial, well-defined mechanical work. Spawns must set an explicit model
@@ -105,6 +105,11 @@ rules a hook reminds about (non-blocking). Detail and examples are in
     there, and only later reconcile the stack into real GitHub PRs under another
     merge mode. Arm with `pst-mode.rb local on`; bootstrap resets it each invoke.
     Override once with `PST_ALLOW_REMOTE=1`.
+19. **Three-agent sequence for features and fixes** `[NUDGE]`. For any non-trivial feature implementation or bug fix, use this sequential pipeline. Skip it only when the change is clearly trivial under rule 2 (mechanical rename, single-string copy, version bump, or equivalent). Bias strongly toward using it.
+    1. **Opus planner** (background, `model: opus`, `effort: high`): produce a concrete, step-by-step implementation plan for the request.
+    2. **Plan gate**: foreground `AskUserQuestion` — present an exec summary of the plan (320 characters max). Up to two additional questions if clarification is needed. Proceed only on approval; treat no objection as approval.
+    3. **Sonnet implementer** (background, `model: sonnet`, `effort: medium`, isolated worktree per rule 3): implement the plan exactly as written, no additions.
+    4. **Opus validator** (background, `model: opus`, `effort: high`): verify the implementation matches the plan, run smoke/integration tests, apply any fixes inline, then report results.
 
 ## Usage
 

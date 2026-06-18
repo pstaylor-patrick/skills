@@ -131,8 +131,28 @@ Claude Code binds hooks at session startup, in the session that first installs
 the shim the guards engage from the next session onward; later sessions arm
 immediately.
 
+## Three-agent sequence (rule 19)
+
+Default pattern for any non-trivial feature or fix. Sequential — each stage feeds the next.
+
+**Stage 1 — Opus planner** (background, model: opus, effort: high)
+Prompt it with the full request and repo context. Output: a numbered, step-by-step implementation plan with file targets and acceptance criteria.
+
+**Stage 2 — Plan gate** (foreground AskUserQuestion)
+Show a 320-character exec summary of the plan. Up to two follow-up questions if scope or approach needs settling. On approval (or no objection), proceed. On rejection, loop back to stage 1 with the feedback.
+
+**Stage 3 — Sonnet implementer** (background, model: sonnet, effort: medium, isolated worktree)
+Receives the approved plan verbatim. Implements exactly that plan: no scope additions, no creative departures. Commits in the worktree.
+
+**Stage 4 — Opus validator** (background, model: opus, effort: high)
+Verifies: (1) every plan step was addressed, (2) no regressions introduced, (3) smoke/integration tests pass. If issues are found, applies fixes before reporting. Final report goes to Patrick.
+
+**Trivial threshold (skip the pipeline)**
+A change is trivial when it maps to rule 2 Haiku-tier work: mechanical rename, import-path rewrite, lint/format autofix, single-string copy change, version or changelog bump, deleting already-identified dead code, or boilerplate from an exact template. When in doubt, use the pipeline.
+
 ## Order of operations for a typical change
 
+0. For non-trivial work, run the three-agent pipeline before opening a PR: Opus plan, plan-gate approval, Sonnet implement, Opus validate (rule 19).
 1. Plan in the foreground (Opus high). Implementation does not run inline: fan it
    out to background Sonnet agents in isolated worktrees (rules 1, 2, 3). The
    foreground keeps only planning, choices, orchestration, and validation.
