@@ -133,26 +133,84 @@ immediately.
 
 ## Three-agent sequence (rule 19)
 
-Default pattern for any non-trivial feature or fix. Sequential — each stage feeds the next.
+Default pattern for any feature or fix. Sequential: each stage feeds the next. Haiku helper stages (0.5, 1.5, 2.5, 3.5, 4.5) do mechanical and compression work around the three thinking tiers so Opus and Sonnet tokens stay on reasoning and implementation. Stage 0 (Haiku classifier) gates the whole pipeline.
 
-**Stage 1 — Opus planner** (background, model: opus, effort: high)
-Prompt it with the full request and repo context. Output: a numbered, step-by-step implementation plan with file targets and acceptance criteria.
+**Stage 0: Haiku classifier** (background, model: haiku, effort: low)
+Gates the pipeline. Returns `trivial` or `substantive` based on the incoming request alone. Trivial tier is wired to the rule-2 Haiku-fits list (see "Rule detail and examples"). On any doubt, returns `substantive`.
 
-**Stage 2 — Plan gate** (foreground AskUserQuestion)
-Show a 320-character exec summary of the plan. Up to two follow-up questions if scope or approach needs settling. On approval (or no objection), proceed. On rejection, loop back to stage 1 with the feedback.
+Sample prompt:
 
-**Stage 3 — Sonnet implementer** (background, model: sonnet, effort: medium, isolated worktree)
-Receives the approved plan verbatim. Implements exactly that plan: no scope additions, no creative departures. Commits in the worktree.
+```
+Classify this engineering request as trivial or substantive.
 
-**Stage 4 — Opus validator** (background, model: opus, effort: high)
+trivial = a clear match to one of these (and nothing more): mechanical rename or
+import-path rewrite; lint or format autofix; single-string copy change; version
+or changelog bump; deleting already-identified dead code; boilerplate from an
+exact template.
+
+substantive = anything else, or any doubt.
+
+Request:
+<request text>
+
+Return only JSON: {"verdict":"trivial"|"substantive","rationale":"<= 80 chars"}.
+```
+
+Output schema: `{ "verdict": "trivial" | "substantive", "rationale": "string <= 80 chars" }`.
+
+**Stage 0.5: Haiku pre-flight context assembler** (background, model: haiku)
+Runs after the classifier routes to the pipeline, before the planner. Scouts the repo so Opus spends tokens reasoning, not discovering.
+
+Sample prompt: "Scout this repo for the request below: list the directory tree (depth 2), the last 15 git log lines, and the full contents of the most relevant files. Return only the bundle, no commentary. Request: `<request>`."
+
+Output schema: `{ "tree": string, "git_log": string, "key_files": [ { "path": string, "content": string } ] }`. The planner receives this bundle as its repo context.
+
+**Stage 1: Opus planner** (background, model: opus, effort: high)
+Prompt it with the full request and the Stage 0.5 context bundle. Output: a numbered, step-by-step implementation plan with file targets and acceptance criteria.
+
+**Stage 1.5: Haiku plan distiller** (background, model: haiku)
+Compresses the verbose Opus plan into the exec summary the plan gate shows. Haiku compresses; Opus thinks.
+
+Sample prompt: "Compress this implementation plan into a single summary of 320 characters or fewer that names what changes and the main files touched. No em dashes. Plan: `<plan>`."
+
+Output schema: `{ "summary": string }` where `summary` is at most 320 characters and contains no U+2014.
+
+**Stage 2: Plan gate** (foreground AskUserQuestion)
+Show the Stage 1.5 distilled summary (320 characters max). Up to two follow-up questions if scope or approach needs settling. On approval (or no objection), proceed. On rejection, loop back to Stage 1 with the feedback.
+
+**Stage 2.5: Haiku test scaffolder** (background, model: haiku, isolated worktree)
+After gate approval, before implementation. Turns the plan's acceptance criteria into failing test stubs and fixture files so the implementer has a concrete target.
+
+Sample prompt: "From these acceptance criteria, write test stubs and fixture files in the project's test framework. Stubs must assert the criteria and fail until implemented. Do not write production code. Criteria: `<criteria>`."
+
+Output: test and fixture files committed in the worktree, plus `{ "files": [string], "framework": string }` passed to the implementer.
+
+**Stage 3: Sonnet implementer** (background, model: sonnet, effort: medium, isolated worktree)
+Receives the approved plan verbatim plus the scaffolded tests. Implements exactly that plan: no scope additions, no creative departures, making the stubs pass. Commits in the worktree.
+
+**Stage 3.5: Haiku lint/format pass** (background, model: haiku, same worktree)
+After implementation, before validation. Mechanical cleanup so the validator focuses on correctness: em-dash check (`scripts/pst-emdash.rb check|prune`), import sorting, trailing whitespace, obvious style. No behavior changes.
+
+Sample prompt: "In this worktree run the project formatter and import sorter, strip trailing whitespace, and run `scripts/pst-emdash.rb prune` on changed files. Report only what you changed. Change no behavior."
+
+Output schema: `{ "changed_files": [string], "emdash_hits": number, "notes": string }`.
+
+**Stage 4: Opus validator** (background, model: opus, effort: high)
 Verifies: (1) every plan step was addressed, (2) no regressions introduced, (3) smoke/integration tests pass. If issues are found, applies fixes before reporting. Final report goes to Patrick.
 
+**Stage 4.5: Haiku commit message writer** (background, model: haiku)
+After validation passes. Reads the diff and the original plan, writes a conventional-commit message. Deterministic, well-scoped.
+
+Sample prompt: "Write a conventional-commit message for this diff. Use the plan for intent. Subject under 72 chars, imperative mood, no em dashes. Body: what changed and why. Diff: `<diff>`. Plan: `<plan>`."
+
+Output schema: `{ "subject": string, "body": string }`. The orchestrator appends the rule-10 co-author trailer before committing.
+
 **Trivial threshold (skip the pipeline)**
-A change is trivial when it maps to rule 2 Haiku-tier work: mechanical rename, import-path rewrite, lint/format autofix, single-string copy change, version or changelog bump, deleting already-identified dead code, or boilerplate from an exact template. When in doubt, use the pipeline.
+The Stage 0 Haiku classifier owns this decision. It returns `trivial` only on a clear match to the rule-2 Haiku-tier list: mechanical rename, import-path rewrite, lint/format autofix, single-string copy change, version or changelog bump, deleting already-identified dead code, or boilerplate from an exact template. Any doubt returns `substantive`, making the pipeline the default.
 
 ## Order of operations for a typical change
 
-0. For non-trivial work, run the three-agent pipeline before opening a PR: Opus plan, plan-gate approval, Sonnet implement, Opus validate (rule 19).
+0. Run the pipeline before opening a PR: Haiku classify, Haiku pre-flight, Opus plan, Haiku distill, plan-gate approval, Haiku scaffold tests, Sonnet implement, Haiku lint/format, Opus validate, Haiku commit message (rule 19). Haiku stages handle mechanical work; Opus and Sonnet own thinking and implementation.
 1. Plan in the foreground (Opus high). Implementation does not run inline: fan it
    out to background Sonnet agents in isolated worktrees (rules 1, 2, 3). The
    foreground keeps only planning, choices, orchestration, and validation.

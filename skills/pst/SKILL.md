@@ -105,11 +105,16 @@ rules a hook reminds about (non-blocking). Detail and examples are in
     there, and only later reconcile the stack into real GitHub PRs under another
     merge mode. Arm with `pst-mode.rb local on`; bootstrap resets it each invoke.
     Override once with `PST_ALLOW_REMOTE=1`.
-19. **Three-agent sequence for features and fixes** `[NUDGE]`. For any non-trivial feature implementation or bug fix, use this sequential pipeline. Skip it only when the change is clearly trivial under rule 2 (mechanical rename, single-string copy, version bump, or equivalent). Bias strongly toward using it.
-    1. **Opus planner** (background, `model: opus`, `effort: high`): produce a concrete, step-by-step implementation plan for the request.
-    2. **Plan gate**: foreground `AskUserQuestion` — present an exec summary of the plan (320 characters max). Up to two additional questions if clarification is needed. Proceed only on approval; treat no objection as approval.
-    3. **Sonnet implementer** (background, `model: sonnet`, `effort: medium`, isolated worktree per rule 3): implement the plan exactly as written, no additions.
-    4. **Opus validator** (background, `model: opus`, `effort: high`): verify the implementation matches the plan, run smoke/integration tests, apply any fixes inline, then report results.
+19. **Three-agent sequence for features and fixes** `[NUDGE]`. For any feature implementation or bug fix, run this pipeline. Haiku helper stages handle discovery, compression, scaffolding, cleanup, and the commit message around the three thinking tiers (Opus plan, Sonnet implement, Opus validate). Skip the whole pipeline only on a clear rule-2 trivial match; the Stage 0 classifier makes that call. 0. **Haiku classifier** (background, `model: haiku`, `effort: low`): read the request and return `trivial` or `substantive` plus a rationale (80 chars max). Trivial means a clear rule-2 Haiku-tier match; anything else or any doubt is `substantive`. On `trivial`, skip stages 0.5 through 4.5 and handle directly. Schema and sample prompt in `REFERENCE.md`.
+    0.5. **Haiku pre-flight** (background, `model: haiku`): scout the repo (directory tree, recent git log, relevant file contents) and hand the Opus planner a compact context bundle so Opus tokens go to reasoning, not discovery.
+    1. **Opus planner** (background, `model: opus`, `effort: high`): produce a concrete, step-by-step implementation plan with file targets and acceptance criteria, using the pre-flight bundle as context.
+       1.5. **Haiku distiller** (background, `model: haiku`): compress the Opus plan into a 320-character exec summary for the plan gate. Haiku compresses; Opus thinks.
+    2. **Plan gate**: foreground `AskUserQuestion` presents the distilled summary (320 characters max). Up to two additional questions if needed. Proceed only on approval; treat no objection as approval.
+       2.5. **Haiku test scaffolder** (background, `model: haiku`, isolated worktree per rule 3): from the plan's acceptance criteria, write failing test stubs and fixture files so the implementer has a concrete target.
+    3. **Sonnet implementer** (background, `model: sonnet`, `effort: medium`, isolated worktree per rule 3): implement the plan exactly as written, no additions, making the scaffolded stubs pass.
+       3.5. **Haiku lint/format** (background, `model: haiku`): cleanup pass after implementation (em-dash check via `scripts/pst-emdash.rb`, import sorting, trailing whitespace, obvious style) so the validator sees clean output.
+    4. **Opus validator** (background, `model: opus`, `effort: high`): verify the implementation matches the plan, run smoke/integration tests, apply any inline fixes, then report results.
+       4.5. **Haiku commit writer** (background, `model: haiku`): after validation passes, read the diff and the original plan and produce a conventional-commit message (rule-10 co-author trailer, no em dashes).
 
 ## Usage
 
