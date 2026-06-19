@@ -126,6 +126,8 @@ rules a hook reminds about (non-blocking). Detail and examples are in
 
 22. **Multi-repo orchestration ledger** `[NUDGE]`. When spanning 2 or more repos, directories, or parallel tasks in a single session, initialize a session ledger (`pst-ledger.rb init` -- called automatically on arm) and register each spawned task on creation (`pst-ledger.rb register <id> --repo <path> --intent <summary>`). Update status on completion (`pst-ledger.rb done|fail <id>`). Pass `pst-ledger.rb context` as the context header to each new agent so sibling task state is always known. Inspect with `/pst:tasks`.
 
+23. **Maintainability review after validation** `[NUDGE]`. After the Opus validator confirms implementation correctness (rule 19, stage 4), run a Fowler-smell pass using `MAINTAINABILITY.md` as the rubric. This is a separate refactoring commit (two hats per rule 15): behavior stays identical, only structure improves. Focus on the 16 canonical smells: duplicated code, long function, primitive obsession, shotgun surgery, divergent change, speculative generality, and locality-of-change violations. Record findings with `/pst:adversarial-review`. Skip for trivial changes (Haiku-tier per rule 2).
+
 ## Usage
 
 `/pst` activates, `/pst off` disarms. Mechanics, merge modes, and rule detail are
