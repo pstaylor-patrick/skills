@@ -37,6 +37,7 @@ anchor = <<~ANCHOR.chomp
   19 pipeline: before writing any file for a feature/fix, run Stage 0 Haiku classifier first -- only a trivial verdict skips the pipeline.
   20 orbstack-docker: ALL dev servers as docker containers; tailnet access via shared Caddy at <name>.dev.pstaylor.net; localhost escape hatch for OAuth-locked apps; session-end reaper cleans up.
   21 gh-cli: use gh for all GitHub work (pr create/view/checks, issue list, release create); never reach for the browser when gh covers it.
+  23 smell-pass: after any code file change, run pst-smell.rb + Fowler review (MAINTAINABILITY.md) before stopping.
   Hard rules (em-dash, model-tier, merge-gate, review-gate, open-on-post, local-only) are hook-enforced.
 ANCHOR
 
@@ -59,4 +60,20 @@ begin
   end
 rescue StandardError
   # skip nudge if file is missing or unparseable
+end
+
+# Rule 23: nudge when code files have changed since last commit.
+begin
+  ledger_path_file = File.join(Pst::HOME, 'ledger-path')
+  if File.exist?(ledger_path_file)
+    smell_script = File.join(File.dirname(File.read(ledger_path_file).strip), 'pst-smell.rb')
+    if File.exist?(smell_script)
+      result = `ruby "#{smell_script}" 2>/dev/null`.strip
+      if result.start_with?('smell pass: required')
+        puts "[rule 23] #{result.lines.first.chomp} -- Fowler smell pass required before stopping (MAINTAINABILITY.md)."
+      end
+    end
+  end
+rescue StandardError
+  # skip if smell script is unavailable or git not in path
 end
