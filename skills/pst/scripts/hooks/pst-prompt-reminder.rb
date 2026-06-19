@@ -7,7 +7,6 @@
 # stdout is added to the model context.
 require_relative 'pst_common'
 require 'fileutils'
-require 'json'
 
 Pst.allow! unless Pst.armed?
 
@@ -28,14 +27,14 @@ File.write(counter_file, turn.to_s)
 Pst.allow! if turn <= 3
 
 anchor = <<~ANCHOR.chomp
-  [PST mode armed] Doctrine: SKILL.md. Standing judgment rules (no hook enforces these):
+  [PST mode armed] Doctrine: SKILL.md. Standing judgment rules (nudged, never blocked):
   1 delegate-by-default: independent, scoped, non-gating work -> background Sonnet worktree agent (use rule-19 pipeline for features/fixes).
   12 de-slop: no filler, hedging, YAGNI in code.
   13 run-to-completion: work through gates autonomously on completion-intent.
   14 prove-it: green + real E2E, never "should work".
   16 brevity: paragraphs <=320 chars, bullets <=160.
   19 pipeline: before writing any file for a feature/fix, run Stage 0 Haiku classifier first -- only a trivial verdict skips the pipeline.
-  20 orbstack-docker: ALL dev servers as docker containers; tailnet access via shared Caddy at <name>.dev.pstaylor.net; localhost escape hatch for OAuth-locked apps; session-end reaper cleans up.
+  20 orbstack-docker: dev infra + app servers run as tracked Docker containers, not host-native; session-end reaper cleans up (Caddy/localhost detail in SKILL.md).
   21 gh-cli: use gh for all GitHub work (pr create/view/checks, issue list, release create); never reach for the browser when gh covers it.
   23 smell-pass: after any code file change, run pst-smell.rb + Fowler review (MAINTAINABILITY.md) before stopping.
   Hard rules (em-dash, model-tier, merge-gate, review-gate, open-on-post, local-only) are hook-enforced.
@@ -49,17 +48,13 @@ end
 
 # Runs per-turn (not session-start) so agents spawned mid-session see current ledger state.
 begin
-  ledger_file = Pst.ledger_path(sid)
-  if File.exist?(ledger_file)
-    entries = JSON.parse(File.read(ledger_file))
-    in_flight = entries.count { |e| Pst::IN_FLIGHT_STATUSES.include?(e['status']) }
-    if in_flight > 0
-      puts "[rule 22] Ledger has #{in_flight} task(s) in flight. " \
-           'Pass `pst-ledger.rb context` to new agents; update with `done`/`fail` on completion.'
-    end
+  in_flight = Pst.in_flight_count(sid)
+  if in_flight > 0
+    puts "[rule 22] Ledger has #{in_flight} task(s) in flight. " \
+         'Pass `pst-ledger.rb context` to new agents; update with `done`/`fail` on completion.'
   end
 rescue StandardError
-  # skip nudge if file is missing or unparseable
+  # skip nudge if the ledger is missing or unparseable
 end
 
 # Rule 23: nudge when code files have changed since last commit.

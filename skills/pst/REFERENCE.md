@@ -75,9 +75,8 @@ Example override: `PST_ALLOW_RED_MERGE=1 PST_ALLOW_UNREVIEWED_MERGE=1 gh pr merg
   deploy-permission roadblocks), so heavyweight automated testing is feasible.
 - **Rule 13 cue phrases:** "don't stop until you're done", "all the way", "keep
   going till it's green".
-- **Rule 15 smell vocabulary:** long method, large class, feature envy, primitive
-  obsession, shotgun surgery, divergent change, data clumps, message chains,
-  speculative generality.
+- **Rule 15 smell vocabulary:** see `MAINTAINABILITY.md` for the canonical
+  16-smell catalog (the single source, shared with rule 23).
 - **Rule 17 open-on-post triggers:** `gh pr create`, `gh pr|issue comment`,
   `gh pr|issue edit --body`, and the Jira `createJiraIssue` / `editJiraIssue` /
   `addCommentToJiraIssue` MCP tools. It opens the GitHub URL scraped from command

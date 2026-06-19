@@ -52,7 +52,7 @@ end
 
 
 def transition(file, id, new_status, summary: nil)
-  entries = load_entries(file)
+  entries = Pst.read_entries(file)
   entry = find_entry(entries, id)
   unless entry
     warn "pst-ledger: entry #{id} not found"
@@ -78,13 +78,6 @@ end
 ledger_dir  = File.join(Pst::HOME, 'ledger')
 ledger_file = File.join(ledger_dir, "#{sid}.json")
 
-def load_entries(path)
-  return [] unless File.exist?(path)
-  JSON.parse(File.read(path))
-rescue JSON::ParserError
-  []
-end
-
 def save_entries(path, entries)
   FileUtils.mkdir_p(File.dirname(path))
   File.write(path, JSON.pretty_generate(entries))
@@ -92,6 +85,17 @@ end
 
 def find_entry(entries, id)
   entries.find { |e| e['id'] == id }
+end
+
+# Display projection: the columns `list` and `context` render. Both derive their
+# cells from this, so adding or renaming a column is a one-place change.
+def display_fields(entry)
+  {
+    id: entry['id'].to_s,
+    status: entry['status'].to_s,
+    repo: File.basename(entry['repo'].to_s),
+    intent: entry['intent'].to_s
+  }
 end
 
 case cmd
@@ -110,7 +114,7 @@ when 'register'
     warn 'usage: pst-ledger.rb register <id> [--repo <path>] [--worktree <path>] [--intent <str>] [--label <str>] [--agent <str>]'
     exit 1
   end
-  entries = load_entries(ledger_file)
+  entries = Pst.read_entries(ledger_file)
   if find_entry(entries, id)
     warn "pst-ledger: entry #{id} already exists; use update to modify it"
     exit 1
@@ -137,7 +141,7 @@ when 'update'
     warn 'usage: pst-ledger.rb update <id> [--status <s>] [--summary <str>]'
     exit 1
   end
-  entries = load_entries(ledger_file)
+  entries = Pst.read_entries(ledger_file)
   entry = find_entry(entries, id)
   unless entry
     warn "pst-ledger: entry #{id} not found"
@@ -159,30 +163,30 @@ when 'fail'
   transition(ledger_file, positional[0], 'failed', summary: flags['summary'])
 
 when 'list'
-  entries = load_entries(ledger_file)
+  entries = Pst.read_entries(ledger_file)
   if entries.empty?
     puts '(no tasks registered)'
     exit 0
   end
-  col_id     = [2, *entries.map { |e| e['id'].length }].max
-  col_status = [6, *entries.map { |e| e['status'].length }].max
-  col_repo   = [4, *entries.map { |e| File.basename(e['repo'].to_s).length }].max
+  rows = entries.map { |e| display_fields(e) }
+  col_id     = [2, *rows.map { |r| r[:id].length }].max
+  col_status = [6, *rows.map { |r| r[:status].length }].max
+  col_repo   = [4, *rows.map { |r| r[:repo].length }].max
   header = "%-#{col_id}s  %-#{col_status}s  %-#{col_repo}s  %s" % %w[ID STATUS REPO INTENT]
   puts header
   puts '-' * [header.length, 80].min
-  entries.each do |e|
-    intent  = e['intent'].to_s
-    intent  = intent[0, INTENT_COL_WIDTH] + '...' if intent.length > INTENT_COL_WIDTH
-    repo    = File.basename(e['repo'].to_s)
-    puts "%-#{col_id}s  %-#{col_status}s  %-#{col_repo}s  %s" % [e['id'], e['status'], repo, intent]
+  rows.each do |r|
+    intent = r[:intent]
+    intent = intent[0, INTENT_COL_WIDTH] + '...' if intent.length > INTENT_COL_WIDTH
+    puts "%-#{col_id}s  %-#{col_status}s  %-#{col_repo}s  %s" % [r[:id], r[:status], r[:repo], intent]
   end
 
 when 'dump'
-  entries = load_entries(ledger_file)
+  entries = Pst.read_entries(ledger_file)
   puts JSON.pretty_generate(entries)
 
 when 'context'
-  entries = load_entries(ledger_file)
+  entries = Pst.read_entries(ledger_file)
   puts '## Active session tasks'
   puts ''
   puts '| ID | Status | Repo | Intent |'
@@ -191,9 +195,8 @@ when 'context'
     puts '| (none) | | | |'
   else
     entries.each do |e|
-      repo   = File.basename(e['repo'].to_s)
-      intent = e['intent'].to_s
-      puts "| #{e['id']} | #{e['status']} | #{repo} | #{intent} |"
+      r = display_fields(e)
+      puts "| #{r[:id]} | #{r[:status]} | #{r[:repo]} | #{r[:intent]} |"
     end
   end
   puts ''
