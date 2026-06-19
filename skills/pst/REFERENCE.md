@@ -218,6 +218,38 @@ Providers reject unregistered redirect hosts. Run OAuth-locked variants on local
 - Caddy admin API enabled at `localhost:2019`
 - The Caddy TLS policy for `*.dev.pstaylor.net` must use a DNS-01 issuer (Route53); the internal issuer used for `.test` domains does not work for public subdomains
 
+## Rule 22: Multi-repo orchestration ledger
+
+Use this when two or more repos, directories, or parallel agent tasks are in flight during a single session. The ledger externalizes task state so new agents can be handed a compact bundle of what is already running, without re-explaining the world in each prompt.
+
+`pst-mode.rb` calls `pst-ledger.rb init` automatically on arm, so the ledger exists by the time work begins.
+
+**Key commands:**
+
+- `pst-ledger.rb register <id> --repo <path> --intent <summary>` -- record a new task as pending when spawning an agent
+- `pst-ledger.rb running <id>` -- mark a task as running once the agent starts
+- `pst-ledger.rb done|fail <id> [--summary <notes>]` -- close out a task on completion or failure
+- `pst-ledger.rb context` -- print a markdown table of all tasks, suitable for pasting as a context header into a new agent prompt
+
+**Example orchestration:**
+
+```sh
+# Register tasks before spawning agents
+ruby scripts/pst-ledger.rb register auth-refactor --repo ~/code/myapp --intent "refactor OAuth flow to use PKCE"
+ruby scripts/pst-ledger.rb register api-client --repo ~/code/myapp-sdk --intent "update SDK to match new auth endpoints"
+
+# Pass context to each new agent
+ruby scripts/pst-ledger.rb context
+# => paste the output at the top of each agent prompt
+
+# Update status as work progresses
+ruby scripts/pst-ledger.rb running auth-refactor
+ruby scripts/pst-ledger.rb done auth-refactor --summary "PKCE implemented, tests green"
+ruby scripts/pst-ledger.rb fail api-client --summary "blocked: endpoint contract not finalized"
+```
+
+Inspect interactively with `/pst:tasks`. Storage: `~/.claude/pst/ledger/<session-id>.json`.
+
 ## Rule 21: gh CLI for GitHub
 
 `gh` is the default tool for anything touching GitHub. Use it over manual browser actions or raw API calls wherever possible.

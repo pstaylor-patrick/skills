@@ -124,6 +124,8 @@ rules a hook reminds about (non-blocking). Detail and examples are in
 
 21. **gh CLI for GitHub** `[NUDGE]`. Use `gh` as the primary interface for all GitHub interactions: creating PRs, viewing checks, commenting, listing issues, and cutting releases. Do not reach for the browser or raw API calls when `gh` covers the task. Common invocations: `gh pr create`, `gh pr checks`, `gh pr view --web`, `gh issue list`, `gh release create`. Read commands are always allowed; mutating commands are blocked in local-only mode (rule 18).
 
+22. **Multi-repo orchestration ledger** `[NUDGE]`. When spanning 2 or more repos, directories, or parallel tasks in a single session, initialize a session ledger (`pst-ledger.rb init` -- called automatically on arm) and register each spawned task on creation (`pst-ledger.rb register <id> --repo <path> --intent <summary>`). Update status on completion (`pst-ledger.rb done|fail <id>`). Pass `pst-ledger.rb context` as the context header to each new agent so sibling task state is always known. Inspect with `/pst:tasks`.
+
 ## Usage
 
 `/pst` activates, `/pst off` disarms. Mechanics, merge modes, and rule detail are

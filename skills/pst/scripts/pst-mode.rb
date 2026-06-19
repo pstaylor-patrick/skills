@@ -101,3 +101,6 @@ if sid
 else
   puts 'pst: could not resolve session id; em-dash enforcement engages next session'
 end
+
+# 5. Initialize the task ledger for this session.
+system(RbConfig.ruby, File.join(SRC, 'pst-ledger.rb'), 'init', in: File::NULL)
