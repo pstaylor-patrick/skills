@@ -18,4 +18,7 @@ unless sid.empty?
       FileUtils.rm_f(docker_file)
     end
   end
+
+  ledger_file = File.join(Pst::HOME, 'ledger', "#{sid}.json")
+  FileUtils.rm_f(ledger_file) if File.exist?(ledger_file)
 end

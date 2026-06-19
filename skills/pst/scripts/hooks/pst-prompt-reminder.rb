@@ -7,6 +7,7 @@
 # stdout is added to the model context.
 require_relative 'pst_common'
 require 'fileutils'
+require 'json'
 
 Pst.allow! unless Pst.armed?
 
@@ -43,4 +44,19 @@ if (turn % 10).zero?
   puts anchor + "\nFull doctrine: SKILL.md (reload if needed)."
 else
   puts anchor
+end
+
+# Rule 22 ledger nudge: surface in-flight tasks so new agents get context.
+begin
+  ledger_file = File.join(Pst::HOME, 'ledger', "#{sid}.json")
+  if File.exist?(ledger_file)
+    entries = JSON.parse(File.read(ledger_file))
+    in_flight = entries.count { |e| %w[pending running].include?(e['status']) }
+    if in_flight > 0
+      puts "[rule 22] Ledger has #{in_flight} task(s) in flight. " \
+           'Pass `pst-ledger.rb context` to new agents; update with `done`/`fail` on completion.'
+    end
+  end
+rescue StandardError
+  # skip nudge if file is missing or unparseable
 end
