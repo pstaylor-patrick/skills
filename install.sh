@@ -48,6 +48,7 @@ SKILLS=(
   "pst:sweep"
   "pst:slop"
   "spec-gen"
+  "typst"
   "validate-quality-gates"
 )
 
