@@ -16,7 +16,7 @@ Answer the question: after what we are doing right now and what we do next, what
 2. Invoke `/pst:now` and `/pst:next` in parallel (via two background Haiku agents or by calling the skills directly). Collect both outputs. Also run the following Bash step to dump the full ledger JSON:
 
    ```sh
-   LEDGER="$(ruby -e "require 'pathname'; puts Pathname.new(File.realpath(File.expand_path('~/.claude/commands/pst.md'))).dirname.join('scripts/pst-ledger.rb')" 2>/dev/null)"
+   LEDGER="$(cat ~/.claude/pst/ledger-path 2>/dev/null)"
    ruby "$LEDGER" dump 2>/dev/null || echo "[]"
    ```
 

@@ -19,6 +19,7 @@ unless sid.empty?
     end
   end
 
-  ledger_file = File.join(Pst::HOME, 'ledger', "#{sid}.json")
-  FileUtils.rm_f(ledger_file) if File.exist?(ledger_file)
+  # Rule 22: clear session ledger
+  ledger_file = Pst.ledger_path(sid)
+  FileUtils.rm_f(ledger_file)
 end

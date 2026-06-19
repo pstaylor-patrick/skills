@@ -46,12 +46,12 @@ else
   puts anchor
 end
 
-# Rule 22 ledger nudge: surface in-flight tasks so new agents get context.
+# Runs per-turn (not session-start) so agents spawned mid-session see current ledger state.
 begin
-  ledger_file = File.join(Pst::HOME, 'ledger', "#{sid}.json")
+  ledger_file = Pst.ledger_path(sid)
   if File.exist?(ledger_file)
     entries = JSON.parse(File.read(ledger_file))
-    in_flight = entries.count { |e| %w[pending running].include?(e['status']) }
+    in_flight = entries.count { |e| Pst::IN_FLIGHT_STATUSES.include?(e['status']) }
     if in_flight > 0
       puts "[rule 22] Ledger has #{in_flight} task(s) in flight. " \
            'Pass `pst-ledger.rb context` to new agents; update with `done`/`fail` on completion.'

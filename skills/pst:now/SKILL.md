@@ -14,7 +14,7 @@ Produce a present-tense snapshot of the session: what is the current goal, and w
 1. Call `TaskList` to get all background agents and their current status. Also run the following Bash step to get the ledger table:
 
    ```sh
-   LEDGER="$(ruby -e "require 'pathname'; puts Pathname.new(File.realpath(File.expand_path('~/.claude/commands/pst.md'))).dirname.join('scripts/pst-ledger.rb')" 2>/dev/null)"
+   LEDGER="$(cat ~/.claude/pst/ledger-path 2>/dev/null)"
    ruby "$LEDGER" list 2>/dev/null || echo "(no tracked tasks)"
    ```
 

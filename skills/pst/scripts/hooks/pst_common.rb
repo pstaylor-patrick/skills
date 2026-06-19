@@ -94,4 +94,10 @@ module Pst
   rescue StandardError
     ''
   end
+
+  IN_FLIGHT_STATUSES = %w[pending running].freeze
+
+  def ledger_path(sid = session_id)
+    File.join(HOME, 'ledger', "#{sid}.json")
+  end
 end

@@ -104,3 +104,7 @@ end
 
 # 5. Initialize the task ledger for this session.
 system(RbConfig.ruby, File.join(SRC, 'pst-ledger.rb'), 'init', in: File::NULL)
+
+# 6. Cache the ledger script path so skills can read it without re-deriving it.
+ledger_script = File.expand_path(File.join(SRC, 'pst-ledger.rb'))
+File.write(File.join(PST_HOME, 'ledger-path'), ledger_script)

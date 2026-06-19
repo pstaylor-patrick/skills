@@ -14,7 +14,7 @@ Give one opinionated recommendation of what to do next, grounded in the current 
 1. Call TaskList to get the status of any background agents in this session. Also run the following Bash step to get the ledger table:
 
    ```sh
-   LEDGER="$(ruby -e "require 'pathname'; puts Pathname.new(File.realpath(File.expand_path('~/.claude/commands/pst.md'))).dirname.join('scripts/pst-ledger.rb')" 2>/dev/null)"
+   LEDGER="$(cat ~/.claude/pst/ledger-path 2>/dev/null)"
    ruby "$LEDGER" list 2>/dev/null || echo "(no tracked tasks)"
    ```
 

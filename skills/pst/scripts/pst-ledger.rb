@@ -19,6 +19,7 @@ require 'fileutils'
 require_relative File.join(__dir__, 'hooks', 'pst_common')
 
 NOW = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+INTENT_COL_WIDTH = 60
 
 # Resolve session id without hanging on stdin when not in a hook context.
 # When stdin is a tty, or CLAUDE_SESSION_ID is already in the environment,
@@ -42,10 +43,26 @@ def parse_flags(argv)
       flags[key] = val.to_s
       i += 2
     else
+      # non-flag positional tokens are collected separately via ARGV; they are not flags
       i += 1
     end
   end
   flags
+end
+
+
+def transition(file, id, new_status, summary: nil)
+  entries = load_entries(file)
+  entry = find_entry(entries, id)
+  unless entry
+    warn "pst-ledger: entry #{id} not found"
+    exit 1
+  end
+  entry['status']     = new_status
+  entry['updated_at'] = NOW
+  entry['summary']    = summary unless summary.nil?
+  save_entries(file, entries)
+  puts "pst-ledger: #{id} -> #{new_status}"
 end
 
 cmd = ARGV[0]
@@ -133,57 +150,13 @@ when 'update'
   puts "pst-ledger: updated #{id}"
 
 when 'running'
-  id = positional[0]
-  unless id && !id.empty?
-    warn 'usage: pst-ledger.rb running <id>'
-    exit 1
-  end
-  entries = load_entries(ledger_file)
-  entry = find_entry(entries, id)
-  unless entry
-    warn "pst-ledger: entry #{id} not found"
-    exit 1
-  end
-  entry['status']     = 'running'
-  entry['updated_at'] = NOW
-  save_entries(ledger_file, entries)
-  puts "pst-ledger: updated #{id}"
+  transition(ledger_file, positional[0], 'running')
 
 when 'done'
-  id = positional[0]
-  unless id && !id.empty?
-    warn 'usage: pst-ledger.rb done <id> [--summary <str>]'
-    exit 1
-  end
-  entries = load_entries(ledger_file)
-  entry = find_entry(entries, id)
-  unless entry
-    warn "pst-ledger: entry #{id} not found"
-    exit 1
-  end
-  entry['status']     = 'done'
-  entry['summary']    = flags['summary'] if flags.key?('summary')
-  entry['updated_at'] = NOW
-  save_entries(ledger_file, entries)
-  puts "pst-ledger: updated #{id}"
+  transition(ledger_file, positional[0], 'done', summary: flags['summary'])
 
 when 'fail'
-  id = positional[0]
-  unless id && !id.empty?
-    warn 'usage: pst-ledger.rb fail <id> [--summary <str>]'
-    exit 1
-  end
-  entries = load_entries(ledger_file)
-  entry = find_entry(entries, id)
-  unless entry
-    warn "pst-ledger: entry #{id} not found"
-    exit 1
-  end
-  entry['status']     = 'failed'
-  entry['summary']    = flags['summary'] if flags.key?('summary')
-  entry['updated_at'] = NOW
-  save_entries(ledger_file, entries)
-  puts "pst-ledger: updated #{id}"
+  transition(ledger_file, positional[0], 'failed', summary: flags['summary'])
 
 when 'list'
   entries = load_entries(ledger_file)
@@ -199,7 +172,7 @@ when 'list'
   puts '-' * [header.length, 80].min
   entries.each do |e|
     intent  = e['intent'].to_s
-    intent  = intent[0, 60] + '...' if intent.length > 60
+    intent  = intent[0, INTENT_COL_WIDTH] + '...' if intent.length > INTENT_COL_WIDTH
     repo    = File.basename(e['repo'].to_s)
     puts "%-#{col_id}s  %-#{col_status}s  %-#{col_repo}s  %s" % [e['id'], e['status'], repo, intent]
   end
