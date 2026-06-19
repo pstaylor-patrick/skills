@@ -49,6 +49,7 @@ SKILLS=(
   "pst:slop"
   "spec-gen"
   "validate-quality-gates"
+  "vault"
 )
 
 # Old names that may exist as orphaned symlinks
