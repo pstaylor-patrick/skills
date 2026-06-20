@@ -17,7 +17,7 @@ ledger_path_file = File.join(Pst::HOME, 'ledger-path')
 if File.exist?(ledger_path_file)
   ledger_script = File.read(ledger_path_file).strip
   unless File.exist?(Pst.ledger_path(sid))
-    system(RbConfig.ruby, ledger_script, 'init', in: File::NULL) rescue nil
+    system({'CLAUDE_SESSION_ID' => sid}, RbConfig.ruby, ledger_script, 'init', in: File::NULL) rescue nil
   end
 end
 
