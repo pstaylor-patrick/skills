@@ -101,32 +101,43 @@ Spawn **3 foreground Sonnet agents** in a single response turn (NO `run_in_backg
 All three must complete before the judge. Each reads PR state via `gh pr view --json` and
 `gh pr checks` only -- NO mutations, NO comment posts, NO pushes.
 
+**Inject the Phase 1 PR list** (`{number, title, isDraft, unresolvedThreadCount,
+reviewDecision, checkStatus}`) into each scout prompt as the single source of truth.
+Scouts must not run `gh pr list`. Each scout prompt must open with: "You have access to
+Bash (read-only: `gh api`, `gh pr view`, `git log`, `git diff`) and Read only. Do not
+use Edit, Write, or invoke any Skill tool."
+
 ### Strategy A -- Conservative
 
-Simulate: inspect all PRs for resolvable threads via read-only `pst:resolve-threads`.
-Skip code-review and qa entirely. Report which threads are fixable, which PRs have merge
-conflicts, and which would benefit most from thread cleanup.
+Query `gh pr view $PR_NUMBER --json reviewThreads` per PR to count unresolved bot threads
+that WOULD be resolved. Skip code-review and qa. Report fixable threads, merge conflicts,
+and top cleanup candidates. No sub-skill calls.
 
 ### Strategy B -- Standard
 
-Simulate per PR: resolve -> code-review -> qa sequentially. Skip drafts and conflict-blocked
-PRs. Report projected findings for each stage across all PRs.
+Read `gh pr checks $PR_NUMBER` and the injected `unresolvedThreadCount` / `reviewDecision`
+per PR. Estimate projected findings per stage across all PRs. Skip drafts and
+conflict-blocked PRs. No sub-skill calls.
 
 ### Strategy C -- Review-gated
 
-Simulate: run code-review inspection first per PR. Only plan qa for PRs code-review would
-mark APPROVED. Skip qa entirely for CHANGES_REQUESTED PRs to save compute. Report which PRs
-gate out and why.
+Use `reviewDecision` from the injected PR list. Gate qa estimates on
+`reviewDecision == "APPROVED"`; skip qa for `CHANGES_REQUESTED` PRs. Report which PRs
+gate out and why. No sub-skill calls.
 
 ### Required result block (each agent)
 
 ```
 ---sweep-result---
 STRATEGY: <A|B|C>
+PRs_TOTAL: <integer: total PRs in batch>
 PRs_PROCESSABLE: <integer>
 PRs_BLOCKED: <integer>
+PRs_ESTIMATED_IMPROVED: <integer: PRs this strategy would move forward>
+ESTIMATED_SIGNAL_FINDINGS: <integer: threads/checks that are real issues>
+ESTIMATED_NOISE_FINDINGS: <integer: bot noise, auto-closeable items>
 ESTIMATED_MUTATIONS: <integer: comment posts + pushes this strategy would make>
-FINDINGS_SUMMARY: <one-line summary of key findings across all PRs>
+FINDINGS_SUMMARY: <one-line summary>
 ---end-sweep-result---
 ```
 
@@ -134,15 +145,16 @@ FINDINGS_SUMMARY: <one-line summary of key findings across all PRs>
 
 ## Phase T.2: Opus Judge
 
-Parse all three `---sweep-result---` blocks. Spawn one **background Opus agent**
-(`model: opus`) and **await its result before Phase T.3**. Prompt:
+Parse all three `---sweep-result---` blocks. Spawn one **foreground Opus agent**
+(`model: opus`; blocks until done). Prompt:
 
 > Score each strategy (1-5 per axis):
 >
-> - **Coverage**: how many PRs does this strategy actually improve vs skip?
-> - **Precision**: ratio of signal findings to noise; review-gated strategies score higher
->   when they block qa for CHANGES_REQUESTED PRs.
-> - **Efficiency**: total mutations per PR improved (fewer is better).
+> - **Coverage**: `PRs_ESTIMATED_IMPROVED / PRs_TOTAL` -- how many PRs move forward?
+> - **Precision**: `ESTIMATED_SIGNAL_FINDINGS / (SIGNAL + NOISE)` -- real issues vs noise;
+>   review-gated strategies score higher for blocking qa on CHANGES_REQUESTED PRs.
+> - **Efficiency**: `ESTIMATED_MUTATIONS / PRs_ESTIMATED_IMPROVED` -- mutations per PR
+>   improved (fewer is better).
 >
 > Return JSON only:
 >
@@ -174,20 +186,28 @@ wave 2 only after wave 1 completes.
 - **Strategy A:** one background agent per PR running `pst:resolve-threads` only.
 - **Strategy B:** one background agent per PR running resolve -> code-review -> qa (skip
   drafts and conflict-blocked PRs).
-- **Strategy C:** one background agent per PR running code-review first; include qa only
-  if code-review result is APPROVED.
+- **Strategy C:** one background agent per PR running code-review first. After
+  code-review, run `gh pr view $PR_NUMBER --json reviewDecision`; skip qa if
+  `reviewDecision != "APPROVED"`.
 
 Each agent uses `isolation: worktree`. Bootstrap before running stages:
 
 ```bash
 gh pr checkout $PR_NUMBER
-if [ -f pnpm-lock.yaml ]; then PKG="pnpm"
+if [ ! -f package.json ]; then
+  echo "No package.json -- skipping JS bootstrap and JS quality gates."
+  PKG=""
+elif [ -f pnpm-lock.yaml ]; then PKG="pnpm"
 elif [ -f yarn.lock ]; then PKG="yarn"
 else PKG="npm"; fi
-if grep -q '"worktree:init"' package.json 2>/dev/null
-then $PKG run worktree:init
-else $PKG install --frozen-lockfile; fi
+if [ -n "$PKG" ]; then
+  if grep -q '"worktree:init"' package.json 2>/dev/null
+  then $PKG run worktree:init
+  else $PKG install --frozen-lockfile; fi
+fi
 ```
+
+Gate all `$PKG run ...` commands on `[ -n "$PKG" ]`.
 
 Required result block per PR agent:
 
@@ -272,7 +292,7 @@ results:
 | User cancels mid-triage | Partial results, still emit SWEEP RESULT         |
 
 - **User owns all actions:** Triage actions require confirmation. No auto-merge.
-- **Dry-run scout agents read only:** `gh pr view --json` and `gh pr checks` only -- no mutations.
+- **Dry-run scouts read only:** `gh pr view --json` and `gh pr checks` -- no mutations.
 - **Stage ordering (B/C):** resolve -> review -> qa. All stages run to completion.
 - **Standard code-review mode:** GitHub PR mode, NOT `--preflight` or `--sweep`.
 - **Worktree cleanup:** Auto-cleaned if no changes. Fix-now worktrees persist for user review.
