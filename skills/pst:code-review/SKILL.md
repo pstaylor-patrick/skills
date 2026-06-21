@@ -26,7 +26,15 @@ Modes:
 - `--sweep`: multi-round autonomous review-and-fix loop (min 2, max 5 rounds).
 
 **Re-review detection:** Check `gh api /repos/{owner}/{repo}/pulls/{N}/reviews` for a prior
-review. If one exists, scope diff to changes since that commit; report only critical and
+review. If one exists, scope the diff using:
+
+```bash
+PRIOR_REVIEW_SHA=$(gh api /repos/{owner}/{repo}/pulls/{N}/reviews \
+  --jq '[.[] | select(.state=="APPROVED" or .state=="CHANGES_REQUESTED")] | last | .commit_id')
+git diff "$PRIOR_REVIEW_SHA"..HEAD -- $(gh pr diff $N --name-only)
+```
+
+If PRIOR_REVIEW_SHA is empty (first review), use the full diff. Report only critical and
 warning findings. Zero criticals + zero warnings: APPROVE; else REQUEST_CHANGES.
 
 ---
@@ -74,18 +82,21 @@ finding; if stale with no migrations, emit warning finding.
 ### Diff-size gate
 
 ```bash
-LINES_CHANGED=$(gh pr diff $N | grep -cE '^[+-]' || echo 0)
+LINES_CHANGED=$(git diff $(gh pr view $N --json baseRefOid --jq .baseRefOid)...$(gh pr view $N --json headRefOid --jq .headRefOid) | grep -cE '^\+[^+]|^-[^-]' || echo 0)
 ```
 
-- **Small** (fewer than 200 lines): N=1, use Strategy B only. Skip tournament and Opus judge.
+- **Small** (fewer than 200 lines): spawn a single foreground Sonnet agent (Strategy B). Pass its
+  `---review-result---` block directly to pre-filter; skip the Opus judge.
 - **Medium** (200-500 lines): N=3 tournament.
 - **Large** (500+ lines): N=3 tournament.
 
 ### Parallel Sonnet agents (N=3)
 
-Spawn 3 **foreground** Sonnet agents in a **single response turn** (do not set
-`run_in_background`). Pass the full diff text in each agent prompt. No worktree isolation --
-these agents are read-only and must not mutate files.
+Spawn 3 **foreground** Sonnet agents in a **single response turn** (`run_in_background: false`).
+Pass the full diff text in each prompt. Read-only analysis -- no file or GitHub mutations.
+
+Each analysis agent prompt must open with: "Read, Grep, and Glob only -- no Bash, Edit, Write,
+Skills, commits, comments, reviews, or any GitHub resource mutation."
 
 **Strategy A -- Security-first:** Prioritize OWASP A01-A10 and injection/auth/crypto
 findings. Weight critical/high findings 3x. Surface every possible security finding even
@@ -105,36 +116,48 @@ Each agent returns findings in exactly this block:
 STRATEGY: <A|B|C>
 FINDING_COUNT: <integer>
 FINDINGS:
-<JSON array: [{"file":"...","line":"...","severity":"critical|high|medium|low","category":"...","description":"...","fix":"..."}]>
+<JSON array: [{"file":"...","line":"<start>-<end>","severity":"critical|high|medium|low","category":"...","description":"...","fix":"..."}]>
 ---end-review-result---
 ```
+
+`line` format: `"<start>-<end>"` (single: `"42-42"`, range: `"42-45"`). End value required.
 
 ### Opus judge (foreground, N=3 only)
 
 After all three agents return, spawn one **foreground Opus agent** (`model: opus`). Await
 its result before proceeding. Provide all three finding sets and these rules:
 
-**Deduplication:** Two findings are duplicates when they reference the same file and their
-line numbers overlap within a 5-line window.
+**Deduplication:** Same `file` AND `max(start_A, start_B) <= min(end_A, end_B) + 5` (bounds from `line` field).
 
 **Keep a finding if:** it appears in 2 or more strategy finding sets, OR its severity is
 `critical` in any strategy.
 
-**Confidence scoring:** 1 strategy = confidence 1, 2 strategies = confidence 3,
-3 strategies = confidence 5.
+**Confidence scoring:** 1 strategy = 1, 2 strategies = 3, 3 strategies = 5.
 
-**Output:** a merged, ranked JSON finding list with confidence scores, highest first.
+**Output:** merged, ranked by confidence (highest first); judge synthesizes `title` as 8-word imperative. Return exactly:
+
+```
+---judge-result---
+FINDINGS:
+[{"file":"...","line":"<start>-<end>","severity":"critical|high|medium|low","category":"...","description":"...","fix":"...","title":"<8-word imperative>","confidence":1|3|5,"strategies":["A","B","C"]}]
+---end-judge-result---
+```
 
 ### Pre-filter
 
-After the judge (or after Strategy B for N=1), drop findings that are: style nitpicks
-mis-classified as warnings, already caught by CI tooling (eslint, tsc, prettier), or
-missing a concrete actionable fix. Downgrade mis-classified warnings to nit or drop.
+**Severity remapping (analysis -> reporting):** critical->critical, high->warning, medium->nit,
+low->drop (2+ strategies agree: nit instead).
+
+After the judge (or Strategy B for N=1), apply remapping above. Drop findings that are: style
+nitpicks mis-classified as warnings, already caught by CI tooling (eslint, tsc, prettier), or
+missing a concrete actionable fix.
 
 Assign IDs `R{N}` (sequential). Severity: `critical | warning | nit | observation`.
 Include file + line range, category, title, problem (1-2 sentences), fix (omit for
 `observation`). `observation` is for architectural notes with no concrete fix. Max 2 per
 review. Observations do not enter Verification.
+
+If 0 candidates survive (excluding observations): skip verification; VERIFIED=0, DROPPED=0. Proceed to Reporting.
 
 ---
 
@@ -142,9 +165,8 @@ review. Observations do not enter Verification.
 
 ### Invariant (non-negotiable)
 
-Every candidate finding that survives pre-filter **MUST** be verified by its own
-isolated-worktree sub-agent that (i) applies the proposed fix and (ii) runs the full
-quality-gate suite. The only exception is `observation` severity (no fix to apply).
+Every non-`observation` finding surviving pre-filter **MUST** be verified by its own
+isolated-worktree sub-agent: (i) apply the fix, (ii) run the full quality-gate suite.
 
 Spawn per finding:
 
@@ -201,6 +223,12 @@ APPROVE and REQUEST_CHANGES with 422 on your own PR) or (2) explicit user instru
 Detect self-authored: compare `gh api /user --jq .login` with
 `gh pr view $N --json author --jq '.author.login'`. Flag self-authored only when both are
 non-empty and equal.
+
+### Inline comment position mapping
+
+GitHub's inline comment API requires a diff `position` integer, not a source line number. For
+each VERIFIED finding, map `file + line` to a diff position via hunk headers. If the line is
+not in the diff, fall back to a PR body comment with a `file:line` reference. Best-effort.
 
 ### GitHub PR mode
 
