@@ -34,9 +34,9 @@ git ls-files | grep -Ev '\.(lock|snap|min\.(js|css)|pb\.go|pb_test\.go)$' \
   | grep -E '\.(rb|py|ts|tsx|js|jsx|go|rs|java|kt|swift|ex|exs|cs|cpp|c|h)$'
 ```
 
-## 2. Opus smell analysis (background)
+## 2. Opus smell analysis
 
-Spawn one background Opus agent (`model: opus`) with:
+Spawn one **foreground** Opus agent (`model: opus`) with:
 
 - The full content of `MAINTAINABILITY.md` (read via the path resolved above).
 - The list of code files from step 1.
@@ -89,7 +89,10 @@ only). Treat no objection as Yes.
 
 Determine N from the smell count and file count:
 
-- **Trivial** (1-3 smells, 1-2 files): N=1 -- single Sonnet, skip tournament.
+- **Trivial** (1-3 smells, 1-2 files): N=1 -- single Sonnet agent, skip
+  tournament. Spawn one foreground Sonnet agent using strategy A (Conservative).
+  No judge step; cherry-pick its commit directly in Step 7. If it cannot commit,
+  report the reason and stop.
 - **Moderate** (4-10 smells or 3-5 files): N=3.
 - **Complex** (11+ smells or 6+ files): N=5.
 
@@ -149,16 +152,28 @@ Steps each agent must follow:
 
 1. Apply its strategy to fix the smells in the target files.
 2. Run existing tests if present; skip any fix that breaks a test and note it.
-3. Stage and commit: `git add <changed files> && git commit -m "refactor(<strategy>): <primary smell fixed>"`.
-4. Include co-author trailer: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`.
-5. Run `git rev-parse HEAD` and `git diff HEAD~1..HEAD`; include both verbatim in the result block.
+3. Stage and commit using a HEREDOC so the trailer blank line is preserved:
+
+   ```sh
+   git add <changed files>
+   git commit -m "$(cat <<'EOF'
+   refactor(<strategy>): <primary smell fixed>
+
+   Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+   EOF
+   )"
+   ```
+
+4. Run `git rev-parse HEAD` and `git diff HEAD~1..HEAD`; include both verbatim
+   in the result block.
 
 ## 6. Opus judge selects winner
 
 After all N agents return (foreground means they are all done before this
-step begins), parse each `---tournament-result---` block. Collect the SHA and
-diff for every agent with `STATUS: committed`. If zero agents committed, report
-all skip reasons and stop.
+step begins), parse each `---tournament-result---` block. If an agent's output
+contains no result block at all, treat it as `STATUS: skipped: result block
+missing`. Collect the SHA and diff for every agent with `STATUS: committed`. If
+zero agents committed, report all skip reasons and stop.
 
 Spawn one **foreground** Opus agent (`model: opus`) with:
 
@@ -170,13 +185,30 @@ Spawn one **foreground** Opus agent (`model: opus`) with:
   Reduced Cognitive Load, Strong Domain Modeling). Score each 1-5 per
   dimension. Return the winning strategy letter.
 
-Return schema:
+Return schema (include a scores entry for every strategy letter that appears
+in the committed diffs you received -- do not omit strategies that ran):
 
 ```json
 {
   "winner": "A|B|C|D|E",
   "scores": {
     "A": {
+      "cohesion": 0,
+      "coupling": 0,
+      "intent": 0,
+      "locality": 0,
+      "cognitive_load": 0,
+      "domain_model": 0
+    },
+    "B": {
+      "cohesion": 0,
+      "coupling": 0,
+      "intent": 0,
+      "locality": 0,
+      "cognitive_load": 0,
+      "domain_model": 0
+    },
+    "C": {
       "cohesion": 0,
       "coupling": 0,
       "intent": 0,
@@ -198,8 +230,16 @@ Step 5 (not from the Opus judge). Cherry-pick it onto the current branch:
 git cherry-pick <sha-from-winning-agent>
 ```
 
-If cherry-pick fails due to conflict, fall back to `git apply` with the
-winning diff from the result block.
+If cherry-pick fails due to conflict, write the winning diff to a temp file
+and apply it:
+
+```sh
+# Write the diff from the result block to a temp file first
+git apply /tmp/pst-refactor-winner.patch
+```
+
+Use the Write tool to write the diff string to `/tmp/pst-refactor-winner.patch`
+before running that command.
 
 Report: winning strategy, Opus reasoning, scores for each strategy, smells
 fixed vs. skipped, test results, and any agents that skipped with their reason.
