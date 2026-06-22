@@ -5,6 +5,7 @@
 # PR/issue/Jira description updated), open the resulting page in the browser so
 # he can see what was posted on his behalf (rule 17). Side effect only; this hook
 # NEVER blocks. Inert unless armed. Skip a single run with PST_NO_BROWSER=1.
+require 'fileutils'
 require_relative 'pst_common'
 
 exit 0 unless Pst.armed?
@@ -47,6 +48,41 @@ end
 urls = urls.uniq.first(3)
 exit 0 if urls.empty?
 
+# 60-second recency dedup: suppress double-opens caused by `gh pr create`
+# followed immediately by `gh pr edit --body-file` for the same URL.
+DEDUP_DIR  = File.join(Dir.home, '.claude', 'pst')
+DEDUP_FILE = File.join(DEDUP_DIR, 'open-dedup.json')
+DEDUP_TTL  = 60
+
+def recently_opened?(url)
+  return false unless File.exist?(DEDUP_FILE)
+
+  begin
+    entries = JSON.parse(File.read(DEDUP_FILE))
+    cutoff  = Time.now.to_i - DEDUP_TTL
+    entries.any? { |e| e['url'] == url && e['at'].to_i >= cutoff }
+  rescue StandardError
+    false
+  end
+end
+
+def record_opened(url)
+  begin
+    FileUtils.mkdir_p(DEDUP_DIR)
+    entries = File.exist?(DEDUP_FILE) ? JSON.parse(File.read(DEDUP_FILE)) : []
+    cutoff  = Time.now.to_i - DEDUP_TTL
+    entries.reject! { |e| e['at'].to_i < cutoff }
+    entries << { 'url' => url, 'at' => Time.now.to_i }
+    File.write(DEDUP_FILE, JSON.generate(entries))
+  rescue StandardError
+    # A write failure must never block the open.
+  end
+end
+
 opener = RUBY_PLATFORM =~ /darwin/ ? 'open' : 'xdg-open'
-urls.each { |u| system(opener, u, %i[out err] => File::NULL) }
+urls.each do |u|
+  next if recently_opened?(u)
+  record_opened(u)
+  system(opener, u, %i[out err] => File::NULL)
+end
 exit 0
