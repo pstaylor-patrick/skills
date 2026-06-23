@@ -22,6 +22,10 @@ UNINSTALL=false
 
 SKILLS=(
   "pst"
+  "stack/typescript"
+  "stack/ruby"
+  "stack/docker"
+  "stack/terraform"
 )
 
 # Old names that may exist as orphaned symlinks
@@ -240,26 +244,30 @@ done
 
 # ── Install skills ───────────────────────────────────────────────────
 for skill in "${SKILLS[@]}"; do
+  # Derive Claude command name: convert path separators to colons.
+  # e.g. "stack/typescript" -> "stack:typescript", "pst" -> "pst"
+  skill_cmd="${skill//\//:}"
+
   # Claude Code: file symlink to SKILL.md
   claude_src="$REPO_DIR/skills/$skill/SKILL.md"
-  claude_dst="$CLAUDE_COMMANDS_DIR/$skill.md"
+  claude_dst="$CLAUDE_COMMANDS_DIR/$skill_cmd.md"
   if [[ "$INSTALL_CLAUDE" == true ]]; then
     ln -sfn "$claude_src" "$claude_dst"
-    echo "Installed /$skill -> $claude_src"
+    echo "Installed /$skill_cmd -> $claude_src"
   fi
 
   # Codex: directory symlink to skill folder (includes scripts/ etc.)
   if [[ "$INSTALL_CODEX" == true && "$CODEX_AVAILABLE" == true ]]; then
     codex_src="$REPO_DIR/skills/$skill"
-    codex_dst="$CODEX_SKILLS_DIR/$skill"
+    codex_dst="$CODEX_SKILLS_DIR/$skill_cmd"
     ln -sfn "$codex_src" "$codex_dst"
-    echo "Installed /$skill -> $codex_src (Codex)"
+    echo "Installed /$skill_cmd -> $codex_src (Codex)"
   fi
 
   # Pi: portable wrapper directory with Agent Skills-safe name.
   if [[ "$INSTALL_PI" == true && "$PI_AVAILABLE" == true ]]; then
     write_pi_wrapper "$skill"
-    echo "Installed /skill:$(portable_name "$skill") -> $REPO_DIR/skills/$skill (Pi wrapper)"
+    echo "Installed /skill:$(portable_name "$skill_cmd") -> $REPO_DIR/skills/$skill (Pi wrapper)"
   fi
 done
 
@@ -292,7 +300,7 @@ elif [[ "$INSTALL_PI" == true ]]; then
 fi
 echo ""
 if [[ "$INSTALL_CLAUDE" == true ]]; then
-  echo "Claude commands: /pst"
+  echo "Claude commands: /pst, /stack:typescript, /stack:ruby, /stack:docker, /stack:terraform"
 fi
 if [[ "$INSTALL_CODEX" == true && "$CODEX_AVAILABLE" == true ]]; then
   echo "Codex skills: mention the skill name in your prompt, for example: 'Use pst:push to push this branch and validate the PR.'"
