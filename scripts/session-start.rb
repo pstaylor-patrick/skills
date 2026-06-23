@@ -1,21 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Merge-mode shim — SessionStart hook.
-#
-# Fires automatically on session start, resume, and /clear (Claude Code's
-# SessionStart matchers: startup | resume | clear). Injects a directive that
-# tells the model to ask the user how to handle merging changes from the
-# session, before doing anything else.
-#
-# A hook cannot literally force a tool call, but SessionStart additionalContext
-# is injected deterministically on every relevant event — so the instruction
-# always arrives, which is far more durable than relying on a static SKILL.md.
-
 require "json"
 
-# Builds and emits the SessionStart hook payload. One reason to change: the
-# merge-mode directive or the hook output contract.
 class MergeModeHook
   EVENT = "SessionStart"
 
@@ -33,12 +20,7 @@ class MergeModeHook
   TEXT
 
   def payload
-    {
-      hookSpecificOutput: {
-        hookEventName: EVENT,
-        additionalContext: DIRECTIVE
-      }
-    }
+    { hookSpecificOutput: { hookEventName: EVENT, additionalContext: DIRECTIVE } }
   end
 
   def emit(io = $stdout)

@@ -1,21 +1,10 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Merge-mode shim installer.
-#
-# Durable + idempotent:
-#   1. Copies hook scripts into ~/.claude/pst/bin/ (survives this repo moving
-#      or being deleted — settings.json points at the copy, not the repo).
-#   2. Symlinks SKILL.md for the /pst manual re-invoke path.
-#   3. Patches ~/.claude/settings.json to wire the SessionStart hook, leaving
-#      every other configured hook untouched.
-
 require "json"
 require "fileutils"
 require "rbconfig"
 
-# Knows where every install artifact lives. One reason to change: the on-disk
-# layout of the repo or of ~/.claude.
 class Paths
   def initialize(repo:, home:)
     @repo = repo
@@ -31,8 +20,6 @@ class Paths
   def skill_dest   = File.join(skills, "SKILL.md")
 end
 
-# Resolves the ruby interpreter the hook command should invoke. Prefers the one
-# running this installer, so the hook uses the same ruby the user installed with.
 module RubyInterpreter
   def self.path
     resolved = File.join(RbConfig::CONFIG["bindir"], RbConfig::CONFIG["ruby_install_name"])
@@ -42,8 +29,6 @@ module RubyInterpreter
   end
 end
 
-# Owns the SessionStart section of settings.json. Tell it to wire a command and
-# it loads, edits, backs up, and writes atomically — callers never touch the JSON.
 class SettingsFile
   def initialize(path, managed_dir:)
     @path = path
@@ -64,8 +49,6 @@ class SettingsFile
     File.exist?(@path) ? JSON.parse(File.read(@path)) : {}
   end
 
-  # Remove any hook whose command points into our managed bin dir (prior installs
-  # under any script name), then prune emptied groups. Other tools' hooks survive.
   def drop_managed_hooks(section)
     section.each do |group|
       next unless group.is_a?(Hash) && group["hooks"].is_a?(Array)
@@ -75,7 +58,6 @@ class SettingsFile
     section.reject! { |group| group.is_a?(Hash) && (group["hooks"] || []).empty? }
   end
 
-  # Back up, then write via temp file + rename so an interrupt can't corrupt it.
   def persist(data)
     FileUtils.cp(@path, "#{@path}.bak") if File.exist?(@path)
     tmp = "#{@path}.tmp"
@@ -84,7 +66,6 @@ class SettingsFile
   end
 end
 
-# Orchestrates the install steps and reports the result.
 class Installer
   def initialize(paths:, ruby:)
     @paths = paths
