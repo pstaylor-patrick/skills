@@ -45,7 +45,5 @@ class MergeModeHook
 end
 
 if __FILE__ == $PROGRAM_NAME
-  raw = $stdin.read
-  event = raw.empty? ? {} : JSON.parse(raw)
-  MergeModeHook.new(event).emit
+  MergeModeHook.new(HookEvent.read).emit
 end

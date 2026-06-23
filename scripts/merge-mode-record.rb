@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "json"
 require_relative "merge_mode_store"
 
 class MergeModeAnswer
@@ -47,6 +46,5 @@ class MergeModeRecord
 end
 
 if __FILE__ == $PROGRAM_NAME
-  raw = $stdin.read
-  MergeModeRecord.new(raw.empty? ? {} : JSON.parse(raw)).call
+  MergeModeRecord.new(HookEvent.read).call
 end

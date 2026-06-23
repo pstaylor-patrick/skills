@@ -30,6 +30,5 @@ class MergeModeRestate
 end
 
 if __FILE__ == $PROGRAM_NAME
-  raw = $stdin.read
-  MergeModeRestate.new(raw.empty? ? {} : JSON.parse(raw)).emit
+  MergeModeRestate.new(HookEvent.read).emit
 end

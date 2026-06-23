@@ -43,6 +43,34 @@ class MergeModeStoreTest < Minitest::Test
     assert_nil store.mode
     assert_empty Dir.glob(File.join(@home, ".claude", "pst", "sessions", "**", "*"))
   end
+
+  def test_rewrite_overwrites_previous_mode
+    MergeModeStore.new("s1").write("Local only")
+    MergeModeStore.new("s1").write("Admin bypass")
+    assert_equal "Admin bypass", MergeModeStore.new("s1").mode
+  end
+end
+
+class HookEventTest < Minitest::Test
+  def read(text)
+    HookEvent.read(StringIO.new(text))
+  end
+
+  def test_empty_input_is_empty_event
+    assert_equal({}, read(""))
+  end
+
+  def test_malformed_json_is_empty_event
+    assert_equal({}, read("{not json"))
+  end
+
+  def test_non_hash_json_is_empty_event
+    assert_equal({}, read("42"))
+  end
+
+  def test_parses_hash_payload
+    assert_equal({ "session_id" => "s1" }, read('{"session_id":"s1"}'))
+  end
 end
 
 class MergeModeAnswerTest < Minitest::Test
