@@ -330,7 +330,10 @@ async function handleLaunch() {
   chrome.unref();
 
   // Wait for DevTools endpoint to be reachable
-  const launchPage = await waitForPageTarget(debugPort, { attempts: 30, delayMs: 300 });
+  const launchPage = await waitForPageTarget(debugPort, {
+    attempts: 30,
+    delayMs: 300,
+  });
   if (!launchPage) {
     try {
       process.kill(chrome.pid);
