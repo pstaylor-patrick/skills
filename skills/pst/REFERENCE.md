@@ -1,3 +1,63 @@
+# PST Skills Reference
+
+## Three-tier architecture
+
+Three tiers compose into per-project behavior:
+
+1. **Global shim** (`skills/pst/`): always-on hooks (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, SessionEnd). Inert until armed. Invoke `/pst` to arm a session.
+
+2. **Stack modules** (`skills/stack/<name>/`): per-language/framework rules. Eight modules: typescript, ruby, docker, terraform, react, rails, nextjs, aws. Dep chain: react depends on typescript, rails depends on ruby, nextjs depends on react and typescript, aws depends on terraform. Auto-activated by the project layer.
+
+3. **Project layer**: repo-local `.pst/project.json` or user-global `~/.claude/pst/projects.json` binds a project name to a stack list. SessionStart auto-arms matching stacks. Unregistered repos trigger the onboarding flow.
+
+## Project layer configuration
+
+### Repo-local (`.pst/project.json`)
+
+```json
+{
+  "version": 1,
+  "name": "my-project",
+  "stacks": ["typescript", "react"]
+}
+```
+
+### User-global (`~/.claude/pst/projects.json`)
+
+```json
+{
+  "version": 1,
+  "projects": [
+    {
+      "name": "my-project",
+      "stacks": ["typescript", "react"],
+      "repos": ["/Users/me/code/my-project"]
+    }
+  ]
+}
+```
+
+### CLI
+
+```bash
+# Register current repo locally
+ruby skills/pst/scripts/hooks/pst-project.rb register my-project --stacks typescript,react
+
+# Register globally (adds current repo path)
+ruby skills/pst/scripts/hooks/pst-project.rb register my-project --stacks typescript,react --global
+
+# Check current repo's project
+ruby skills/pst/scripts/hooks/pst-project.rb which
+
+# List all global projects
+ruby skills/pst/scripts/hooks/pst-project.rb list
+
+# Skip onboarding for this session
+ruby skills/pst/scripts/hooks/pst-project.rb onboard-skip
+```
+
+---
+
 # /pst reference
 
 Mechanics and detail for the `/pst` skill. Not loaded as doctrine; read it only
