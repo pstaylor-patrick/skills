@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# pst merge-mode shim — SessionStart hook.
+# Merge-mode shim — SessionStart hook.
 #
 # Fires automatically on session start, resume, and /clear (Claude Code's
 # SessionStart matchers: startup | resume | clear). Injects a directive that

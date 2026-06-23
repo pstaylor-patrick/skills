@@ -1,7 +1,7 @@
 # PST — Merge Mode Shim
 
 The merge-mode question is injected automatically by the `SessionStart` hook
-(`pst-session-start.rb`) on session start, resume, and `/clear`. This file is
+(`session-start.rb`) on session start, resume, and `/clear`. This file is
 the manual `/pst` re-invoke path plus the rules for applying the chosen mode.
 
 ## /pst
