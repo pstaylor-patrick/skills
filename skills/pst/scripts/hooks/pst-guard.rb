@@ -103,6 +103,18 @@ def push_guard(cmd, cwd)
 
   return unless targets_default
 
+  # Carve-out: brand-new repo with no commits yet on the default branch (initial
+  # bootstrapping). rev-list errors when the branch doesn't exist yet, count 0
+  # means it was just created -- both indicate an empty repo, so allow the push.
+  begin
+    out, st = Timeout.timeout(10) do
+      Open3.capture2e('git', '-C', dir, 'rev-list', '--count', d, '--')
+    end
+    return if !st.success? || out.strip.to_i.zero?
+  rescue StandardError
+    return # never block on an inspection failure
+  end
+
   Pst.deny!("PST push guard: pushing directly to the default branch '#{d}' is not " \
             'allowed. Open a PR from a feature branch and merge through the ' \
             "gates (rules 5/7) instead. Override once with PST_ALLOW_MAIN_PUSH=1.")
