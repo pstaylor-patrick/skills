@@ -1,8 +1,12 @@
 # PST — Merge Mode Shim
 
-## Session start
+The merge-mode question is injected automatically by the `SessionStart` hook
+(`pst-session-start.rb`) on session start, resume, and `/clear`. This file is
+the manual `/pst` re-invoke path plus the rules for applying the chosen mode.
 
-On the **first user message** of every session, call `AskUserQuestion` before addressing any other content:
+## /pst
+
+Call `AskUserQuestion` to re-set the session's merge mode:
 
 **Question:** "How should I handle changes from this session?"
 **Header:** Merge mode
@@ -12,11 +16,7 @@ On the **first user message** of every session, call `AskUserQuestion` before ad
 2. **Merge ready** — Push branch, open PR, ensure CI is green. You merge manually.
 3. **Admin bypass** — Push branch, open PR, squash-merge immediately via admin bypass once CI is green.
 
-Acknowledge the choice in one line, then proceed with the session normally.
-
-## /pst
-
-Re-ask the merge mode question above. Acknowledge the updated choice in one line.
+Acknowledge the choice in one line, then proceed.
 
 ## Applying the mode
 
