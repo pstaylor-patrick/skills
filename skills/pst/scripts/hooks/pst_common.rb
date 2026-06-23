@@ -139,4 +139,126 @@ module Pst
   def in_flight_count(sid = session_id)
     load_ledger(sid).count { |e| IN_FLIGHT_STATUSES.include?(e['status']) }
   end
+
+  STACK_DEPS = {
+    'typescript' => [], 'ruby' => [], 'docker' => [], 'terraform' => [],
+    'react' => ['typescript'], 'rails' => ['ruby'],
+    'nextjs' => ['react', 'typescript'], 'aws' => ['terraform']
+  }.freeze
+
+  VALID_STACKS = STACK_DEPS.keys.freeze
+
+  def topo_sort_stacks(list)
+    input = (list & VALID_STACKS).uniq
+    with_deps = input.flat_map { |s| [s] + (STACK_DEPS[s] || []) }.uniq
+    ordered = []
+    remaining = with_deps.dup
+    max_iter = remaining.size * remaining.size + 1
+    iter = 0
+    until remaining.empty?
+      iter += 1
+      break if iter > max_iter
+      node = remaining.find { |n| (STACK_DEPS[n] || []).all? { |d| ordered.include?(d) } }
+      break unless node
+      ordered << node
+      remaining.delete(node)
+    end
+    ordered
+  end
+
+  def normalize_repo(path)
+    File.expand_path(path.to_s.sub(/\A~/, Dir.home))
+  rescue StandardError
+    path.to_s
+  end
+
+  def load_global_projects
+    path = File.join(HOME, 'projects.json')
+    return [] unless File.exist?(path)
+    data = JSON.parse(File.read(path))
+    Array(data['projects'])
+  rescue StandardError
+    []
+  end
+
+  def find_local_project(dir)
+    current = File.expand_path(dir.to_s)
+    100.times do
+      candidate = File.join(current, '.pst', 'project.json')
+      return JSON.parse(File.read(candidate)) if File.exist?(candidate)
+      parent = File.dirname(current)
+      break if parent == current
+      current = parent
+    end
+    nil
+  rescue StandardError
+    nil
+  end
+
+  def git_root(dir)
+    out, st = Timeout.timeout(5) do
+      Open3.capture2e('git', '-C', dir.to_s, 'rev-parse', '--git-common-dir')
+    end
+    return dir unless st.success?
+    common_dir = out.strip
+    if common_dir.end_with?('/.git') || common_dir == '.git'
+      File.dirname(File.expand_path(common_dir, dir))
+    else
+      dir
+    end
+  rescue StandardError
+    dir
+  end
+
+  def resolve_project(dir)
+    cwd = File.expand_path(dir.to_s)
+    root = git_root(cwd)
+
+    # Repo-local wins
+    local = find_local_project(cwd)
+    if local && local['name'] && local['stacks']
+      return { name: local['name'], stacks: topo_sort_stacks(Array(local['stacks'])), source: 'local' }
+    end
+
+    # User-global fallback
+    load_global_projects.each do |proj|
+      repos = Array(proj['repos']).map { |r| normalize_repo(r) }
+      if repos.any? { |r| cwd.start_with?(r) || root.start_with?(r) }
+        return { name: proj['name'], stacks: topo_sort_stacks(Array(proj['stacks'])), source: 'global' }
+      end
+    end
+
+    nil
+  end
+
+  def detect_stacks(dir)
+    stacks = []
+    pkg = File.join(dir, 'package.json')
+    if File.exist?(pkg)
+      stacks << 'typescript'
+      begin
+        pkg_data = JSON.parse(File.read(pkg))
+        deps = (pkg_data['dependencies'] || {}).merge(pkg_data['devDependencies'] || {})
+        stacks << 'react' if deps.key?('react')
+        stacks << 'nextjs' if deps.key?('next')
+      rescue StandardError
+      end
+    end
+    gemfile = File.join(dir, 'Gemfile')
+    if File.exist?(gemfile)
+      stacks << 'ruby'
+      content = File.read(gemfile) rescue ''
+      stacks << 'rails' if content.match?(/gem ['"]rails['"]/)
+    end
+    stacks << 'docker' if File.exist?(File.join(dir, 'Dockerfile')) ||
+                          Dir.glob(File.join(dir, 'compose.{yml,yaml}')).any? ||
+                          Dir.glob(File.join(dir, 'docker-compose.{yml,yaml}')).any?
+    tf_files = Dir.glob(File.join(dir, '*.tf'))
+    if tf_files.any?
+      stacks << 'terraform'
+      tf_content = tf_files.map { |f| File.read(f) rescue '' }.join
+      stacks << 'aws' if tf_content.match?(/provider\s+["']aws["']/)
+    end
+    topo_sort_stacks(stacks.uniq)
+  end
 end

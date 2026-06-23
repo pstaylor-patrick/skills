@@ -12,4 +12,8 @@ unless sid.empty?
   # Rule 22: clear session ledger
   ledger_file = Pst.ledger_path(sid)
   FileUtils.rm_f(ledger_file)
+
+  FileUtils.rm_f(File.join(Pst::HOME, 'onboard', sid))
+  FileUtils.rm_f(File.join(Pst::HOME, 'onboard-skip', sid))
+  FileUtils.rm_f(File.join(Pst::HOME, 'stack', sid))
 end
