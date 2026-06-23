@@ -65,29 +65,29 @@ module Pst
     !sid.to_s.empty? && File.exist?(File.join(local_dir, sid))
   end
 
+  # Run a git command in `dir` with a 10-second timeout.
+  # Returns the trimmed stdout/stderr string on success, or `default:` on any
+  # failure (non-zero exit, timeout, StandardError).
+  def git_capture(dir, *git_args, default:)
+    resolved = dir && File.directory?(dir) ? dir : Dir.pwd
+    out, st = Timeout.timeout(10) { Open3.capture2e('git', '-C', resolved, *git_args) }
+    st.success? ? out.strip : default
+  rescue StandardError
+    default
+  end
+
   # Default branch for the repo at `dir`, resolved from origin/HEAD.
   # Falls back to "main" on any failure.
   def default_branch(dir)
-    dir = Dir.pwd unless dir && File.directory?(dir)
-    out, st = Timeout.timeout(10) do
-      Open3.capture2e('git', '-C', dir, 'symbolic-ref', 'refs/remotes/origin/HEAD')
-    end
-    return 'main' unless st.success?
-    ref = out.strip
-    ref.empty? ? 'main' : ref.split('/').last
-  rescue StandardError
-    'main'
+    ref = git_capture(dir, 'symbolic-ref', 'refs/remotes/origin/HEAD', default: '')
+    return 'main' if ref.empty?
+
+    ref.split('/').last
   end
 
   # Current checked-out branch name at `dir`, or '' on failure/detached HEAD.
   def current_branch(dir)
-    dir = Dir.pwd unless dir && File.directory?(dir)
-    out, st = Timeout.timeout(10) do
-      Open3.capture2e('git', '-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD')
-    end
-    st.success? ? out.strip : ''
-  rescue StandardError
-    ''
+    git_capture(dir, 'rev-parse', '--abbrev-ref', 'HEAD', default: '')
   end
 
   # Read an integer counter from a file; return 0 on missing or unreadable file.

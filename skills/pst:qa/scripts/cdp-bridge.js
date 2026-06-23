@@ -514,6 +514,100 @@ async function handleCapture() {
 }
 
 // ---------------------------------------------------------------------------
+// Command: run -- action handlers
+// ---------------------------------------------------------------------------
+
+async function runNavigate(link) {
+  const url = args.url;
+  if (!url) fail("args", "--url is required for navigate action");
+  // Register load listener BEFORE navigating to avoid race condition
+  // where fast navigations (about:blank, cached) fire before listener is attached
+  let didLoad = false;
+  const loaded = new Promise((resolve) => {
+    link.on("Page.loadEventFired", () => {
+      didLoad = true;
+      resolve();
+    });
+    setTimeout(resolve, 10000);
+  });
+  await link.send("Page.navigate", { url });
+  await loaded;
+  ok({ action: "navigate", url, timedOut: !didLoad });
+}
+
+async function runClick(link) {
+  const x = parseInt(args.x);
+  const y = parseInt(args.y);
+  if (isNaN(x) || isNaN(y))
+    fail("args", "--x and --y are required for click action");
+  await link.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  await link.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  ok({ action: "click", x, y });
+}
+
+async function runType(link) {
+  const text = args.text;
+  if (!text) fail("args", "--text is required for type action");
+  for (const char of text) {
+    await link.send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      text: char,
+    });
+    await link.send("Input.dispatchKeyEvent", { type: "keyUp" });
+  }
+  ok({ action: "type", length: text.length });
+}
+
+async function runFocus(link) {
+  const selector = args.selector;
+  if (!selector) fail("args", "--selector is required for focus action");
+  await link.send("Runtime.evaluate", {
+    expression: `document.querySelector(${JSON.stringify(selector)})?.focus()`,
+  });
+  ok({ action: "focus", selector });
+}
+
+async function runClickSelector(link) {
+  const selector = args.selector;
+  if (!selector)
+    fail("args", "--selector is required for click-selector action");
+  const result = await link.send("Runtime.evaluate", {
+    expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { found: false }; el.click(); return { found: true }; })()`,
+    returnByValue: true,
+  });
+  const found = result.result.value?.found ?? false;
+  if (!found) fail("element", `No element found for selector: ${selector}`);
+  ok({ action: "click-selector", selector });
+}
+
+async function runEvaluate(link) {
+  const expr = args.expr;
+  if (!expr) fail("args", "--expr is required for evaluate action");
+  const result = await link.send("Runtime.evaluate", {
+    expression: expr,
+    returnByValue: true,
+    awaitPromise: true,
+  });
+  if (result.exceptionDetails) {
+    fail("evaluate", result.exceptionDetails.text);
+  } else {
+    ok({ action: "evaluate", value: result.result.value });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Command: run
 // ---------------------------------------------------------------------------
 
@@ -528,105 +622,24 @@ async function handleRun() {
   // Enable Page domain so page lifecycle events (loadEventFired, frameNavigated) fire
   await link.send("Page.enable");
 
+  const dispatch = {
+    navigate: runNavigate,
+    click: runClick,
+    type: runType,
+    focus: runFocus,
+    "click-selector": runClickSelector,
+    evaluate: runEvaluate,
+  };
+
   try {
-    switch (actionType) {
-      case "navigate": {
-        const url = args.url;
-        if (!url) fail("args", "--url is required for navigate action");
-        // Register load listener BEFORE navigating to avoid race condition
-        // where fast navigations (about:blank, cached) fire before listener is attached
-        let didLoad = false;
-        const loaded = new Promise((resolve) => {
-          link.on("Page.loadEventFired", () => {
-            didLoad = true;
-            resolve();
-          });
-          setTimeout(resolve, 10000);
-        });
-        await link.send("Page.navigate", { url });
-        await loaded;
-        ok({ action: "navigate", url, timedOut: !didLoad });
-        break;
-      }
-      case "click": {
-        const x = parseInt(args.x);
-        const y = parseInt(args.y);
-        if (isNaN(x) || isNaN(y))
-          fail("args", "--x and --y are required for click action");
-        await link.send("Input.dispatchMouseEvent", {
-          type: "mousePressed",
-          x,
-          y,
-          button: "left",
-          clickCount: 1,
-        });
-        await link.send("Input.dispatchMouseEvent", {
-          type: "mouseReleased",
-          x,
-          y,
-          button: "left",
-          clickCount: 1,
-        });
-        ok({ action: "click", x, y });
-        break;
-      }
-      case "type": {
-        const text = args.text;
-        if (!text) fail("args", "--text is required for type action");
-        for (const char of text) {
-          await link.send("Input.dispatchKeyEvent", {
-            type: "keyDown",
-            text: char,
-          });
-          await link.send("Input.dispatchKeyEvent", { type: "keyUp" });
-        }
-        ok({ action: "type", length: text.length });
-        break;
-      }
-      case "focus": {
-        const selector = args.selector;
-        if (!selector) fail("args", "--selector is required for focus action");
-        await link.send("Runtime.evaluate", {
-          expression: `document.querySelector(${JSON.stringify(selector)})?.focus()`,
-        });
-        ok({ action: "focus", selector });
-        break;
-      }
-      case "click-selector": {
-        const selector = args.selector;
-        if (!selector)
-          fail("args", "--selector is required for click-selector action");
-        const result = await link.send("Runtime.evaluate", {
-          expression: `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return { found: false }; el.click(); return { found: true }; })()`,
-          returnByValue: true,
-        });
-        const found = result.result.value?.found ?? false;
-        if (!found)
-          fail("element", `No element found for selector: ${selector}`);
-        ok({ action: "click-selector", selector });
-        break;
-      }
-      case "evaluate": {
-        const expr = args.expr;
-        if (!expr) fail("args", "--expr is required for evaluate action");
-        const result = await link.send("Runtime.evaluate", {
-          expression: expr,
-          returnByValue: true,
-          awaitPromise: true,
-        });
-        if (result.exceptionDetails) {
-          fail("evaluate", result.exceptionDetails.text);
-        } else {
-          ok({ action: "evaluate", value: result.result.value });
-        }
-        break;
-      }
-      default:
-        fail(
-          "args",
-          `Unknown action type: ${actionType}. Use: navigate, click, click-selector, type, focus, evaluate`,
-        );
+    const handler = dispatch[actionType];
+    if (!handler) {
+      fail(
+        "args",
+        `Unknown action type: ${actionType}. Use: navigate, click, click-selector, type, focus, evaluate`,
+      );
     }
+    await handler(link);
   } finally {
     link.close();
   }

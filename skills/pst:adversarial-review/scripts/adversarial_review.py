@@ -173,7 +173,7 @@ def render_plan_skeleton(subject: str) -> str:
 """
 
 
-def render_prompt(subject: str) -> str:
+def render_prompt() -> str:
     """Self-contained adversarial-review prompt with a Context slot to fill."""
     return f"""# Adversarial review request
 
@@ -409,7 +409,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         wd / PLAN_NAME, render_plan_skeleton(m.subject), force=args.force, created=m.created, skipped=m.skipped
     )
     _write_if_absent(
-        wd / PROMPT_NAME, render_prompt(m.subject), force=args.force, created=m.created, skipped=m.skipped
+        wd / PROMPT_NAME, render_prompt(), force=args.force, created=m.created, skipped=m.skipped
     )
     _write_if_absent(
         wd / CHANGELOG_NAME,

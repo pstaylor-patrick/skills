@@ -15,6 +15,10 @@ def capture(*argv, dir:)
   Timeout.timeout(25) { Open3.capture2e(*argv, chdir: dir) }
 end
 
+def resolve_dir(cwd)
+  cwd && File.directory?(cwd) ? cwd : Dir.pwd
+end
+
 def head_sha(pr, dir)
   if pr
     out, st = capture('gh', 'pr', 'view', pr, '--json', 'headRefOid', '-q', '.headRefOid', dir: dir)
@@ -29,7 +33,7 @@ def merge_guard(cmd, cwd)
   return unless cmd =~ /\bgh\s+pr\s+merge\b/
   return if cmd =~ /\s--auto\b/ # auto-merge defers to GitHub's approval + checks gate
 
-  dir = cwd && File.directory?(cwd) ? cwd : Dir.pwd
+  dir = resolve_dir(cwd)
   pr = cmd[%r{\bgh\s+pr\s+merge\b.*?\s(\d+|https?://\S+)}, 1]
 
   check_ci_gate(pr, dir)
@@ -100,7 +104,7 @@ def push_guard(cmd, cwd)
   return if Pst.local_only?
   return if ENV['PST_ALLOW_MAIN_PUSH'] == '1'
 
-  dir = cwd && File.directory?(cwd) ? cwd : Dir.pwd
+  dir = resolve_dir(cwd)
   d = Pst.default_branch(dir)
   b = Regexp.escape(d)
 
