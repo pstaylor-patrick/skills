@@ -2,61 +2,32 @@
 # frozen_string_literal: true
 
 require "json"
-require "fileutils"
+require_relative "merge_mode_store"
 
 class MergeModeAnswer
   HEADER = "Merge mode"
-  KNOWN = ["Local only", "Merge ready", "Admin bypass"].freeze
 
   def initialize(tool_response)
     @tool_response = tool_response
   end
 
   def label
-    [answers_map, question_list, content_scan].each do |source|
-      found = source.call
-      return found if found
-    end
-    nil
+    return nil unless @tool_response.is_a?(Hash)
+
+    question = questions.find { |q| q.is_a?(Hash) && q["header"] == HEADER }
+    return nil unless question
+
+    chosen = answers[question["question"]]
+    chosen if chosen.is_a?(String) && !chosen.empty?
   end
 
   private
 
-  def content_scan
-    lambda do
-      content = dig("content")
-      text = content.is_a?(Array) ? content.map { |p| p.is_a?(Hash) ? p["text"] : p }.join(" ") : @tool_response.to_s
-      KNOWN.find { |mode| text.include?(mode) }
-    end
-  end
+  def questions = Array(@tool_response["questions"])
 
-  def answers_map
-    lambda do
-      answers = dig("answers")
-      return nil unless answers.is_a?(Hash)
-
-      value = answers.values.first
-      normalize(value)
-    end
-  end
-
-  def question_list
-    lambda do
-      list = @tool_response.is_a?(Array) ? @tool_response : dig("questions")
-      return nil unless list.is_a?(Array)
-
-      entry = list.find { |q| q.is_a?(Hash) && q["header"] == HEADER } || list.first
-      normalize(entry && (entry["answer"] || entry["selected"] || entry["chosen"]))
-    end
-  end
-
-  def dig(key)
-    @tool_response.is_a?(Hash) ? @tool_response[key] : nil
-  end
-
-  def normalize(value)
-    value = value.first if value.is_a?(Array)
-    value if value.is_a?(String) && !value.empty?
+  def answers
+    map = @tool_response["answers"]
+    map.is_a?(Hash) ? map : {}
   end
 end
 
@@ -71,20 +42,7 @@ class MergeModeRecord
     label = MergeModeAnswer.new(@event["tool_response"]).label
     return unless label
 
-    write(label)
-  end
-
-  private
-
-  def write(label)
-    dir = File.join(Dir.home, ".claude", "pst", "sessions", session_id)
-    FileUtils.mkdir_p(dir)
-    File.write(File.join(dir, "merge-mode"), label + "\n")
-  end
-
-  def session_id
-    id = @event["session_id"].to_s
-    id.empty? ? "unknown" : id
+    MergeModeStore.new(@event["session_id"]).write(label)
   end
 end
 

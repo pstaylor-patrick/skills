@@ -18,8 +18,8 @@ class Paths
   def settings     = File.join(@home, ".claude", "settings.json")
   def skill_dest   = File.join(skills, "SKILL.md")
 
-  def script_source(name) = File.join(scripts, name)
-  def script_dest(name)   = File.join(bin, name)
+  def scripts_glob      = Dir.glob(File.join(scripts, "*.rb"))
+  def script_dest(name) = File.join(bin, name)
 end
 
 module RubyInterpreter
@@ -96,9 +96,9 @@ class Installer
 
   def place_hooks
     FileUtils.mkdir_p(@paths.bin)
-    HOOKS.each_value do |name|
-      dest = @paths.script_dest(name)
-      FileUtils.cp(@paths.script_source(name), dest)
+    @paths.scripts_glob.each do |source|
+      dest = @paths.script_dest(File.basename(source))
+      FileUtils.cp(source, dest)
       FileUtils.chmod(0o755, dest)
     end
   end

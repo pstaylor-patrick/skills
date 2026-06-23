@@ -2,19 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
-
-class MergeModeStore
-  def initialize(session_id)
-    @session_id = session_id.to_s
-  end
-
-  def mode
-    return nil if @session_id.empty?
-
-    path = File.join(Dir.home, ".claude", "pst", "sessions", @session_id, "merge-mode")
-    File.exist?(path) ? File.read(path).strip : nil
-  end
-end
+require_relative "merge_mode_store"
 
 class MergeModeHook
   EVENT = "SessionStart"
