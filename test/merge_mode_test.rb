@@ -142,6 +142,12 @@ class SessionStartTest < Minitest::Test
     MergeModeStore.new("s1").write("Local only")
     assert_includes directive("s1"), "Local only"
   end
+
+  # Guards the cross-file contract: the header the directive tells the model to
+  # use must equal the header the recorder matches on, or recording silently breaks.
+  def test_ask_directive_uses_the_header_the_recorder_matches
+    assert_includes directive("unset"), MergeModeAnswer::HEADER
+  end
 end
 
 class MergeModeRestateTest < Minitest::Test

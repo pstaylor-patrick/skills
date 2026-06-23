@@ -88,8 +88,7 @@ class Installer
   def install
     place_hooks
     link_skill
-    wire_settings
-    report
+    report(wire_settings)
   end
 
   private
@@ -111,19 +110,20 @@ class Installer
   end
 
   def wire_settings
-    @settings_file = SettingsFile.new(@paths.settings, managed_dir: @paths.bin)
-    @settings_file.wire(commands)
+    settings = SettingsFile.new(@paths.settings, managed_dir: @paths.bin)
+    settings.wire(commands)
+    settings
   end
 
   def commands
     HOOKS.map { |event, name| [event, "#{@ruby} #{@paths.script_dest(name)}"] }.to_h
   end
 
-  def report
+  def report(settings)
     puts "merge-mode shim installed:"
     puts "  hooks    -> #{@paths.bin} (#{HOOKS.keys.join(", ")})"
     puts "  skill    -> #{@paths.skill_link}"
-    puts "  settings -> #{@paths.settings} (backup at #{@settings_file.backup_path})"
+    puts "  settings -> #{@paths.settings} (backup at #{settings.backup_path})"
   end
 end
 
