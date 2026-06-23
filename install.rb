@@ -43,6 +43,8 @@ class SettingsFile
     persist(data)
   end
 
+  def backup_path = "#{@path}.bak"
+
   private
 
   def load
@@ -59,7 +61,7 @@ class SettingsFile
   end
 
   def persist(data)
-    FileUtils.cp(@path, "#{@path}.bak") if File.exist?(@path)
+    FileUtils.cp(@path, backup_path) if File.exist?(@path)
     tmp = "#{@path}.tmp"
     File.write(tmp, JSON.pretty_generate(data) + "\n")
     File.rename(tmp, @path)
@@ -93,15 +95,15 @@ class Installer
   end
 
   def wire_settings
-    SettingsFile.new(@paths.settings, managed_dir: @paths.bin)
-                .wire_session_start("#{@ruby} #{@paths.hook_dest}")
+    @settings_file = SettingsFile.new(@paths.settings, managed_dir: @paths.bin)
+    @settings_file.wire_session_start("#{@ruby} #{@paths.hook_dest}")
   end
 
   def report
     puts "merge-mode shim installed:"
     puts "  hook script -> #{@paths.hook_dest}"
     puts "  skill       -> #{@paths.skill_dest}"
-    puts "  settings    -> #{@paths.settings} (SessionStart wired; backup at #{@paths.settings}.bak)"
+    puts "  settings    -> #{@paths.settings} (SessionStart wired; backup at #{@settings_file.backup_path})"
   end
 end
 
