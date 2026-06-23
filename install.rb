@@ -39,11 +39,12 @@ class SettingsFile
   def wire(events)
     data = load
     hooks = (data["hooks"] ||= {})
+    hooks.each_value { |section| drop_managed_hooks(section) if section.is_a?(Array) }
     events.each do |event, command|
       section = (hooks[event] ||= [])
-      drop_managed_hooks(section)
       section << { "hooks" => [{ "type" => "command", "command" => command }] }
     end
+    hooks.reject! { |_, section| section.is_a?(Array) && section.empty? }
     persist(data)
   end
 
@@ -94,6 +95,7 @@ class Installer
   private
 
   def place_hooks
+    FileUtils.rm_rf(@paths.bin)
     FileUtils.mkdir_p(@paths.bin)
     @paths.scripts_glob.each do |source|
       dest = @paths.script_dest(File.basename(source))
