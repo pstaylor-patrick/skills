@@ -26,6 +26,10 @@ SKILLS=(
   "stack/ruby"
   "stack/docker"
   "stack/terraform"
+  "stack/react"
+  "stack/rails"
+  "stack/nextjs"
+  "stack/aws"
 )
 
 # Old names that may exist as orphaned symlinks
@@ -300,7 +304,7 @@ elif [[ "$INSTALL_PI" == true ]]; then
 fi
 echo ""
 if [[ "$INSTALL_CLAUDE" == true ]]; then
-  echo "Claude commands: /pst, /stack:typescript, /stack:ruby, /stack:docker, /stack:terraform"
+  echo "Claude commands: /pst, /stack:typescript, /stack:ruby, /stack:docker, /stack:terraform, /stack:react, /stack:rails, /stack:nextjs, /stack:aws"
 fi
 if [[ "$INSTALL_CODEX" == true && "$CODEX_AVAILABLE" == true ]]; then
   echo "Codex skills: mention the skill name in your prompt, for example: 'Use pst:push to push this branch and validate the PR.'"
