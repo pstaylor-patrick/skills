@@ -75,9 +75,9 @@ end
 
 class Installer
   HOOKS = {
-    "SessionStart"     => "session-start.rb",
-    "PostToolUse"      => "merge-mode-record.rb",
-    "UserPromptSubmit" => "merge-mode-restate.rb"
+    "SessionStart"     => "session_start.rb",
+    "PostToolUse"      => "merge_mode_record.rb",
+    "UserPromptSubmit" => "merge_mode_restate.rb"
   }.freeze
 
   def initialize(paths:, ruby:)

@@ -8,9 +8,9 @@ require "tmpdir"
 
 SCRIPTS = File.expand_path("../scripts", __dir__)
 require_relative "#{SCRIPTS}/merge_mode_store"
-require_relative "#{SCRIPTS}/merge-mode-record"
-require_relative "#{SCRIPTS}/merge-mode-restate"
-require_relative "#{SCRIPTS}/session-start"
+require_relative "#{SCRIPTS}/merge_mode_record"
+require_relative "#{SCRIPTS}/merge_mode_restate"
+require_relative "#{SCRIPTS}/session_start"
 
 module TempHome
   def setup

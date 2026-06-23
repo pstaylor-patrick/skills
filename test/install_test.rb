@@ -22,7 +22,7 @@ class SettingsFileTest < Minitest::Test
   def wire(initial = {})
     File.write(@settings, JSON.generate(initial)) unless initial.empty?
     SettingsFile.new(@settings, managed_dir: @bin)
-                .wire("SessionStart" => "ruby #{@bin}/session-start.rb")
+                .wire("SessionStart" => "ruby #{@bin}/session_start.rb")
     JSON.parse(File.read(@settings))["hooks"]
   end
 
@@ -46,7 +46,7 @@ class SettingsFileTest < Minitest::Test
   def test_wires_target_event_without_duplicating_on_reinstall
     first = wire
     again = SettingsFile.new(@settings, managed_dir: @bin)
-    again.wire("SessionStart" => "ruby #{@bin}/session-start.rb")
+    again.wire("SessionStart" => "ruby #{@bin}/session_start.rb")
     hooks = JSON.parse(File.read(@settings))["hooks"]
     assert_equal 1, commands(hooks["SessionStart"]).size
     assert_equal 1, commands(first["SessionStart"]).size

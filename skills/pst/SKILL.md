@@ -6,7 +6,7 @@ description: Set and enforce the session merge mode (local only, merge ready, or
 # PST Merge Mode Shim
 
 The merge-mode question is injected automatically by the `SessionStart` hook
-(`session-start.rb`) on session start, resume, `/clear`, and compaction. The
+(`session_start.rb`) on session start, resume, `/clear`, and compaction. The
 chosen mode is persisted per session (a `PostToolUse` hook records the
 `AskUserQuestion` answer to `~/.claude/pst/sessions/<session_id>/merge-mode`)
 and restated every turn by a `UserPromptSubmit` hook, so it survives
