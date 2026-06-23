@@ -16,4 +16,5 @@ unless sid.empty?
   FileUtils.rm_f(File.join(Pst::HOME, 'onboard', sid))
   FileUtils.rm_f(File.join(Pst::HOME, 'onboard-skip', sid))
   FileUtils.rm_f(File.join(Pst::HOME, 'stack', sid))
+  FileUtils.rm_f(File.join(Pst::HOME, 'ctx-injected', sid))
 end

@@ -6,6 +6,7 @@ require 'json'
 require 'fileutils'
 require 'open3'
 require 'timeout'
+require 'yaml'
 
 module Pst
   EM = [0x2014].pack('U') # em dash (long dash); built so no literal glyph appears
@@ -217,14 +218,14 @@ module Pst
     # Repo-local wins
     local = find_local_project(cwd)
     if local && local['name'] && local['stacks']
-      return { name: local['name'], stacks: topo_sort_stacks(Array(local['stacks'])), source: 'local' }
+      return { name: local['name'], org: local['org'].to_s, stacks: topo_sort_stacks(Array(local['stacks'])), source: 'local' }
     end
 
     # User-global fallback
     load_global_projects.each do |proj|
       repos = Array(proj['repos']).map { |r| normalize_repo(r) }
       if repos.any? { |r| cwd.start_with?(r) || root.start_with?(r) }
-        return { name: proj['name'], stacks: topo_sort_stacks(Array(proj['stacks'])), source: 'global' }
+        return { name: proj['name'], org: proj['org'].to_s, stacks: topo_sort_stacks(Array(proj['stacks'])), source: 'global' }
       end
     end
 
@@ -261,4 +262,72 @@ module Pst
     end
     topo_sort_stacks(stacks.uniq)
   end
+
+  def resolve_ctx(project_config)
+    org  = project_config[:org].to_s
+    name = project_config[:name].to_s
+    return [] if org.empty? || name.empty?
+
+    ctx_root = File.expand_path('~/.ctx')
+    org_dir  = File.join(ctx_root, 'orgs', org)
+    return [] unless File.directory?(org_dir)
+
+    # Scan live (not index.json) so new files appear without rebuild-index
+    docs = []
+
+    # Project-scoped docs: any .md whose frontmatter project matches name
+    Dir.glob(File.join(org_dir, '*.md')).each do |path|
+      fm = parse_ctx_frontmatter(path)
+      next unless fm
+      next if File.basename(path) == '_org.md'
+      next unless fm['project'].to_s == name
+      docs << { path: path, fm: fm }
+    end
+
+    # Sort by date desc, filename as tiebreaker for determinism
+    docs.sort_by! { |d| [d[:fm]['date'].to_s, File.basename(d[:path])] }
+    docs.reverse!
+
+    # Up to 3 most recent project docs
+    result = docs.first(3)
+
+    # Append _org.md if present
+    org_md = File.join(org_dir, '_org.md')
+    if File.exist?(org_md)
+      fm = parse_ctx_frontmatter(org_md)
+      result << { path: org_md, fm: fm || {} }
+    end
+
+    result
+  rescue StandardError
+    []
+  end
+
+  def parse_ctx_frontmatter(path)
+    content = File.read(path, encoding: 'utf-8')
+    return nil unless content.start_with?('---')
+    end_idx = content.index("\n---", 3)
+    return nil unless end_idx
+    fm = YAML.safe_load(content[3..end_idx], permitted_classes: [Date, Time])
+    return nil unless fm.is_a?(Hash)
+    # Normalize Date/Time objects to strings so callers get plain strings
+    fm.transform_values { |v| v.is_a?(Date) || v.is_a?(Time) ? v.to_s : v }
+  rescue StandardError
+    nil
+  end
+
+  def ctx_body_excerpt(path, chars = 280)
+    content = File.read(path, encoding: 'utf-8')
+    body = if content.start_with?('---')
+      end_idx = content.index("\n---", 3)
+      end_idx ? content[(end_idx + 4)..].lstrip : content
+    else
+      content
+    end
+    excerpt = body.gsub(/\s+/, ' ').strip
+    excerpt.length > chars ? excerpt[0, chars] + '...' : excerpt
+  rescue StandardError
+    ''
+  end
+
 end

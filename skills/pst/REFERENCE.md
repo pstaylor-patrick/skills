@@ -507,3 +507,25 @@ Inline, immediately after the item text:
 
 - [ ] Deploy to staging and verify login flow _(skipped: requires live OAuth credentials)_
 - [ ] Check hardware sensor output _(skipped: physical device not in worktree)_
+
+## Business context layer (Phase 6)
+
+The optional `org` field in project config bridges the project layer to the
+`~/.ctx/` business context mirror. When present, the shim injects matching
+context documents on the first turn of each session.
+
+**User-global** (`~/.claude/pst/projects.json`):
+
+```json
+{ "name": "great-grants", "org": "servant-io", "stacks": [...], "repos": [...] }
+```
+
+**Repo-local** (`.pst/project.json`):
+
+```json
+{ "name": "great-grants", "org": "servant-io", "stacks": [...] }
+```
+
+The `org` value must match the subdirectory name under `~/.ctx/orgs/`. The field
+is optional and backward-compatible -- omitting it disables context injection
+for that project.

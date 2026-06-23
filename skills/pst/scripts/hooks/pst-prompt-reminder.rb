@@ -19,6 +19,37 @@ counter_file = File.join(turns_dir, sid)
 turn = Pst.read_counter(counter_file) + 1
 File.write(counter_file, turn.to_s)
 
+# Turn 1: inject .ctx business context if the project has one
+if turn == 1
+  begin
+    ctx_injected_dir = File.join(Pst::HOME, 'ctx-injected')
+    ctx_sentinel = File.join(ctx_injected_dir, sid)
+    unless File.exist?(ctx_sentinel)
+      project = Pst.resolve_project(Dir.pwd)
+      if project && !project[:org].to_s.empty?
+        docs = Pst.resolve_ctx(project)
+        if docs.any?
+          FileUtils.mkdir_p(ctx_injected_dir)
+          FileUtils.touch(ctx_sentinel)
+          lines = ["[.ctx] Project: #{project[:name]} (#{project[:org]}) | stacks: #{project[:stacks].join(', ')}"]
+          docs.each do |doc|
+            fm   = doc[:fm] || {}
+            type = fm['type'] || (File.basename(doc[:path]) == '_org.md' ? 'org' : 'doc')
+            date = fm['date'] || ''
+            src  = fm['source'] ? " (#{fm['source']})" : ''
+            excerpt = Pst.ctx_body_excerpt(doc[:path])
+            lines << "\n  #{type.upcase} -- #{date}#{src}\n  \"#{excerpt}\""
+          end
+          lines << "\nRun `ctx cat <filename>` for full text."
+          puts lines.join
+        end
+      end
+    end
+  rescue StandardError
+    # never block the hook on ctx errors
+  end
+end
+
 # Silent for the first 3 turns -- doctrine is fresh from arming.
 Pst.allow! if turn <= 3
 

@@ -75,6 +75,17 @@ end
   FileUtils.install(File.join(HOOKS, f), File.join(BIN, f), mode: 0o755)
 end
 
+# Install ctx CLI to bin
+ctx_src = File.join(SRC, 'ctx.rb')
+if File.exist?(ctx_src)
+  FileUtils.install(ctx_src, File.join(BIN, 'ctx'), mode: 0o755)
+  # Symlink to ~/.local/bin/ctx (user-writable, no sudo needed)
+  local_bin = File.expand_path('~/.local/bin')
+  FileUtils.mkdir_p(local_bin)
+  ctx_link = File.join(local_bin, 'ctx')
+  FileUtils.ln_sf(File.join(BIN, 'ctx'), ctx_link)
+end
+
 # 2. Git identity guard.
 expected = '1963845+pstaylor-patrick@users.noreply.github.com'
 current = `git config --global user.email`.strip

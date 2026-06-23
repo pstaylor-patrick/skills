@@ -142,6 +142,8 @@ rules a hook reminds about (non-blocking). Detail and examples are in
 
 28. **Test plan auto-execution** `[NUDGE]`. Before any PR is presented for human review, execute every auto-runnable test plan item. A test plan item is auto-runnable if it contains a shell command (backtick or code block), a `grep`/`find`/`curl`/`ls`/`docker`/`git` invocation, a lint or typecheck command, or any check whose pass/fail can be determined without live user interaction, external OAuth, or hardware not present in the worktree. Run each item in the PR's worktree. Tick `- [x]` for passing items by PATCHing the PR body via `gh api`. Post a single validation comment summarizing all results before surfacing the PR to the user. Only leave boxes unchecked for items that require live user interaction, physical hardware, or credentials unavailable in the current environment -- and label each skipped item with a short reason.
 
+29. **Business context injection** `[NUDGE]`. On the first turn of an armed session, if the current project has an `org` field in its config, the shim looks up matching documents in `~/.ctx/orgs/<org>/` and injects a compact index (type, date, 280-char excerpt per doc) into session context. Use `ctx which` to preview what would be injected. Use `ctx add` to add new context documents. Full text available via `ctx cat <file>`.
+
 ## Usage
 
 `/pst` activates, `/pst off` disarms. Mechanics, merge modes, and rule detail are
