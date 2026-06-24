@@ -1,0 +1,7 @@
+# Omakase: trust the Rails house style. We inherit DHH's curated, formatting-only
+# rule set and add nothing but the target Ruby version.
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
+
+AllCops:
+  TargetRubyVersion: 3.4
