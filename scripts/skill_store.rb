@@ -23,7 +23,7 @@ class SkillStore
     return if !persistable? || names.empty?
 
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, (recorded | names).join("\n"))
+    File.write(path, "#{(recorded | names).join("\n")}\n")
   end
 
   private

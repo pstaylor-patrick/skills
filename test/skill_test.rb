@@ -34,19 +34,18 @@ end
 # exercised without depending on the shipped cheat sheets.
 module SkillFactory
   def skill_dir(name, auto:, body: "BODY-#{name}")
-    dir = File.join(@skills, name)
-    FileUtils.mkdir_p(dir)
     front = { "name" => name, "description" => "x", "auto" => auto }
-    File.write(File.join(dir, "SKILL.md"),
-               "---\n#{front.to_yaml.sub(/\A---\n/, '')}---\n\n#{body}\n")
-    dir
+    write_skill(name, "---\n#{front.to_yaml.sub(/\A---\n/, '')}---\n\n#{body}\n")
   end
 
   def plain_skill(name)
+    write_skill(name, "---\nname: #{name}\ndescription: plain\n---\n\nNo auto block.\n")
+  end
+
+  def write_skill(name, contents)
     dir = File.join(@skills, name)
     FileUtils.mkdir_p(dir)
-    File.write(File.join(dir, "SKILL.md"),
-               "---\nname: #{name}\ndescription: plain\n---\n\nNo auto block.\n")
+    File.write(File.join(dir, "SKILL.md"), contents)
   end
 end
 
@@ -134,6 +133,13 @@ class SkillStoreTest < Minitest::Test
   def test_keys_are_independent
     SkillStore.new("s1", "surfaced").mark(%w[a])
     assert_equal %w[a], SkillStore.new("s1", "announced").fresh(%w[a])
+  end
+
+  def test_record_is_newline_terminated_and_separated
+    SkillStore.new("s1").mark(%w[ruby])
+    SkillStore.new("s1").mark(%w[refactoring])
+    path = File.join(@home, ".claude", "pst", "sessions", "s1", "skills-surfaced")
+    assert_equal "ruby\nrefactoring\n", File.read(path)
   end
 
   def test_blank_session_never_persists
