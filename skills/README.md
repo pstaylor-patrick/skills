@@ -7,7 +7,7 @@ invocable directly (e.g. `/refactoring`).
 ## Auto-firing skills
 
 A skill becomes **auto-firing** by adding an `auto:` block to its frontmatter.
-The pst shim then surfaces it without anyone invoking it, via four mechanisms:
+The pst shim then surfaces it without anyone invoking it:
 
 - **Per-edit routing** (`skill_inject.rb`, PostToolUse) is deterministic
   file-type matching. On every edit whose path matches, the skill's body is
