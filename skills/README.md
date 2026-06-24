@@ -40,5 +40,5 @@ The pst shim then surfaces it without anyone invoking it:
 | `all_code` | `true` = matches every code file via the central extension list (used by `refactoring`) |
 | `all_files` | `true` = matches every edited file, code or prose (used by `pst:ai-slop`) |
 
-Skills with no `auto:` block (like `pst:pst`) are plain user-invocable skills and
+Skills with no `auto:` block (like `pst`) are plain user-invocable skills and
 are never surfaced automatically.

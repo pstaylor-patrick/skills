@@ -27,7 +27,7 @@ class MergeModeRestate
   end
 
   def context(mode)
-    "[pst] Active merge mode: #{mode}. Honor it for this turn per the /pst:pst rules."
+    "[pst] Active merge mode: #{mode}. Honor it for this turn per the /pst rules."
   end
 end
 

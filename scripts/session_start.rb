@@ -19,7 +19,7 @@ class MergeModeHook
       2. "Merge ready" - Push branch, open PR, ensure CI is green. The user merges manually.
       3. "Admin bypass" - Push branch, open PR, then squash-merge via `gh pr merge --squash --admin` once CI is green. No other quality passes.
 
-    After the user answers, acknowledge the choice in one line, then proceed. Apply the chosen mode for the rest of the session unless /pst:pst changes it.
+    After the user answers, acknowledge the choice in one line, then proceed. Apply the chosen mode for the rest of the session unless /pst changes it.
   TEXT
 
   def initialize(event)
@@ -42,7 +42,7 @@ class MergeModeHook
   end
 
   def restate(mode)
-    "[pst] Merge mode for this session is already set to #{mode}. Honor it per the /pst:pst rules; run /pst:pst to change it."
+    "[pst] Merge mode for this session is already set to #{mode}. Honor it per the /pst rules; run /pst to change it."
   end
 end
 
