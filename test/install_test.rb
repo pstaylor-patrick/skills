@@ -52,3 +52,57 @@ class SettingsFileTest < Minitest::Test
     assert_equal 1, commands(first["SessionStart"]).size
   end
 end
+
+class InstallerTest < Minitest::Test
+  HOOK_SCRIPTS = %w[
+    session_start.rb merge_mode_guard.rb merge_mode_record.rb merge_mode_restate.rb
+  ].freeze
+  EVENTS = %w[SessionStart PreToolUse PostToolUse UserPromptSubmit].freeze
+
+  def setup
+    @home = Dir.mktmpdir
+    @repo = File.expand_path("..", __dir__)
+  end
+
+  def teardown
+    FileUtils.remove_entry(@home)
+  end
+
+  def install
+    paths = Install::Paths.new(repo: @repo, home: @home)
+    capture_io { Install::Installer.new(paths: paths, ruby: "/usr/bin/ruby").install }
+    paths
+  end
+
+  def test_copies_every_hook_script_as_executable
+    paths = install
+    HOOK_SCRIPTS.each do |name|
+      dest = paths.script_dest(name)
+      assert File.exist?(dest), "#{name} was not copied into bin"
+      assert File.executable?(dest), "#{name} should be executable"
+    end
+  end
+
+  def test_links_skill_to_repo_source
+    paths = install
+    assert File.symlink?(paths.skill_link), "skill link should be a symlink"
+    assert_equal paths.skill_source, File.readlink(paths.skill_link)
+  end
+
+  def test_wires_every_event_with_the_interpreter_path
+    paths = install
+    hooks = JSON.parse(File.read(paths.settings))["hooks"]
+    assert_equal EVENTS.sort, hooks.keys.sort
+    command = hooks["SessionStart"].dig(0, "hooks", 0, "command")
+    assert_equal "/usr/bin/ruby #{paths.script_dest('session_start.rb')}", command
+  end
+
+  def test_backs_up_existing_settings_and_stays_idempotent
+    paths = install
+    install
+    hooks = JSON.parse(File.read(paths.settings))["hooks"]
+    counts = hooks.values.map { |section| section.sum { |group| group["hooks"].size } }
+    assert_equal [ 1, 1, 1, 1 ], counts
+    assert File.exist?("#{paths.settings}.bak"), "second install should back up settings"
+  end
+end
