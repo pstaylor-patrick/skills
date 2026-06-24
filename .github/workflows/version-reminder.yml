@@ -15,10 +15,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Warn when shipped code changes without a VERSION bump
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          base="origin/${{ github.base_ref }}"
-          git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
-          if git diff --name-only "$base"...HEAD | grep -q '^VERSION$'; then
+          if git diff --name-only "$BASE_SHA"...HEAD | grep -q '^VERSION$'; then
             echo "VERSION changed; nothing to remind."
             exit 0
           fi
