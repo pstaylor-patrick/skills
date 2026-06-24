@@ -96,8 +96,8 @@ class InstallerTest < Minitest::Test
   def test_links_the_auto_skills_alongside_pst
     paths = install
     linked = paths.skill_sources.map { |s| File.basename(s) }
-    assert_includes linked, "ruby"
-    assert_includes linked, "refactoring"
+    assert_includes linked, "pst:ruby"
+    assert_includes linked, "pst:refactoring"
   end
 
   def test_wires_every_event_with_the_interpreter_path

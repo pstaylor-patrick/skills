@@ -14,7 +14,7 @@ require_relative 'skill_store'
 # later authoring gets a one-line pointer, once per category, to avoid noise.
 class SlopRemind
   EVENT = 'PreToolUse'
-  SKILL = 'ai-slop'
+  SKILL = 'pst:ai-slop'
 
   CATEGORIES = {
     'commit message' => /\bgit\b[^&|;]*\bcommit\b/,

@@ -38,7 +38,7 @@ class MergeModeGuard
       hookSpecificOutput: {
         hookEventName: EVENT,
         permissionDecision: 'deny',
-        permissionDecisionReason: "[pst] Merge mode is #{mode}: #{action} is not allowed. Run /pst to change the mode."
+        permissionDecisionReason: "[pst] Merge mode is #{mode}: #{action} is not allowed. Run /pst:pst to change the mode."
       }
     }
   end
