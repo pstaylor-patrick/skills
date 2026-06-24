@@ -16,7 +16,7 @@ require_relative "#{SCRIPTS}/session_start"
 module TempHome
   def setup
     @home = Dir.mktmpdir
-    @prev_home = ENV["HOME"]
+    @prev_home = Dir.home
     ENV["HOME"] = @home
   end
 
@@ -77,8 +77,8 @@ end
 class MergeModeAnswerTest < Minitest::Test
   def real_response(answer)
     {
-      "questions" => [{ "question" => "How should I handle changes from this session?",
-                        "header" => "Merge mode" }],
+      "questions" => [ { "question" => "How should I handle changes from this session?",
+                        "header" => "Merge mode" } ],
       "answers" => { "How should I handle changes from this session?" => answer }
     }
   end
@@ -89,7 +89,7 @@ class MergeModeAnswerTest < Minitest::Test
 
   def test_ignores_questions_without_merge_mode_header
     response = {
-      "questions" => [{ "question" => "Pick a color", "header" => "Color" }],
+      "questions" => [ { "question" => "Pick a color", "header" => "Color" } ],
       "answers" => { "Pick a color" => "blue" }
     }
     assert_nil MergeModeAnswer.new(response).label
@@ -109,7 +109,7 @@ class MergeModeRecordTest < Minitest::Test
       "session_id" => "s1",
       "tool_name" => tool_name,
       "tool_response" => {
-        "questions" => [{ "question" => "q", "header" => "Merge mode" }],
+        "questions" => [ { "question" => "q", "header" => "Merge mode" } ],
         "answers" => { "q" => "Admin bypass" }
       }
     }

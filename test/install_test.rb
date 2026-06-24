@@ -21,8 +21,8 @@ class SettingsFileTest < Minitest::Test
 
   def wire(initial = {})
     File.write(@settings, JSON.generate(initial)) unless initial.empty?
-    SettingsFile.new(@settings, managed_dir: @bin)
-                .wire("SessionStart" => "ruby #{@bin}/session_start.rb")
+    Install::SettingsFile.new(@settings, managed_dir: @bin)
+                         .wire("SessionStart" => "ruby #{@bin}/session_start.rb")
     JSON.parse(File.read(@settings))["hooks"]
   end
 
@@ -32,20 +32,20 @@ class SettingsFileTest < Minitest::Test
 
   def test_sweeps_managed_hook_from_an_event_it_does_not_wire
     hooks = wire("hooks" => {
-      "PreToolUse" => [{ "hooks" => [{ "type" => "command", "command" => "ruby #{@bin}/pst-guard.rb" }] }]
-    })
+                   "PreToolUse" => [ { "hooks" => [ { "type" => "command", "command" => "ruby #{@bin}/pst-guard.rb" } ] } ]
+                 })
     refute hooks.key?("PreToolUse"), "stale managed hook in an unwired event should be removed"
   end
 
   def test_preserves_unmanaged_hooks
     sonar = "/Users/pst/code/sonar/exe/sonar hook"
-    hooks = wire("hooks" => { "Stop" => [{ "hooks" => [{ "type" => "command", "command" => sonar }] }] })
+    hooks = wire("hooks" => { "Stop" => [ { "hooks" => [ { "type" => "command", "command" => sonar } ] } ] })
     assert_includes commands(hooks["Stop"]), sonar
   end
 
   def test_wires_target_event_without_duplicating_on_reinstall
     first = wire
-    again = SettingsFile.new(@settings, managed_dir: @bin)
+    again = Install::SettingsFile.new(@settings, managed_dir: @bin)
     again.wire("SessionStart" => "ruby #{@bin}/session_start.rb")
     hooks = JSON.parse(File.read(@settings))["hooks"]
     assert_equal 1, commands(hooks["SessionStart"]).size
