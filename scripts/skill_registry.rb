@@ -46,7 +46,6 @@ module SkillRegistry
       extensions.include?(ext) || basenames.include?(base)
     end
 
-    # True when this skill should be announced for a project rooted at dir.
     def detected?(dir)
       return true if universal?
 

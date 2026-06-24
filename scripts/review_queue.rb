@@ -27,7 +27,6 @@ class ReviewQueue
     write(queue_file, rows.map { |row| "#{row[:skill]}\t#{row[:path]}\t#{row[:hash]}" })
   end
 
-  # Returns the queued entries and empties the queue.
   def drain
     rows = entries
     delete(queue_file)

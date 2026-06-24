@@ -14,7 +14,6 @@ class SkillStore
     @key = key
   end
 
-  # Returns the subset of names not yet recorded for this session.
   def fresh(names)
     names - recorded
   end
