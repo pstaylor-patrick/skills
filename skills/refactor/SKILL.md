@@ -18,7 +18,7 @@ If scope is ambiguous:
 - Do not guess.
 
 Workflow:
-1. Resolve scope to files (ask if ambiguous, do not guess).
+1. Resolve scope to files.
 2. Route files through the applicable pst skills to find refactoring opportunities.
 3. For each smell: identify the change risk, apply the smallest refactoring, stop before redesigning.
 4. Verify with tests/build.
