@@ -27,21 +27,6 @@ Process:
 5. Verify with tests/build.
 6. Report changes.
 
-Favor:
-- Small safe changes
-- Reduced coupling
-- Increased cohesion
-- Clearer naming
-- Simpler structure
-- Deleted code when appropriate
-
-Avoid:
-- Rewrites
-- Architecture changes
-- New abstractions without need
-- Behavior changes
-- Large diffs
-
 Protocol:
 1. Identify the smell.
 2. Identify the change risk.
