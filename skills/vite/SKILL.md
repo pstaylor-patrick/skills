@@ -1,5 +1,5 @@
 ---
-name: vite
+name: pst:vite
 description: Vite boring-build rubric. Auto-applied by the pst shim when the Vite config changes; also invocable directly.
 auto:
   basenames: [vite.config.ts, vite.config.js, vite.config.mjs, vite.config.mts, vite.config.cjs]

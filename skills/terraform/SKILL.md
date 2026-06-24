@@ -1,5 +1,5 @@
 ---
-name: terraform
+name: pst:terraform
 description: Terraform safe-change rubric. Auto-applied by the pst shim on every Terraform change; also invocable directly.
 auto:
   extensions: [tf, tfvars]
