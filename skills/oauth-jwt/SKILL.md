@@ -30,7 +30,7 @@ Forbid by default:
 - Logging raw tokens or `Authorization` headers.
 
 CI:
-- `eslint . --ext .js,.jsx,.mjs --max-warnings 0`
+- `eslint . --max-warnings 0`
 - `npm audit --omit=dev`
 - `! git grep -nE "jwt\\.decode\\(|localStorage\\.[A-Za-z]+\\([^)]*token|sessionStorage\\.[A-Za-z]+\\([^)]*token|[?&](access_token|id_token)=|response_type=token|grant_type=password" -- '*.js' '*.jsx' '*.mjs'`
 

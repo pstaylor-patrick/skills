@@ -31,7 +31,7 @@ Forbid by default:
 - Missing 404 and error middleware at the end of the stack.
 
 CI:
-- `eslint . --ext .js,.mjs --max-warnings 0`
+- `eslint . --max-warnings 0`
 - `npm audit --omit=dev`
 
 Agent protocol:

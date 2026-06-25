@@ -31,8 +31,8 @@ Forbid by default:
 - Mixing template compilation with request globals.
 
 CI:
-- `eslint . --ext .js,.mjs --max-warnings 0`
-- `! git grep -nE "\\{\\{\\{|\\bSafeString\\b|https?://|page\\.pdf\\(\\s*\\)" -- '*.hbs' '*.handlebars' '*.html' '*.js' '*.mjs'`
+- `eslint . --max-warnings 0`
+- `! git grep -nP "\\{\\{\\{|\\bSafeString\\b|https?://|page\\.pdf\\(\\s*\\)" -- '*.hbs' '*.handlebars' '*.html' '*.js' '*.mjs'`
 
 Agent protocol:
 1. Lock down templates and input data first.

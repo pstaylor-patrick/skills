@@ -30,8 +30,8 @@ Forbid by default:
 - `SETEX` or `SETNX`; use `SET` options instead.
 
 CI:
-- `eslint . --ext .js,.mjs --max-warnings 0`
-- `! git grep -nE "\\b(KEYS|FLUSHALL|FLUSHDB|MONITOR|SETEX|SETNX)\\b" -- '*.js' '*.mjs'`
+- `eslint . --max-warnings 0`
+- `! git grep -nP "\\b(KEYS|FLUSHALL|FLUSHDB|MONITOR|SETEX|SETNX)\\b" -- '*.js' '*.mjs'`
 
 Agent protocol:
 1. Decide whether the key is cache, session, or coordination.

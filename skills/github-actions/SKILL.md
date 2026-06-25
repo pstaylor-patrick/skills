@@ -32,7 +32,7 @@ Forbid by default:
 CI:
 - `actionlint`
 - `yamllint .github/workflows`
-- `! git grep -nE "uses:\\s+[^@]+@(main|master|v?[0-9]+(\\.[0-9]+){0,2})\\b|pull_request_target|permissions:\\s*write-all|:latest\\b" -- '.github/workflows/*'`
+- `! git grep -nP "uses:\\s+[^@]+@(main|master|v?[0-9]+(\\.[0-9]+){0,2})\\b|pull_request_target|permissions:\\s*write-all|:latest\\b" -- '.github/workflows/*'`
 
 Agent protocol:
 1. Pin and scope every trust boundary.
