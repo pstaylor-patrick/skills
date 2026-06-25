@@ -189,6 +189,65 @@ module Install
   end
 
   # Points OpenCode at a generated, OpenCode-safe translation of the same skills.
+  # Strips JSONC comments (// line and /* block */) while leaving any
+  # comment-like sequences that appear inside string literals untouched.
+  # A scanner is the natural shape here: the next move depends only on the
+  # current position and whether we are inside a string.
+  class JsoncStripper
+    def self.strip(text) = new(text).strip
+
+    def initialize(text)
+      @text = text
+      @pos = 0
+      @out = String.new
+    end
+
+    def strip
+      while @pos < @text.length
+        if peek == '"'        then consume_string
+        elsif starts?('//')   then skip_line_comment
+        elsif starts?('/*')   then skip_block_comment
+        else emit(peek)
+        end
+      end
+      @out
+    end
+
+    private
+
+    def peek = @text[@pos]
+
+    def starts?(token) = @text[@pos, token.length] == token
+
+    def emit(char)
+      @out << char
+      @pos += 1
+    end
+
+    # Copies a string literal verbatim, treating a backslash as escaping the
+    # next character so an escaped quote does not end the literal early.
+    def consume_string
+      emit(peek) # opening quote
+      until @pos >= @text.length
+        char = peek
+        emit(char)
+        return if char == '"'
+        emit(peek) if char == '\\' && @pos < @text.length
+      end
+    end
+
+    def skip_line_comment
+      @pos += 2
+      @pos += 1 while @pos < @text.length && peek != "\n"
+    end
+
+    def skip_block_comment
+      @pos += 2
+      @pos += 1 until @pos >= @text.length || starts?('*/')
+      @pos += 2
+    end
+  end
+
   class OpenCodeConfigFile
     def initialize(path)
       @path = path
@@ -212,42 +271,7 @@ module Install
       {}
     end
 
-    def strip_jsonc(text)
-      out = String.new
-      in_string = false
-      escaped = false
-      i = 0
-      while i < text.length
-        char = text[i]
-        nxt = text[i + 1]
-        if in_string
-          out << char
-          if escaped
-            escaped = false
-          elsif char == '\\'
-            escaped = true
-          elsif char == '"'
-            in_string = false
-          end
-          i += 1
-        elsif char == '"'
-          in_string = true
-          out << char
-          i += 1
-        elsif char == '/' && nxt == '/'
-          i += 2
-          i += 1 while i < text.length && text[i] != "\n"
-        elsif char == '/' && nxt == '*'
-          i += 2
-          i += 1 while i < text.length - 1 && !(text[i] == '*' && text[i + 1] == '/')
-          i += 2
-        else
-          out << char
-          i += 1
-        end
-      end
-      out
-    end
+    def strip_jsonc(text) = JsoncStripper.strip(text)
 
     def persist(data)
       FileUtils.mkdir_p(File.dirname(@path))

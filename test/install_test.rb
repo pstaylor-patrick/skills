@@ -208,4 +208,17 @@ class InstallerTest < Minitest::Test
     assert_equal "disabled", config["share"]
     assert_equal "quote: \" // not a comment", config["username"]
   end
+
+  def test_jsonc_stripper_removes_line_and_block_comments
+    text = %({\n  // line\n  "a": 1, /* block */\n  /* multi\n     line */ "b": 2\n})
+    assert_equal({ "a" => 1, "b" => 2 }, JSON.parse(Install::JsoncStripper.strip(text)))
+  end
+
+  def test_jsonc_stripper_keeps_comment_markers_inside_strings
+    text = %({ "u": "http://x", "c": "/* not a comment */", "e": "esc \\" // still string" })
+    parsed = JSON.parse(Install::JsoncStripper.strip(text))
+    assert_equal "http://x", parsed["u"]
+    assert_equal "/* not a comment */", parsed["c"]
+    assert_equal "esc \" // still string", parsed["e"]
+  end
 end
