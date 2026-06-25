@@ -170,4 +170,31 @@ class InstallerTest < Minitest::Test
     install
     assert File.directory?(custom), "unmanaged OpenCode skills should be left alone"
   end
+
+  def test_prunes_stale_pi_copies_of_managed_skills
+    paths = Install::Paths.new(repo: @repo, home: @home)
+    stale = File.join(paths.legacy_pi_roots.first, "pst-typescript")
+    FileUtils.mkdir_p(stale)
+    File.write(File.join(stale, "SKILL.md"), "---\nname: pst:typescript\ndescription: Old copy\n---\n")
+    install
+    refute File.exist?(stale), "managed stale Pi skill copy should be removed"
+  end
+
+  def test_preserves_unmanaged_pi_skill_dirs
+    paths = Install::Paths.new(repo: @repo, home: @home)
+    custom = File.join(paths.legacy_pi_roots.first, "custom")
+    FileUtils.mkdir_p(custom)
+    File.write(File.join(custom, "SKILL.md"), "---\nname: custom\ndescription: Custom\n---\n")
+    install
+    assert File.directory?(custom), "unmanaged Pi skills should be left alone"
+  end
+
+  def test_prunes_old_opencode_generated_marker_dirs
+    paths = Install::Paths.new(repo: @repo, home: @home)
+    stale = File.join(paths.opencode_skills_root, "pst-old")
+    FileUtils.mkdir_p(stale)
+    File.write(File.join(stale, ".pst-generated"), "source: old\n")
+    install
+    refute File.exist?(stale), "old generated OpenCode skill mirror should be removed"
+  end
 end

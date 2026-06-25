@@ -4,6 +4,7 @@
 require 'json'
 require 'fileutils'
 require 'rbconfig'
+require 'set'
 require 'yaml'
 require_relative 'scripts/skill_registry'
 
@@ -44,6 +45,7 @@ module Install
     def pi_settings          = File.join(@home, '.pi', 'agent', 'settings.json')
     def opencode_config      = File.join(@home, '.config', 'opencode', 'opencode.jsonc')
     def opencode_skills_root = File.join(@home, '.config', 'opencode', 'skills')
+    def legacy_pi_roots      = [ File.join(@home, '.pi', 'agent', 'skills'), File.join(@home, '.agents', 'skills') ]
 
     def scripts_glob         = Dir.glob(File.join(scripts, '*.rb'))
     def skill_sources        = Dir.glob(File.join(skills_dir, '*')).select { |p| File.directory?(p) }
@@ -118,6 +120,43 @@ module Install
     end
   end
 
+  # Removes stale Pi/Agent Skills copies now that Claude Code is source of truth.
+  class LegacyPiSkillPruner
+    def initialize(paths)
+      @paths = paths
+    end
+
+    def prune
+      managed = managed_skill_names
+      @paths.legacy_pi_roots.each do |root|
+        Dir.glob(File.join(root, '*')).each do |entry|
+          FileUtils.rm_rf(entry) if managed.include?(skill_name(entry))
+        end
+      end
+    end
+
+    private
+
+    def managed_skill_names
+      @paths.skill_sources.flat_map do |source|
+        name = SkillName.of(source)
+        [ name, SkillName.portable(name) ]
+      end.to_set
+    end
+
+    def skill_name(entry)
+      path = File.join(entry, 'SKILL.md')
+      return unless File.exist?(path)
+
+      front, = SkillRegistry::Frontmatter.split(File.read(path))
+      meta = front && YAML.safe_load(front)
+      name = meta['name'] if meta.is_a?(Hash)
+      name.to_s.empty? ? nil : name.to_s
+    rescue StandardError
+      nil
+    end
+  end
+
   # Adds the Claude Code skill directory to Pi without copying stale skill dirs.
   class PiSettingsFile
     def initialize(path)
@@ -189,6 +228,7 @@ module Install
   # OpenCode is stricter about skill names, so pst:foo becomes pst-foo there.
   class OpenCodeSkillMirror
     MARKER = '.pst-generated-from-claude'.freeze
+    LEGACY_MARKERS = [ MARKER, '.pst-generated' ].freeze
 
     def initialize(paths)
       @paths = paths
@@ -211,7 +251,7 @@ module Install
     end
 
     def generated?(entry)
-      File.exist?(File.join(entry, MARKER))
+      LEGACY_MARKERS.any? { |marker| File.exist?(File.join(entry, marker)) }
     end
 
     def write_skill(dest, source)
@@ -313,6 +353,7 @@ module Install
     end
 
     def mirror_to_pi
+      LegacyPiSkillPruner.new(@paths).prune
       PiSettingsFile.new(@paths.pi_settings).wire([ @paths.skills_root ])
     end
 
