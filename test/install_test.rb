@@ -38,7 +38,7 @@ class SettingsFileTest < Minitest::Test
   end
 
   def test_preserves_unmanaged_hooks
-    sonar = "/Users/pst/code/sonar/exe/sonar hook"
+    sonar = "/opt/sonar/exe/sonar hook"
     hooks = wire("hooks" => { "Stop" => [ { "hooks" => [ { "type" => "command", "command" => sonar } ] } ] })
     assert_includes commands(hooks["Stop"]), sonar
   end
