@@ -32,7 +32,7 @@ Forbid by default:
 CI:
 - `eslint . --max-warnings 0`
 - `npm audit --omit=dev`
-- `! git grep -nE "jwt\\.decode\\(|localStorage\\.[A-Za-z]+\\([^)]*token|sessionStorage\\.[A-Za-z]+\\([^)]*token|[?&](access_token|id_token)=|response_type=token|grant_type=password" -- '*.js' '*.jsx' '*.mjs'`
+- `! git grep -niP "jwt\\.decode\\(|(local|session)Storage\\.\\w*(token|jwt)|(local|session)Storage\\.\\w+\\([^)]*(token|jwt|auth)|[?&](access_token|id_token)=|response_type=token|grant_type=password" -- '*.js' '*.jsx' '*.mjs' '*.ts' '*.tsx'`
 
 Agent protocol:
 1. Choose the safest supported flow first.

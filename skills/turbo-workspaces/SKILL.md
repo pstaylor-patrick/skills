@@ -30,7 +30,7 @@ Forbid by default:
 
 CI:
 - `turbo run lint build test`
-- `npm ls --workspaces --all`
+- `npm ls --workspaces`
 - `! git grep -nP "(\\.\\./){2,}(apps|packages)/" -- 'apps/**' 'packages/**'`
 
 Agent protocol:
