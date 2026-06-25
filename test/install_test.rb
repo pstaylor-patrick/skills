@@ -197,4 +197,15 @@ class InstallerTest < Minitest::Test
     install
     refute File.exist?(stale), "old generated OpenCode skill mirror should be removed"
   end
+
+  def test_preserves_opencode_jsonc_strings_with_urls
+    paths = Install::Paths.new(repo: @repo, home: @home)
+    FileUtils.mkdir_p(File.dirname(paths.opencode_config))
+    File.write(paths.opencode_config, %({\n  "$schema": "https://opencode.ai/config.json",\n  // comment\n  "share": "disabled",\n  "username": "quote: \\\" // not a comment"\n}\n))
+    install
+    config = JSON.parse(File.read(paths.opencode_config))
+    assert_equal "https://opencode.ai/config.json", config["$schema"]
+    assert_equal "disabled", config["share"]
+    assert_equal "quote: \" // not a comment", config["username"]
+  end
 end

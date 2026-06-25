@@ -213,7 +213,40 @@ module Install
     end
 
     def strip_jsonc(text)
-      text.gsub(%r{/\*.*?\*/}m, '').lines.map { |line| line.sub(%r{\s*//.*\z}, '') }.join
+      out = String.new
+      in_string = false
+      escaped = false
+      i = 0
+      while i < text.length
+        char = text[i]
+        nxt = text[i + 1]
+        if in_string
+          out << char
+          if escaped
+            escaped = false
+          elsif char == '\\'
+            escaped = true
+          elsif char == '"'
+            in_string = false
+          end
+          i += 1
+        elsif char == '"'
+          in_string = true
+          out << char
+          i += 1
+        elsif char == '/' && nxt == '/'
+          i += 2
+          i += 1 while i < text.length && text[i] != "\n"
+        elsif char == '/' && nxt == '*'
+          i += 2
+          i += 1 while i < text.length - 1 && !(text[i] == '*' && text[i + 1] == '/')
+          i += 2
+        else
+          out << char
+          i += 1
+        end
+      end
+      out
     end
 
     def persist(data)
