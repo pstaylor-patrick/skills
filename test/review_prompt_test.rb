@@ -20,15 +20,21 @@ class ReviewPromptTest < Minitest::Test
     super
   end
 
-  def build(entries)
-    ReviewPrompt.build(entries, @registry)
+  def build(entries, session: "s1")
+    ReviewPrompt.build(entries, @registry, session)
   end
 
   def test_build_embeds_files_and_principles
     text = build([ { skill: "ruby", path: "/p/user.rb", hash: "h1" } ])
     assert_includes text, "/p/user.rb"
     assert_includes text, "POODR-PRINCIPLES"
-    assert_includes text, "run_in_background: true"
+    assert_includes text, "run_in_background: false", "review must be synchronous, not backgrounded"
+  end
+
+  def test_build_embeds_the_ack_command_with_session
+    text = build([ { skill: "ruby", path: "/p/user.rb", hash: "h1" } ], session: "sess-42")
+    assert_includes text, "review_ack.rb"
+    assert_includes text, "sess-42"
   end
 
   def test_all_files_skill_tells_reviewer_to_include_prose

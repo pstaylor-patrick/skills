@@ -62,28 +62,40 @@ class ReviewGateTest < Minitest::Test
     assert_nil gate("git push", tool: "Edit")
   end
 
-  def test_fires_once_per_batch_then_allows_retry
+  def test_stays_denied_until_acked
     enqueue
-    assert_equal "deny", decision(gate("git push")), "first push blocks for review"
-    assert_nil gate("git push"), "batch drained and marked; retry passes"
+    assert_equal "deny", decision(gate("git push")), "blocks while unreviewed"
+    assert_equal "deny", decision(gate("git push")), "still blocks - the gate never clears itself"
+    ReviewQueue.new("s1").ack
+    assert_nil gate("git push"), "ack records the verdict and releases the gate"
+  end
+
+  def test_new_edit_after_ack_rearms_the_gate
+    enqueue(hash: "h1")
+    assert_equal "deny", decision(gate("git push"))
+    ReviewQueue.new("s1").ack
+    assert_nil gate("git push"), "released after review"
+    enqueue(hash: "h2")
+    assert_equal "deny", decision(gate("git push")), "a new content hash re-arms the gate"
   end
 
   def test_capped_surfaces_notice_instead_of_denying
+    enqueue
     ReviewQueue::CAP.times do |i|
-      enqueue(path: "/p/f#{i}.rb", hash: "h#{i}")
       assert_equal "deny", decision(gate("git push")), "round #{i + 1} blocks"
     end
-    enqueue(path: "/p/extra.rb", hash: "hx")
     out = gate("git push")
     assert_nil decision(out), "must not deny once capped"
     assert_includes out["systemMessage"], "Round cap"
   end
 
-  def test_does_not_double_review_with_stop_hook
+  def test_ack_clears_both_gate_and_stop
     enqueue
-    assert_equal "deny", decision(gate("git push")), "gate drains the batch"
+    assert_equal "deny", decision(gate("git push")), "gate blocks"
+    ReviewQueue.new("s1").ack
+    assert_nil gate("git push"), "gate released after ack"
     stop = StringIO.new
     SkillReview.new({ "session_id" => "s1" }, skills: SkillRegistry.load(@skills)).emit(stop)
-    assert_empty stop.string, "Stop finds an empty queue after the gate drained it"
+    assert_empty stop.string, "Stop sees an empty queue after the same ack"
   end
 end

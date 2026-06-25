@@ -10,22 +10,36 @@ require_relative 'review_queue'
 module ReviewPrompt
   module_function
 
-  def build(entries, registry)
+  ACK_SCRIPT = File.expand_path('review_ack.rb', __dir__)
+
+  # The review must run and return BEFORE the verdict is recorded, and the gate
+  # is released only by the explicit ack, never by being dispatched. So the
+  # prompt tells the agent to wait for the review (not background it), then run
+  # the ack command, then retry. New edits after the ack change their content
+  # hash and re-arm the review.
+  def build(entries, registry, session_id)
     by_name = registry.to_h { |skill| [ skill.name, skill ] }
     sections = entries.group_by { |entry| entry[:skill] }
                       .map { |name, rows| section(by_name[name], name, rows) }
     <<~TEXT.strip
-      [pst review] Before you finish: #{entries.size} file(s) changed this session
-      under review-enabled skills. Spawn a background review agent now, then finish.
+      [pst review] #{entries.size} file(s) changed this session under review-enabled
+      skills have not been reviewed yet. Review them before this work leaves the machine.
 
-      Use Agent(subagent_type: "general-purpose", model: "haiku", run_in_background: true),
+      Run the review now and WAIT for its result (do not background it):
+      Agent(subagent_type: "general-purpose", model: "haiku", run_in_background: false),
       giving it exactly the task below. Report only concrete violations as
       `path:line - smell -> smallest behavior-preserving fix`; if none, say "clean".
-      This is a one-time review of the current batch and will not fire again.
+      Address any findings, then record the verdict so the gate releases:
+
+          #{ack_command(session_id)}
+
+      Then re-run your push or PR command, or finish the turn.
 
       #{sections.join("\n\n")}
     TEXT
   end
+
+  def ack_command(session_id) = "ruby #{ACK_SCRIPT} #{session_id}"
 
   def cap_notice(count)
     "[pst review] Round cap (#{ReviewQueue::CAP}) reached; #{count} file(s) " \

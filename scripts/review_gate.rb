@@ -8,13 +8,17 @@ require_relative 'review_queue'
 require_relative 'review_prompt'
 require_relative 'guarded_command'
 
-# PreToolUse hook: when the agent is about to push or open a PR and
-# review-eligible files changed this session that have not been reviewed, deny
-# the command and hand back the review prompt. This makes design review precede
-# PR creation; the Stop hook (skill_review) fires too late, once the PR already
-# exists. Local-only sessions never push, so skill_review still covers them at
-# Stop; both share one ReviewQueue, and whichever drains first marks the batch
-# reviewed, so the retried command passes without a second review.
+# PreToolUse hook: when the agent is about to push or open a PR and files changed
+# this session have no review verdict for their current content, deny the command
+# and hand back the review prompt. This makes design review precede PR creation;
+# the Stop hook (skill_review) fires too late, once the PR already exists.
+#
+# Fail-closed and deterministic: the gate never clears itself. It denies while
+# the queue holds unreviewed files and is released only by review_ack (run after
+# a review returns), so dispatching the prompt does not unblock - a finished
+# review does. The round cap is the escape valve against a wedged batch. Local
+# -only sessions never push, so skill_review still covers them at Stop; both read
+# the same queue and the same ack clears both.
 #
 # Like merge_mode_guard, this is a loud guardrail keyed on command text, not a
 # sandbox: it is bypassable (git -c, env indirection, a non-Bash path).
@@ -29,19 +33,14 @@ class ReviewGate
     @skills = skills
   end
 
-  # Mirrors skill_review's order so both consumers behave identically: drain the
-  # batch, mark it reviewed (so the retry and the other event find nothing), then
-  # block, or surface the cap notice once the round cap is hit.
   def emit(io = $stdout)
     return unless @event['tool_name'] == 'Bash'
     return unless command.match?(TRIGGER)
 
     queue = ReviewQueue.new(@event['session_id'])
-    entries = queue.drain
-    return if entries.empty?
+    return if queue.empty?
 
-    queue.mark_reviewed(entries)
-    io.puts(JSON.generate(response(queue, entries)))
+    io.puts(JSON.generate(response(queue)))
   end
 
   private
@@ -53,11 +52,11 @@ class ReviewGate
     input.is_a?(Hash) ? input['command'].to_s : ''
   end
 
-  def response(queue, entries)
-    return { systemMessage: ReviewPrompt.cap_notice(entries.size) } if queue.capped?
+  def response(queue)
+    return { systemMessage: ReviewPrompt.cap_notice(queue.pending.size) } if queue.capped?
 
     queue.bump_round
-    deny(ReviewPrompt.build(entries, registry))
+    deny(ReviewPrompt.build(queue.pending, registry, @event['session_id']))
   end
 
   def deny(reason)

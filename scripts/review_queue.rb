@@ -28,20 +28,20 @@ class ReviewQueue
     write(queue_file, rows.map { |row| "#{row[:skill]}\t#{row[:path]}\t#{row[:hash]}" })
   end
 
-  def drain
+  # Rows still awaiting a review verdict. Read-only: it does not clear the queue,
+  # so the gate stays denied until an explicit ack records the verdict.
+  def pending = entries
+
+  # Completion signal: mark every queued entry reviewed at its current content
+  # hash, then clear the queue. Marking happens here, when a review verdict is in
+  # hand, not when the prompt is dispatched, so a push is released only by a
+  # finished review and never by the gate merely having fired. Re-editing a file
+  # changes its hash, so a stale verdict no longer covers it and it re-queues.
+  def ack
     rows = entries
+    mark_reviewed(rows)
     delete(queue_file)
     rows
-  end
-
-  # Records each entry's content hash as reviewed so identical content does not
-  # re-queue. Call when a review is actually dispatched (or declined at the cap).
-  def mark_reviewed(rows)
-    return unless persistable?
-
-    map = reviewed
-    rows.each { |row| map[key(row[:skill], row[:path])] = row[:hash] }
-    write(reviewed_file, map.map { |pair, hash| "#{pair}\t#{hash}" })
   end
 
   def bump_round = write(rounds_file, [ (rounds + 1).to_s ])
@@ -53,6 +53,16 @@ class ReviewQueue
   def empty? = entries.empty?
 
   private
+
+  # Records each entry's content hash as reviewed so identical content does not
+  # re-queue. Driven only by ack, when a review verdict is in hand.
+  def mark_reviewed(rows)
+    return unless persistable?
+
+    map = reviewed
+    rows.each { |row| map[key(row[:skill], row[:path])] = row[:hash] }
+    write(reviewed_file, map.map { |pair, hash| "#{pair}\t#{hash}" })
+  end
 
   def entries
     read(queue_file).map do |line|

@@ -7,11 +7,14 @@ require_relative 'skill_registry'
 require_relative 'review_queue'
 require_relative 'review_prompt'
 
-# Stop hook: when the turn ends, if review-enabled files changed this session,
-# block once and hand the agent a fixed prompt to run a haiku background review.
-# Draining the queue (and honoring stop_hook_active) guarantees it fires once
-# per batch, never in a loop. The hook authors the prompt; the agent runs the
-# review via Claude Code's real background-agent mechanism.
+# Stop hook: when the turn ends, if review-enabled files changed this session and
+# have no review verdict yet, block and hand the agent the review prompt. This is
+# the catch-all that also covers Local-only sessions, which never push and so
+# never reach the review_gate. It reads the queue without draining; the queue is
+# cleared only by review_ack (run after a review returns), the same completion
+# signal the gate uses, so the two share one verdict and neither clears the other
+# prematurely. stop_hook_active stops an intra-turn loop; the round cap bounds
+# re-blocking across turns if a batch is never acked.
 class SkillReview
   EVENT = 'Stop'
 
@@ -24,11 +27,9 @@ class SkillReview
     return if @event['stop_hook_active']
 
     queue = ReviewQueue.new(@event['session_id'])
-    entries = queue.drain
-    return if entries.empty?
+    return if queue.empty?
 
-    queue.mark_reviewed(entries)
-    io.puts(JSON.generate(response(queue, entries)))
+    io.puts(JSON.generate(response(queue)))
   end
 
   private
@@ -37,11 +38,11 @@ class SkillReview
 
   # Block to drive a review, unless the round cap is reached: then surface a
   # loud, non-blocking notice rather than silently swallowing further reviews.
-  def response(queue, entries)
-    return { systemMessage: ReviewPrompt.cap_notice(entries.size) } if queue.capped?
+  def response(queue)
+    return { systemMessage: ReviewPrompt.cap_notice(queue.pending.size) } if queue.capped?
 
     queue.bump_round
-    { decision: 'block', reason: ReviewPrompt.build(entries, registry) }
+    { decision: 'block', reason: ReviewPrompt.build(queue.pending, registry, @event['session_id']) }
   end
 end
 
