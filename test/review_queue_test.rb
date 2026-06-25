@@ -62,6 +62,16 @@ class ReviewQueueTest < Minitest::Test
     assert queue.capped?
   end
 
+  def test_ack_resets_the_round_counter
+    queue = ReviewQueue.new("s1")
+    queue.add("ruby", "/p/a.rb", "h1")
+    ReviewQueue::CAP.times { queue.bump_round }
+    assert queue.capped?
+    queue.ack
+    assert_equal 0, ReviewQueue.new("s1").rounds, "a completed review resets the cap"
+    refute ReviewQueue.new("s1").capped?
+  end
+
   def test_blank_session_stays_empty
     queue = ReviewQueue.new("")
     queue.add("ruby", "/p/a.rb", "h1")

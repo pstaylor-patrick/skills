@@ -8,7 +8,9 @@ require 'fileutils'
 # turn. A file is enqueued only when its current hash differs from the hash it
 # was last reviewed at, so the review -> fix -> re-edit loop converges (find +
 # confirm) and any genuinely new change later re-triggers a review. A round cap
-# is a loud last resort against pathological oscillation. State lives under
+# is a loud last resort against a batch that never gets reviewed (a stuck or
+# non-compliant loop); ack resets it, so it counts denials since the last review,
+# not for the session's whole life. State lives under
 # ~/.claude/pst/sessions/<id>/; a blank session id is non-persistable.
 class ReviewQueue
   CAP = 5
@@ -37,10 +39,17 @@ class ReviewQueue
   # hand, not when the prompt is dispatched, so a push is released only by a
   # finished review and never by the gate merely having fired. Re-editing a file
   # changes its hash, so a stale verdict no longer covers it and it re-queues.
+  #
+  # Clearing the round counter too is what keeps the cap meaningful: a completed
+  # review is progress, so the cap measures denials since the last review, not
+  # lifetime denials. Without this a long session of unrelated review cycles would
+  # trip the escape valve and silently stop gating; with it, only a batch that is
+  # never reviewed (a stuck or non-compliant loop) climbs to the cap.
   def ack
     rows = entries
     mark_reviewed(rows)
     delete(queue_file)
+    delete(rounds_file)
     rows
   end
 
