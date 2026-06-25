@@ -36,8 +36,8 @@ module Install
       @home = home
     end
 
-    def scripts      = File.join(@repo, 'scripts')
-    def skills_dir   = File.join(@repo, 'skills')
+    def scripts              = File.join(@repo, 'scripts')
+    def skills_dir           = File.join(@repo, 'skills')
     def bin                  = File.join(@home, '.claude', 'pst', 'bin')
     def skills_root          = File.join(@home, '.claude', 'skills')
     def settings             = File.join(@home, '.claude', 'settings.json')
@@ -45,11 +45,11 @@ module Install
     def opencode_config      = File.join(@home, '.config', 'opencode', 'opencode.jsonc')
     def opencode_skills_root = File.join(@home, '.config', 'opencode', 'skills')
 
-    def scripts_glob          = Dir.glob(File.join(scripts, '*.rb'))
-    def skill_sources         = Dir.glob(File.join(skills_dir, '*')).select { |p| File.directory?(p) }
-    def script_dest(name)     = File.join(bin, name)
-    def skill_link(name)      = File.join(skills_root, name)
-    def opencode_skill(name)  = File.join(opencode_skills_root, SkillName.portable(name))
+    def scripts_glob         = Dir.glob(File.join(scripts, '*.rb'))
+    def skill_sources        = Dir.glob(File.join(skills_dir, '*')).select { |p| File.directory?(p) }
+    def script_dest(name)    = File.join(bin, name)
+    def skill_link(name)     = File.join(skills_root, name)
+    def opencode_skill(name) = File.join(opencode_skills_root, SkillName.portable(name))
   end
 
   # Resolves the absolute path of the running Ruby interpreter for hook shebangs.
@@ -188,7 +188,7 @@ module Install
 
   # OpenCode is stricter about skill names, so pst:foo becomes pst-foo there.
   class OpenCodeSkillMirror
-    MARKER = '.pst-generated'.freeze
+    MARKER = '.pst-generated-from-claude'.freeze
 
     def initialize(paths)
       @paths = paths
