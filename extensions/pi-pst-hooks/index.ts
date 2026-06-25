@@ -20,6 +20,8 @@ type HookContext = {
 	sessionManager: { getSessionFile?: () => string | undefined };
 };
 
+type Selector = (message: string, options: string[]) => Promise<string | undefined>;
+
 const HOOK_BIN = join(process.env.HOME ?? "", ".claude", "pst", "bin");
 const RUBY = process.env.PST_RUBY ?? "ruby";
 const MERGE_MODES = ["Local only", "Merge ready", "Admin bypass"] as const;
@@ -101,7 +103,7 @@ export default function pstHooks(pi: ExtensionAPI) {
 	});
 }
 
-async function ensureMergeMode(ctx: HookContext & { hasUI?: boolean; ui?: { select?: (message: string, options: string[]) => Promise<string | undefined> } }) {
+async function ensureMergeMode(ctx: HookContext & { hasUI?: boolean; ui?: { select?: Selector } }) {
 	const id = sessionId(ctx);
 	if (readMergeMode(id)) return;
 	if (!ctx.hasUI || !ctx.ui?.select) return;
@@ -110,7 +112,7 @@ async function ensureMergeMode(ctx: HookContext & { hasUI?: boolean; ui?: { sele
 	if (isMergeMode(mode)) writeMergeMode(id, mode);
 }
 
-async function resolveMode(args: string, ctx: HookContext & { hasUI?: boolean; ui: { select: (message: string, options: string[]) => Promise<string | undefined> } }) {
+async function resolveMode(args: string, ctx: HookContext & { hasUI?: boolean; ui: { select: Selector } }) {
 	const normalized = args.trim().toLowerCase();
 	const fromArgs = MERGE_MODES.find((mode) => mode.toLowerCase() === normalized);
 	if (fromArgs) return fromArgs;
@@ -201,10 +203,27 @@ function parseHookOutput(stdout: string): HookOutput {
 	const line = stdout.trim().split("\n").find((candidate) => candidate.trim().startsWith("{"));
 	if (!line) return {};
 	try {
-		return JSON.parse(line) as HookOutput;
+		return toHookOutput(JSON.parse(line));
 	} catch {
 		return {};
 	}
+}
+
+function toHookOutput(value: unknown): HookOutput {
+	if (!isRecord(value)) return {};
+	const output: HookOutput = {};
+	if (typeof value.decision === "string") output.decision = value.decision;
+	if (typeof value.reason === "string") output.reason = value.reason;
+	if (typeof value.systemMessage === "string") output.systemMessage = value.systemMessage;
+	const specific = value.hookSpecificOutput;
+	if (isRecord(specific)) {
+		const nested: NonNullable<HookOutput["hookSpecificOutput"]> = {};
+		if (typeof specific.additionalContext === "string") nested.additionalContext = specific.additionalContext;
+		if (typeof specific.permissionDecision === "string") nested.permissionDecision = specific.permissionDecision;
+		if (typeof specific.permissionDecisionReason === "string") nested.permissionDecisionReason = specific.permissionDecisionReason;
+		output.hookSpecificOutput = nested;
+	}
+	return output;
 }
 
 function sessionId(ctx: HookContext) {
