@@ -32,7 +32,7 @@ CI:
 - `vitest run --coverage`
 - `jest --ci --coverage`
 - `cypress run`
-- `! git grep -nE "\\.(only|skip)\\(|cy\\.wait\\([0-9]+" -- '*.test.js' '*.spec.js' 'cypress/**'`
+- `! git grep -nE "\\.(only|skip)\\(|cy\\.wait\\([0-9]+" -- '*.test.js' '*.spec.js' '*.cy.js' 'cypress/**'`
 
 Agent protocol:
 1. Pick the smallest runner that matches the behavior.

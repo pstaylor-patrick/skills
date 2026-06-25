@@ -31,7 +31,7 @@ Forbid by default:
 CI:
 - `turbo run lint build test`
 - `npm ls --workspaces --all`
-- `! git grep -nE "\\.\\./\\.\\./(apps|packages)/" -- 'apps/**' 'packages/**'`
+- `! git grep -nP "(\\.\\./){2,}(apps|packages)/" -- 'apps/**' 'packages/**'`
 
 Agent protocol:
 1. Keep package boundaries explicit.

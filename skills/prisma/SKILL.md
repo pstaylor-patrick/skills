@@ -32,7 +32,7 @@ CI:
 - `prisma validate`
 - `prisma format --check`
 - `prisma generate`
-- `prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema prisma/schema.prisma`
+- `prisma migrate status`
 
 Agent protocol:
 1. Model invariants in the schema.

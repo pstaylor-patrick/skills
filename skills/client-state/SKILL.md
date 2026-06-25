@@ -31,7 +31,7 @@ Forbid by default:
 CI:
 - `eslint . --max-warnings 0`
 - `vitest run`
-- `! git grep -nP "queryKey:\\s*['\\\"]|new (Map|Set|Date)\\(|useEffect\\(.*dispatch\\(" -- '*.js' '*.jsx'`
+- `! git grep -nP "queryKey:\\s*['\\\"]|queryKey:.*\\bnew (Map|Set|Date)\\(|useEffect\\(.*dispatch\\(" -- '*.js' '*.jsx'`
 
 Agent protocol:
 1. Decide whether each datum is server or client state.

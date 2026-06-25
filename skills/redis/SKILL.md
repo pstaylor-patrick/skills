@@ -31,7 +31,7 @@ Forbid by default:
 
 CI:
 - `eslint . --max-warnings 0`
-- `! git grep -nP "\\b(KEYS|FLUSHALL|FLUSHDB|MONITOR|SETEX|SETNX)\\b" -- '*.js' '*.mjs'`
+- `! git grep -nP "\\bKEYS\\b|(?i)\\b(flushall|flushdb|monitor|setex|setnx)\\b" -- '*.js' '*.mjs' '*.cjs' '*.ts'`
 
 Agent protocol:
 1. Decide whether the key is cache, session, or coordination.
