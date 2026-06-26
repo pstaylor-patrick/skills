@@ -5,8 +5,10 @@ auto:
   paths:
     - "drizzle.config.*"
     - "drizzle/**"
-    - "src/**/schema.ts"
-    - "src/**/db.ts"
+    - "**/schema.{ts,js,mjs,cjs}"
+    - "**/db.{ts,js,mjs,cjs}"
+  require:
+    - "**/drizzle.config.*"
   exclude:
     - "**/schema.prisma"
     - "prisma/migrations/**"

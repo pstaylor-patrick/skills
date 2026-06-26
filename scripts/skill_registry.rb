@@ -60,6 +60,7 @@ module SkillRegistry
     # conflicting stack suppress a skill.
     def matches?(path, root: nil)
       return false if root && excluded?(root)
+      return false if root && !required?(root)
       return true if all_files?
 
       base = File.basename(path.to_s)
@@ -71,6 +72,7 @@ module SkillRegistry
 
     def detected?(dir)
       return false if excluded?(dir)
+      return false unless required?(dir)
       return true if all_files? || all_code?
 
       detect.any? { |pattern| Dir.glob(File.join(dir, pattern)).any? }
@@ -99,7 +101,20 @@ module SkillRegistry
     # conflicting stack is present, so this skill does not apply. An empty
     # `exclude` (every skill today) is always false, preserving behavior.
     def excluded?(dir)
-      exclude.any? { |pattern| Dir.glob(File.join(dir, pattern)).any? }
+      marker?(dir, exclude)
+    end
+
+    # Positive gate: when `require` is set, the skill applies only if the
+    # project carries one of its marker files. This lets a skill match a broad
+    # path (e.g. any `schema.js`) yet fire only in a project that actually uses
+    # the tool. Empty `require` (every skill today) is always satisfied.
+    def required?(dir)
+      requires.empty? || marker?(dir, requires)
+    end
+
+    # True when any glob in `patterns` matches a file present under `dir`.
+    def marker?(dir, patterns)
+      patterns.any? { |pattern| Dir.glob(File.join(dir, pattern)).any? }
     end
 
     def extensions = Array(@auto['extensions']).map { |e| e.to_s.downcase }
@@ -107,6 +122,7 @@ module SkillRegistry
     def detect     = Array(@auto['detect']).map(&:to_s)
     def paths      = Array(@auto['paths']).map(&:to_s)
     def exclude    = Array(@auto['exclude']).map(&:to_s)
+    def requires   = Array(@auto['require']).map(&:to_s)
   end
 
   # Splits a `---\n...\n---\n` YAML frontmatter block off the document body.

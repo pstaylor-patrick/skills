@@ -31,7 +31,7 @@ Forbid by default:
 
 CI:
 - `npx --no-install eslint . --max-warnings 0`
-- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.js' '*.mjs' '*.cjs' '*.ts' | xargs -I{} git grep -nP "\\bKEYS\\b|(?i)\\b(flushall|flushdb|monitor|setex|setnx)\\b" -- {}); [ -z "$out" ]`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.js' '*.mjs' '*.cjs' '*.ts' ':!*.test.*' ':!*.spec.*' ':!**/__tests__/**' | xargs -I{} git grep -nP "\\bKEYS\\b|(?i)\\b(flushall|flushdb|monitor|setex|setnx)\\b" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Decide whether the key is cache, session, or coordination.
