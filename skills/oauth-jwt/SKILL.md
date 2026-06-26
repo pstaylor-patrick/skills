@@ -30,9 +30,9 @@ Forbid by default:
 - Logging raw tokens or `Authorization` headers.
 
 CI:
-- `eslint . --max-warnings 0`
+- `npx --no-install eslint . --max-warnings 0`
 - `npm audit --omit=dev`
-- `! git grep -niP "jwt\\.decode\\(|(local|session)Storage\\.\\w*(token|jwt)|(local|session)Storage\\.\\w+\\([^)]*(token|jwt|auth)|[?&](access_token|id_token)=|response_type=token|grant_type=password" -- '*.js' '*.jsx' '*.mjs' '*.ts' '*.tsx'`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.js' '*.jsx' '*.mjs' '*.ts' '*.tsx' | xargs -I{} git grep -niP "jwt\\.decode\\(|(local|session)Storage\\.\\w*(token|jwt)|(local|session)Storage\\.\\w+\\([^)]*(token|jwt|auth)|[?&](access_token|id_token)=|response_type=token|grant_type=password" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Choose the safest supported flow first.

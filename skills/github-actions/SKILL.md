@@ -2,7 +2,9 @@
 name: pst:github-actions
 description: GitHub Actions CI/CD workflows. Auto-applied by the pst shim on every workflow change; also invocable directly.
 auto:
-  extensions: [yml, yaml]
+  paths:
+    - ".github/workflows/*.yml"
+    - ".github/workflows/*.yaml"
   detect: [".github/workflows/*.yml", ".github/workflows/*.yaml"]
 ---
 
@@ -32,7 +34,7 @@ Forbid by default:
 CI:
 - `actionlint`
 - `yamllint .github/workflows`
-- `! git grep -nP "uses:\\s+[^@]+@(main|master|v?[0-9]+(\\.[0-9]+){0,2})\\b|pull_request_target|permissions:\\s*write-all|:latest\\b" -- '.github/workflows/*'`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '.github/workflows/*' | xargs -I{} git grep -nP "uses:\\s+[^@]+@(main|master|v?[0-9]+(\\.[0-9]+){0,2})\\b|pull_request_target|permissions:\\s*write-all|:latest\\b" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Pin and scope every trust boundary.

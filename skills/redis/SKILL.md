@@ -30,8 +30,8 @@ Forbid by default:
 - `SETEX` or `SETNX`; use `SET` options instead.
 
 CI:
-- `eslint . --max-warnings 0`
-- `! git grep -nP "\\bKEYS\\b|(?i)\\b(flushall|flushdb|monitor|setex|setnx)\\b" -- '*.js' '*.mjs' '*.cjs' '*.ts'`
+- `npx --no-install eslint . --max-warnings 0`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.js' '*.mjs' '*.cjs' '*.ts' | xargs -I{} git grep -nP "\\bKEYS\\b|(?i)\\b(flushall|flushdb|monitor|setex|setnx)\\b" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Decide whether the key is cache, session, or coordination.

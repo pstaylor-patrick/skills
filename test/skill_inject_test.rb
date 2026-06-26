@@ -107,6 +107,39 @@ class SkillInjectTest < Minitest::Test
     assert_empty ReviewQueue.new("s1").pending, "git-ignored file must not arm the gate"
   end
 
+  def test_excluded_skill_not_surfaced_in_conflicting_project
+    skill_dir("drz", auto: { "paths" => [ "**/schema.ts" ], "exclude" => [ "**/schema.prisma" ] })
+    FileUtils.mkdir_p(File.join(@proj, "prisma"))
+    File.write(File.join(@proj, "prisma", "schema.prisma"), "x")
+    path = File.join(@proj, "src", "schema.ts")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, "x")
+    text = context(tool: "Edit", path: path)
+    refute_includes text.to_s, "drz", "drizzle must not surface in a Prisma project"
+    refute_includes ReviewQueue.new("s1").pending.map { |q| q[:skill] }, "drz"
+  end
+
+  def test_excluded_skill_surfaced_when_no_conflict
+    skill_dir("drz", auto: { "paths" => [ "**/schema.ts" ], "exclude" => [ "**/schema.prisma" ] })
+    path = File.join(@proj, "src", "schema.ts")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, "x")
+    assert_includes context(tool: "Edit", path: path).to_s, "drz"
+  end
+
+  def test_unresolved_root_does_not_suppress
+    skill_dir("drz", auto: { "paths" => [ "**/schema.ts" ], "exclude" => [ "**/schema.prisma" ] })
+    outside = Dir.mktmpdir # not a git work tree, so the root cannot resolve
+    FileUtils.mkdir_p(File.join(outside, "prisma"))
+    File.write(File.join(outside, "prisma", "schema.prisma"), "x")
+    path = File.join(outside, "schema.ts")
+    File.write(path, "x")
+    assert_includes context(tool: "Edit", path: path).to_s, "drz",
+                    "an unresolved root skips exclusion, so the skill still surfaces"
+  ensure
+    FileUtils.remove_entry(outside) if outside
+  end
+
   def test_reads_notebook_path
     io = StringIO.new
     event = { "session_id" => "s1", "tool_name" => "NotebookEdit",

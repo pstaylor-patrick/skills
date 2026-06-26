@@ -32,7 +32,7 @@ CI:
 - `vitest run --coverage`
 - `jest --ci --coverage`
 - `cypress run`
-- `! git grep -nE "\\.(only|skip)\\(|cy\\.wait\\([0-9]+" -- '*.test.js' '*.spec.js' '*.cy.js' 'cypress/**'`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.test.js' '*.spec.js' '*.cy.js' 'cypress/**' | xargs -I{} git grep -nE "\\.(only|skip)\\(|cy\\.wait\\([0-9]+" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Pick the smallest runner that matches the behavior.

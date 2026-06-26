@@ -29,9 +29,9 @@ Forbid by default:
 - Global loading flags for query-owned requests.
 
 CI:
-- `eslint . --max-warnings 0`
+- `npx --no-install eslint . --max-warnings 0`
 - `vitest run`
-- `! git grep -nP "queryKey:\\s*['\\\"]|queryKey:.*\\bnew (Map|Set|Date)\\(|useEffect\\(.*dispatch\\(" -- '*.js' '*.jsx'`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.js' '*.jsx' | xargs -I{} git grep -nP "queryKey:\\s*['\\\"]|queryKey:.*\\bnew (Map|Set|Date)\\(|useEffect\\(.*dispatch\\(" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Decide whether each datum is server or client state.

@@ -28,7 +28,8 @@ class SkillInject
     path = changed_path
     return unless path
 
-    matched = registry.select { |skill| skill.matches?(path) }
+    root = repo_root(path)
+    matched = registry.select { |skill| skill.matches?(path, root: root) }
     return if matched.empty?
 
     enqueue_reviews(matched, path)
@@ -44,6 +45,16 @@ class SkillInject
     return unless input.is_a?(Hash)
 
     input['file_path'] || input['notebook_path']
+  end
+
+  # Project root for exclusion gating, resolved from the changed file's own
+  # directory so a path in another repo is judged by that repo. Any git failure
+  # yields nil; matches? then skips exclusion, so an unresolved root never
+  # suppresses a skill. Suppression is the aggressive action and must not fire
+  # on uncertainty.
+  def repo_root(path)
+    out, status = capture_git(File.dirname(path), 'rev-parse', '--show-toplevel')
+    status&.success? ? out.strip : nil
   end
 
   # Records every match so the Stop hook reviews the batch. The content hash

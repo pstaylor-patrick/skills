@@ -2,7 +2,14 @@
 name: pst:drizzle
 description: Drizzle ORM schema, migrations, and queries. Auto-applied by the pst shim on every Drizzle change; also invocable directly.
 auto:
-  extensions: [ts, js]
+  paths:
+    - "drizzle.config.*"
+    - "drizzle/**"
+    - "src/**/schema.ts"
+    - "src/**/db.ts"
+  exclude:
+    - "**/schema.prisma"
+    - "prisma/migrations/**"
   detect: [drizzle.config.*, "drizzle/**", "src/**/schema.*", "src/**/db.*"]
 ---
 
@@ -32,7 +39,7 @@ Forbid by default:
 CI:
 - `drizzle-kit generate`
 - `drizzle-kit check`
-- `eslint . --max-warnings=0`
+- `npx --no-install eslint . --max-warnings=0`
 
 Agent protocol:
 1. Model invariants in Drizzle schema.

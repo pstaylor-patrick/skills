@@ -33,7 +33,7 @@ Forbid by default:
 - Disabling ESLint rules to silence violations.
 
 CI:
-- eslint . --max-warnings=0
+- npx --no-install eslint . --max-warnings=0
 - npm test
 
 Agent protocol:

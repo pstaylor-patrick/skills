@@ -16,7 +16,7 @@ Favor:
 - Use ESM and one router module per resource.
 - Validate `params`, `query`, and `body` before handler logic.
 - Use `async` handlers and one terminal error middleware.
-- `return` immediately after `res.send`, `res.json`, or `res.end`.
+- `return` after `res.send`, `res.json`, or `res.end`, unless a local middleware convention deliberately falls through.
 - Set `helmet()` and explicit CORS policy.
 - Set JSON and urlencoded body size limits.
 - Log method, path, status, latency, and request id.
@@ -31,11 +31,12 @@ Forbid by default:
 - Missing 404 and error middleware at the end of the stack.
 
 CI:
-- `eslint . --max-warnings 0`
+- `npx --no-install eslint . --max-warnings 0`
 - `npm audit --omit=dev`
 
 Agent protocol:
 1. Validate request boundaries first.
 2. Route success and failure through one path.
 3. Add security headers, limits, and graceful shutdown.
-4. Preserve behavior.
+4. Defer to an established local convention when it conflicts with a line here.
+5. Preserve behavior.

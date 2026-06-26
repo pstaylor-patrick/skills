@@ -31,7 +31,7 @@ Forbid by default:
 
 CI:
 - `sqlfluff lint --dialect postgres`
-- `! git grep -niP "SELECT \\*|\\b(BIG|SMALL)?SERIAL\\b|\\bDROP TABLE\\b|\\bTRUNCATE\\b" -- '*.sql'`
+- `out=$(git diff --name-only --diff-filter=AM origin/HEAD -- '*.sql' | xargs -I{} git grep -niP "SELECT \\*|\\b(BIG|SMALL)?SERIAL\\b|\\bDROP TABLE\\b|\\bTRUNCATE\\b" -- {}); [ -z "$out" ]`
 
 Agent protocol:
 1. Encode invariants in DDL, not app code.
