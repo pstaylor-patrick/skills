@@ -3,6 +3,8 @@ name: pst:turbo-workspaces
 description: Turborepo and npm workspaces monorepo wiring. Auto-applied by the pst shim on every workspace or turbo change; also invocable directly.
 auto:
   basenames: [turbo.json, package.json]
+  require:
+    - "**/turbo.json"
   detect: [turbo.json, package.json]
 ---
 

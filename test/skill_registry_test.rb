@@ -275,6 +275,17 @@ class SkillRegistryTest < Minitest::Test
     FileUtils.remove_entry(plain) if plain
   end
 
+  def test_shipped_turbo_workspaces_requires_a_turbo_json
+    turbo = SkillRegistry.load(REPO_SKILLS).find { |s| s.name == "pst:turbo-workspaces" }
+    mono = project_with_files("turbo.json" => "{}", "package.json" => "{}", "apps/web/package.json" => "{}")
+    plain = project_with_files("package.json" => "{}")
+    assert turbo.matches?(File.join(mono, "apps/web/package.json"), root: mono)
+    refute turbo.matches?(File.join(plain, "package.json"), root: plain),
+           "a plain npm project (no turbo.json) must not attach turbo-workspaces"
+  ensure
+    [ mono, plain ].each { |d| FileUtils.remove_entry(d) if d }
+  end
+
   def test_shipped_docker_matches_provisioning_files_only
     docker = SkillRegistry.load(REPO_SKILLS).find { |s| s.name == "pst:docker" }
     assert docker.matches?("Dockerfile")
