@@ -22,8 +22,10 @@ Favor:
 - Treat misses and outages as recoverable.
 - Bound payload size; prefer ids over full documents.
 - Use `SCAN` for iteration and bulk maintenance.
+- Run dev and test Redis in a dedicated Docker container, one per use case; point `REDIS_URL` at it (pst:docker doctrine).
 
 Forbid by default:
+- A Homebrew or system Redis daemon for project work (`brew services start redis`, host `redis-server`).
 - `KEYS` in application code.
 - `FLUSHALL`, `FLUSHDB`, or `MONITOR` outside ops scripts.
 - Cache keys without TTL.

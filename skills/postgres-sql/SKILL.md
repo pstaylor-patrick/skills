@@ -20,8 +20,10 @@ Favor:
 - Use `INSERT ... ON CONFLICT` for idempotent upserts.
 - Backfill in batches before tightening constraints.
 - Use `CREATE INDEX CONCURRENTLY` or `DROP INDEX CONCURRENTLY` on large live tables.
+- Run dev and test Postgres in a dedicated Docker container (a Compose service or `docker run`), one per use case; point `DATABASE_URL` at it and use Testcontainers for tests (pst:docker doctrine).
 
 Forbid by default:
+- A Homebrew or system-level Postgres daemon for project work (`brew install` or `brew services` for `postgresql`, host `initdb` or `pg_ctl`, a shared default-port cluster).
 - String-built SQL with interpolated values.
 - `SELECT *` in application queries.
 - `SERIAL`; prefer `GENERATED ... AS IDENTITY`.

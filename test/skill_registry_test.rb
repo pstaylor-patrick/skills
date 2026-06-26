@@ -275,6 +275,16 @@ class SkillRegistryTest < Minitest::Test
     FileUtils.remove_entry(plain) if plain
   end
 
+  def test_shipped_docker_matches_provisioning_files_only
+    docker = SkillRegistry.load(REPO_SKILLS).find { |s| s.name == "pst:docker" }
+    assert docker.matches?("Dockerfile")
+    assert docker.matches?("apps/api/Dockerfile")
+    assert docker.matches?("docker-compose.yml")
+    assert docker.matches?("Brewfile")
+    refute docker.matches?("README.md")
+    refute docker.matches?("src/app.js")
+  end
+
   # A package.json body listing the given runtime and dev dependencies.
   def pkg(deps: [], dev: [])
     JSON.generate("dependencies" => deps.to_h { |d| [ d, "^1" ] },
