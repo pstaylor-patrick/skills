@@ -62,8 +62,13 @@ class CtxStore
   # Commits the store locally after a mutation. Push to the NAS remote is a later
   # phase, so this only commits. Failures are swallowed: a doc that was written
   # must not be lost because git lacks an identity or the store is not a repo yet.
+  #
+  # The commit author is a neutral system identity, not a person: the store is
+  # private (local plus the NAS remote), so authorship there is cosmetic, and the
+  # `-c` overrides keep a missing global git identity from failing the commit. Set
+  # the store's own user.name/user.email if a real author is wanted.
   class GitCommitter
-    IDENTITY = { name: 'Patrick Taylor', email: 'patrick+pst-ctx@pstaylor.net' }.freeze
+    IDENTITY = { name: 'pst-ctx', email: 'pst-ctx@localhost' }.freeze
 
     def initialize(store_dir) = @store_dir = store_dir
 
