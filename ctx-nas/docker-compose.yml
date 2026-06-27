@@ -1,0 +1,39 @@
+# pst-ctx context store - NAS git transport (Forgejo + Tailscale sidecar)
+#
+# Deploys on the Synology NAS via Container Manager as project "ctx". Path and
+# volumes live under a dedicated shared folder (/volume1/pst-ctx), because
+# Container Manager projects must sit in a shared folder, not a user home. Grant
+# the dedicated non-admin owner and admin Read/Write only. Create
+# /volume1/pst-ctx/ts-state and /volume1/pst-ctx/forgejo first (see README).
+#
+# Transport rationale: Tailscale SSH is unsupported on the Synology Tailscale
+# package, and DSM sshd gates git on the administrators group. A Forgejo server
+# with a real tailscaled sidecar sidesteps both and keeps the owner non-admin.
+# Git auth is a Forgejo access token, not a DSM account.
+#
+# Secrets are NOT inlined. Set TS_AUTHKEY from your secret store at deploy time
+# (a reusable Tailscale auth key tagged tag:ctx, registered in the tailnet ACL
+# tagOwners). The Forgejo access token is minted after first-run and kept in your
+# secret store, never here.
+
+services:
+  ts-ctx:
+    image: tailscale/tailscale:stable
+    hostname: pst-ctx                       # tailnet node name -> pst-ctx.<your-tailnet>.ts.net
+    environment:
+      - TS_AUTHKEY=tskey-auth-REPLACE_AT_DEPLOY
+      - TS_EXTRA_ARGS=--advertise-tags=tag:ctx
+      - TS_STATE_DIR=/var/lib/tailscale     # must persist or the node re-registers
+    volumes:
+      - /volume1/pst-ctx/ts-state:/var/lib/tailscale
+    cap_add: [net_admin]
+    devices: [/dev/net/tun]
+    restart: unless-stopped
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:9
+    network_mode: service:ts-ctx            # share the sidecar netns; reachable only via tailnet
+    environment:
+      - FORGEJO__service__DISABLE_REGISTRATION=true
+    volumes:
+      - /volume1/pst-ctx/forgejo:/data
+    restart: unless-stopped
