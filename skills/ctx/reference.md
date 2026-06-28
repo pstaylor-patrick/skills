@@ -68,8 +68,8 @@ A truth doc:
 
 ```
 ---
-name: visitor-reach-msa-2026
-description: Master services agreement with Visitor-Reach, signed 2026-03-01.
+name: acme-msa-2026
+description: Master services agreement with the Acme client, signed 2026-03-01.
 class: truth
 status: active
 last_touched: '2026-06-27T09:00:00-04:00'
