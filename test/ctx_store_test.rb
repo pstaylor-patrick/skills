@@ -134,6 +134,29 @@ class CtxStoreTest < Minitest::Test
     assert_equal "ctx: remove a [mac-mini]", @committer.messages.last
   end
 
+  def test_archive_drops_live_and_writes_a_digest
+    store.write(name: "p", description: "the plan", klass: "active", body: "first line\nmore")
+    assert store.archive("p")
+    assert_nil store.read("p")
+
+    tomb = File.join(CtxPaths.class_dir(CtxPaths::ARCHIVE, CWD, home: @home), "p.md")
+    assert File.exist?(tomb), "archive tombstone should exist"
+    assert_includes File.read(tomb), "the plan"
+    refute_includes index_text, "(active/p.md)"
+    assert_equal "ctx: archive p [mac-mini]", @committer.messages.last
+  end
+
+  def test_archive_missing_doc_returns_false
+    refute store.archive("nope")
+  end
+
+  def test_entries_pair_each_doc_with_its_class_directory
+    store.write(name: "t", description: "dt", klass: "truth", body: "x")
+    store.write(name: "a", description: "da", klass: "active", body: "x")
+    pairs = store.entries.map { |entry| [ entry.klass_dir, entry.doc.name ] }.sort
+    assert_equal [ [ "active", "a" ], [ "truth", "t" ] ], pairs
+  end
+
   def test_cli_parses_flags_and_positionals
     flags, positional = CtxStore::CLI.parse(%w[--name plan --class active some-doc --session s1])
     assert_equal({ "name" => "plan", "class" => "active", "session" => "s1" }, flags)

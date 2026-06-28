@@ -66,6 +66,36 @@ ruby ~/.claude/pst/bin/ctx_store.rb list --class active --status active
 `INDEX.md` at the store root holds the same one-line-per-doc summary and is
 regenerated on every write; read it for a cheap overview.
 
+### prune
+
+Garbage-collect and relevance-check the store. Run it on an ongoing basis, in
+particular after a PR merges (the pst:prune skill calls it for you).
+
+```bash
+ruby ~/.claude/pst/bin/ctx_retention.rb prune
+```
+
+It auto-removes expired ephemeral docs (their ttl was the consent) and prints two
+lists it never acts on by itself:
+
+- `needs review` - done/superseded and over-cap active docs (suggested action
+  `archive`), and stale active docs (`review`). For each, AskUserQuestion with
+  Archive / Remove / Keep before doing anything. On a yes, apply it:
+
+  ```bash
+  ruby ~/.claude/pst/bin/ctx_store.rb archive <name>   # compact to a digest, drop the live copy
+  ruby ~/.claude/pst/bin/ctx_store.rb remove <name>    # drop the live copy
+  ```
+
+  Keep means bump the doc with a fresh capture so it stops reading as stale.
+
+- `structural issues` - a doc that does not parse, sits under the wrong class, or
+  has an invalid status. Surface these for the user to fix; do not auto-edit.
+
+Invariants (mirroring pst:prune): never touch a `truth` doc, never remove or
+archive a review-set doc without an explicit yes. Archiving is compact-and-drop,
+with git history as the verbatim backstop.
+
 ## Authoring rules
 
 - One concern per doc: a single contract, plan, client thread, or decision, not
