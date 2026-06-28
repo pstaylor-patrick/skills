@@ -60,7 +60,7 @@ class DockerDoctrineGuardTest < Minitest::Test
 
   def test_allows_a_commit_message_that_mentions_the_daemons
     # A service name inside an argument or quoted prose is a mention, not a run.
-    assert_nil decision(%q{git commit -m "guard denies brew install caddy and redis-server"})
+    assert_nil decision(%q(git commit -m "guard denies brew install caddy and redis-server"))
   end
 
   def test_allows_grep_for_a_daemon_binary
