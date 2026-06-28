@@ -14,7 +14,7 @@ require_relative 'ctx_store'
 # engine only decides; CtxStore applies the delete or archive, so nothing here
 # mutates the store.
 class CtxRetention
-  DEFAULTS = { max_active: 25, stale_after_days: 90 }.freeze
+  DEFAULTS = { max_active: 25, stale_after_days: 90, truth_review_days: 365 }.freeze
 
   # One purge or attention candidate. `action` is what a yes does: :remove drops
   # the doc, :archive compacts then drops it, :review only flags a stale doc.
@@ -38,10 +38,11 @@ class CtxRetention
   end
 
   # Everything that wants an explicit decision: done/superseded and over-cap
-  # active docs (archive), plus stale active docs (review). Deduped by name so a
-  # doc that is both stale and over-cap is offered once.
+  # active docs (archive), stale active docs (review), and truth docs past their
+  # review horizon (review). Deduped by name so a doc that matches twice is
+  # offered once. truth never reaches auto_removable, only this review path.
   def needs_review
-    (superseded + over_cap + stale).uniq(&:name)
+    (superseded + over_cap + stale + truth_review).uniq(&:name)
   end
 
   def candidates = (auto_removable + needs_review).uniq(&:name)
@@ -69,10 +70,26 @@ class CtxRetention
     live_active.sort_by(&:last_touched).first(overflow).map { |doc| candidate(doc, 'over-cap', :archive) }
   end
 
+  # Truth docs untouched past their review horizon. The action is :review, never
+  # :remove or :archive: truth is durable, but a fact nobody has touched in a year
+  # (or the doc's own review_after) should be reconfirmed or retired by a human.
+  def truth_review
+    truth.select { |doc| review_due?(doc) }.map { |doc| candidate(doc, 'review-due', :review) }
+  end
+
   def docs = @store.entries.map(&:doc)
   def ephemeral = docs.select { |doc| doc.klass == 'ephemeral' }
   def active = docs.select { |doc| doc.klass == 'active' }
+  def truth = docs.select { |doc| doc.klass == 'truth' }
   def live_active = active.select { |doc| doc.status == 'active' }
+
+  def review_due?(doc)
+    touched = parse_time(doc.last_touched)
+    return false unless touched
+
+    horizon_days = CtxStore::Ttl.days(doc.review_after) || @caps[:truth_review_days]
+    (now - touched) > horizon_days * 86_400
+  end
 
   def candidate(doc, reason, action)
     Candidate.new(name: doc.name, klass: doc.klass, status: doc.status,

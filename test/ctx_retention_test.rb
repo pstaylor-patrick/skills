@@ -28,10 +28,36 @@ class CtxRetentionTest < Minitest::Test
     File.write(File.join(dir, "#{name}.md"), "---\nname: #{name}\ndescription: x\n#{extra_front}\n---\n\nbody\n")
   end
 
-  def test_truth_is_never_a_candidate
+  def test_truth_is_never_auto_removable_even_when_ancient
+    ancient = Time.new(2020, 1, 1, 12, 0, 0, "-04:00")
+    write(now: ancient, name: "msa", description: "c", klass: "truth", body: "x")
+    assert_empty retention.auto_removable.select { |candidate| candidate.name == "msa" }
+  end
+
+  def test_fresh_truth_is_not_a_candidate
     write(now: NOW, name: "msa", description: "c", klass: "truth", body: "x")
-    write(now: NOW, name: "done-plan", description: "d", klass: "active", status: "done", body: "x")
     refute_includes retention.candidates.map(&:name), "msa"
+  end
+
+  def test_truth_past_review_horizon_is_flagged_for_review_not_removal
+    old = Time.new(2025, 1, 1, 12, 0, 0, "-04:00")
+    write(now: old, name: "msa", description: "c", klass: "truth", body: "x")
+
+    msa = retention.needs_review.find { |candidate| candidate.name == "msa" }
+    refute_nil msa, "stale truth should be flagged for review"
+    assert_equal :review, msa.action
+    assert_equal "review-due", msa.reason
+    assert_empty retention.auto_removable, "review-due truth must never be auto-removable"
+  end
+
+  def test_per_doc_review_after_overrides_the_default_horizon
+    touched = Time.new(2026, 4, 28, 12, 0, 0, "-04:00") # about 60 days before NOW
+    write(now: touched, name: "short", description: "c", klass: "truth", review_after: "30d", body: "x")
+    write(now: touched, name: "long", description: "c", klass: "truth", review_after: "999d", body: "x")
+
+    due = retention.needs_review.select { |candidate| candidate.reason == "review-due" }.map(&:name)
+    assert_includes due, "short"
+    refute_includes due, "long"
   end
 
   def test_expired_ephemeral_is_auto_removable

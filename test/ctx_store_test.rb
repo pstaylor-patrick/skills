@@ -91,6 +91,18 @@ class CtxStoreTest < Minitest::Test
     assert_raises(CtxStore::InvalidDoc) { store.write(name: "Bad Name", description: "d", klass: "active", body: "b") }
   end
 
+  def test_review_after_round_trips
+    doc = store.write(name: "msa", description: "contract", klass: "truth", review_after: "180d", body: "x")
+    assert_equal "180d", doc.review_after
+    assert_equal "180d", CtxStore::Doc.parse(File.read(doc_file("truth", "msa"))).review_after
+  end
+
+  def test_bad_review_after_is_rejected
+    assert_raises(CtxStore::InvalidDoc) do
+      store.write(name: "msa", description: "contract", klass: "truth", review_after: "soon", body: "x")
+    end
+  end
+
   def test_index_rebuilt_after_write
     store.write(name: "plan", description: "the plan", klass: "active", body: "x")
     assert_includes index_text, "- [plan](active/plan.md) - the plan"

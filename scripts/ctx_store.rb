@@ -27,7 +27,7 @@ class CtxStore
   # One ctx doc as a value: frontmatter fields plus the markdown body. Built
   # whole, never mutated, so it doubles as the serialization unit.
   Doc = Data.define(
-    :name, :description, :klass, :status, :ttl, :expires,
+    :name, :description, :klass, :status, :ttl, :expires, :review_after,
     :last_touched, :origin_session_id, :origin_device, :supersedes, :body
   ) do
     def self.parse(text)
@@ -41,6 +41,7 @@ class CtxStore
         name: meta['name'].to_s, description: meta['description'].to_s,
         klass: meta['class'].to_s, status: (meta['status'] || 'active').to_s,
         ttl: present(meta['ttl']), expires: present(meta['expires']),
+        review_after: present(meta['review_after']),
         last_touched: meta['last_touched'].to_s, origin_session_id: meta['originSessionId'].to_s,
         origin_device: meta['originDevice'].to_s, supersedes: present(meta['supersedes']), body:
       )
@@ -56,7 +57,7 @@ class CtxStore
     def front
       {
         'name' => name, 'description' => description, 'class' => klass, 'status' => status,
-        'ttl' => ttl, 'expires' => expires, 'last_touched' => last_touched,
+        'ttl' => ttl, 'expires' => expires, 'review_after' => review_after, 'last_touched' => last_touched,
         'originSessionId' => self.class.present(origin_session_id),
         'originDevice' => self.class.present(origin_device), 'supersedes' => supersedes
       }.compact
@@ -117,11 +118,12 @@ class CtxStore
     @committer = committer || GitCommitter.new(@store_dir)
   end
 
-  def write(name:, description:, klass:, body:, status: 'active', ttl: nil, supersedes: nil)
+  def write(name:, description:, klass:, body:, status: 'active', ttl: nil, supersedes: nil, review_after: nil)
     klass = klass.to_s
     ttl = ttl&.to_s
-    validate!(name: name.to_s, description: description.to_s, klass:, ttl:)
-    doc = build(name.to_s, description.to_s, klass, status.to_s, ttl, supersedes, body.to_s)
+    review_after = review_after&.to_s
+    validate!(name: name.to_s, description: description.to_s, klass:, ttl:, review_after:)
+    doc = build(name.to_s, description.to_s, klass, status.to_s, ttl, review_after, supersedes, body.to_s)
     persist(doc)
     after_mutation("capture #{doc.name}")
     doc
@@ -178,21 +180,22 @@ class CtxStore
 
   private
 
-  def build(name, description, klass, status, ttl, supersedes, body)
+  def build(name, description, klass, status, ttl, review_after, supersedes, body)
     at = @now || Time.now
     Doc.new(
       name:, description:, klass:, status:, ttl:,
-      expires: (Ttl.expires(at, ttl) if klass == 'ephemeral' && ttl),
+      expires: (Ttl.expires(at, ttl) if klass == 'ephemeral' && ttl), review_after:,
       last_touched: at.iso8601, origin_session_id: @session_id, origin_device: device,
       supersedes: Doc.present(supersedes), body:
     )
   end
 
-  def validate!(name:, description:, klass:, ttl:)
+  def validate!(name:, description:, klass:, ttl:, review_after:)
     raise InvalidDoc, "unknown class #{klass.inspect}" unless CtxPaths.klass?(klass)
     raise InvalidDoc, 'truth docs may not carry a ttl' if klass == 'truth' && ttl
     raise InvalidDoc, 'ephemeral docs require a ttl' if klass == 'ephemeral' && ttl.nil?
     raise InvalidDoc, "ttl must be a day count like 14d, got #{ttl.inspect}" if ttl && Ttl.days(ttl).nil?
+    raise InvalidDoc, "review_after must be a day count like 365d, got #{review_after.inspect}" if review_after && Ttl.days(review_after).nil?
     raise InvalidDoc, "name must be a slug, got #{name.inspect}" unless NAME_PATTERN.match?(name)
     raise InvalidDoc, 'description must not be empty' if description.strip.empty?
   end
@@ -261,7 +264,7 @@ class CtxStore
   # following the pst:ctx skill; the session id is an argument because there is no
   # hook event to read it from.
   class CLI
-    FLAG_KEYS = %w[name desc class status ttl supersedes session].freeze
+    FLAG_KEYS = %w[name desc class status ttl review-after supersedes session].freeze
 
     def self.run(argv, out: $stdout, input: $stdin)
       verb, *rest = argv
@@ -291,7 +294,7 @@ class CtxStore
       doc = store.write(
         name: flags['name'], description: flags['desc'], klass: flags['class'],
         status: flags['status'] || 'active', ttl: flags['ttl'], supersedes: flags['supersedes'],
-        body: input.read
+        review_after: flags['review-after'], body: input.read
       )
       out.puts("captured #{doc.name} (#{doc.klass})")
     rescue InvalidDoc => e

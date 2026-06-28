@@ -44,8 +44,10 @@ printf '%s' "Body of the note, one concern per doc." | \
 ```
 
 An `ephemeral` doc requires `--ttl` (a day count like `14d`); a `truth` doc must
-not carry one. Capture refuses an unknown class, a bad name, or an empty
-description rather than writing a malformed doc.
+not carry one. A `truth` doc may set `--review-after <Nd>` to tune its review
+horizon (default 365 days), after which prune surfaces it for re-attestation.
+Capture refuses an unknown class, a bad name, or an empty description rather than
+writing a malformed doc.
 
 ### recall
 
@@ -79,22 +81,26 @@ It auto-removes expired ephemeral docs (their ttl was the consent) and prints tw
 lists it never acts on by itself:
 
 - `needs review` - done/superseded and over-cap active docs (suggested action
-  `archive`), and stale active docs (`review`). For each, AskUserQuestion with
-  Archive / Remove / Keep before doing anything. On a yes, apply it:
+  `archive`), stale active docs (`review`), and `truth` docs past their review
+  horizon (`review-due`). For each, AskUserQuestion with Archive / Remove / Keep
+  before doing anything. On a yes, apply it:
 
   ```bash
   ruby ~/.claude/pst/bin/ctx_store.rb archive <name>   # compact to a digest, drop the live copy
   ruby ~/.claude/pst/bin/ctx_store.rb remove <name>    # drop the live copy
   ```
 
-  Keep means bump the doc with a fresh capture so it stops reading as stale.
+  Keep means bump the doc with a fresh capture so it stops reading as stale. For a
+  `review-due` truth doc, default to Keep (re-attest the fact); only archive or
+  remove if it is genuinely obsolete.
 
 - `structural issues` - a doc that does not parse, sits under the wrong class, or
   has an invalid status. Surface these for the user to fix; do not auto-edit.
 
-Invariants (mirroring pst:prune): never touch a `truth` doc, never remove or
-archive a review-set doc without an explicit yes. Archiving is compact-and-drop,
-with git history as the verbatim backstop.
+Invariants (mirroring pst:prune): `truth` is never auto-removed or auto-archived
+(it only ever reaches the review set), and nothing in the review set is removed
+or archived without an explicit yes. Archiving is compact-and-drop, with git
+history as the verbatim backstop.
 
 ## Authoring rules
 
