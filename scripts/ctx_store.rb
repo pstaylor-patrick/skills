@@ -20,6 +20,11 @@ class CtxStore
 
   NAME_PATTERN = /\A[a-z0-9][a-z0-9-]*\z/
 
+  # The on-disk shape: a YAML frontmatter block, the --- fence, then the body.
+  # Doc bodies and archive digests both serialize through here so what gets
+  # written stays byte-identical to what Frontmatter.split reads back.
+  def self.render(front, body) = "#{YAML.dump(front)}---\n\n#{body}\n"
+
   # A doc paired with the class directory it sits in, so a caller (retention's
   # structural check) can compare the on-disk class to the frontmatter class.
   Entry = Data.define(:klass_dir, :doc)
@@ -49,7 +54,7 @@ class CtxStore
 
     def self.present(value) = value.nil? || value.to_s.empty? ? nil : value.to_s
 
-    def to_markdown = "#{YAML.dump(front)}---\n\n#{body}\n"
+    def to_markdown = CtxStore.render(front, body)
 
     # String keys in capture order; nils dropped so absent optional fields stay
     # out of the frontmatter. Psych quotes the timestamp and date values, so they
@@ -225,7 +230,7 @@ class CtxStore
     front = { 'name' => doc.name, 'description' => doc.description,
               'class' => CtxPaths::ARCHIVE, 'status' => 'archived',
               'archived_from' => doc.klass, 'last_touched' => doc.last_touched }.compact
-    "#{YAML.dump(front)}---\n\n#{digest}\n"
+    CtxStore.render(front, digest)
   end
 
   def default_digest(doc)
