@@ -6,7 +6,8 @@ require_relative "#{SKILL_SCRIPTS}/ctx_store"
 class CtxStoreTest < Minitest::Test
   include SkillTempHome
 
-  CWD = "/Users/pst/code/demo"
+  # Under @home (the redirected HOME), so the store-keying guard accepts it.
+  def cwd = File.join(@home, "code", "demo")
 
   # Records commit messages instead of shelling out to git, so writes are tested
   # without a real repo or a configured identity.
@@ -24,16 +25,16 @@ class CtxStoreTest < Minitest::Test
   end
 
   def store
-    CtxStore.new(cwd: CWD, home: @home, session_id: "sess-1", device: "mac-mini",
+    CtxStore.new(cwd: cwd, home: @home, session_id: "sess-1", device: "mac-mini",
                  committer: @committer, now: @clock)
   end
 
   def doc_file(klass, name)
-    File.join(CtxPaths.class_dir(klass, CWD, home: @home), "#{name}.md")
+    File.join(CtxPaths.class_dir(klass, cwd, home: @home), "#{name}.md")
   end
 
   def index_text
-    File.read(File.join(CtxPaths.store_dir(CWD, home: @home), "INDEX.md"))
+    File.read(File.join(CtxPaths.store_dir(cwd, home: @home), "INDEX.md"))
   end
 
   # Swaps File.rename for one that raises, so the atomic temp-then-rename write
@@ -57,7 +58,7 @@ class CtxStoreTest < Minitest::Test
 
   def test_constructor_refuses_a_cwd_outside_home
     assert_raises(CtxPaths::NotAProject) do
-      CtxStore.new(cwd: "/private/var/folders/x/T/tmp.AB", home: @home, committer: @committer)
+      CtxStore.new(cwd: "/elsewhere/scratch", home: @home, committer: @committer)
     end
   end
 
@@ -157,7 +158,7 @@ class CtxStoreTest < Minitest::Test
     assert store.archive("p")
     assert_nil store.read("p")
 
-    tomb = File.join(CtxPaths.class_dir(CtxPaths::ARCHIVE, CWD, home: @home), "p.md")
+    tomb = File.join(CtxPaths.class_dir(CtxPaths::ARCHIVE, cwd, home: @home), "p.md")
     assert File.exist?(tomb), "archive tombstone should exist"
     assert_includes File.read(tomb), "the plan"
     refute_includes index_text, "(active/p.md)"

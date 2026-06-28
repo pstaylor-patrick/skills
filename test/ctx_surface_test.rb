@@ -33,7 +33,7 @@ class CtxSurfaceTest < Minitest::Test
   end
 
   def select(docs, roadmap_obj: nil, meta: {})
-    CtxSurface.select(cwd: "/Users/pst/code/demo", home: @home, now: NOW,
+    CtxSurface.select(cwd: "/w/code/demo", home: @home, now: NOW,
                       store: FakeStore.new(docs, roadmap_obj, meta))
   end
 
@@ -141,7 +141,7 @@ class CtxSurfaceTest < Minitest::Test
     assert_includes out, "good", "the well-formed doc still surfaces"
     refute_empty out
 
-    empty = CtxSurface.render(CtxSurface.select(cwd: "/Users/pst/code/empty", home: @home, now: NOW))
+    empty = CtxSurface.render(CtxSurface.select(cwd: "/w/code/empty", home: @home, now: NOW))
     assert_equal "", empty
   end
 

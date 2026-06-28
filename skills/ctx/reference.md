@@ -6,7 +6,8 @@ this is the detail it defers to.
 ## Store layout
 
 Keyed by the absolute cwd with every `/` turned to `-`, byte-identical across
-both Macs because both run under `/Users/pst`.
+both Macs because both run under the same home (pinned per device by install.rb,
+so the repo never names it).
 
 ```
 ~/.claude/pst/ctx/<dashed-cwd>/
