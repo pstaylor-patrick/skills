@@ -114,6 +114,7 @@ class CtxStore
   end
 
   def initialize(cwd: Dir.pwd, session_id: '', device: nil, home: Dir.home, committer: nil, now: nil)
+    CtxPaths.assert_project!(cwd)
     @cwd = cwd
     @session_id = session_id.to_s
     @home = home
@@ -276,6 +277,8 @@ class CtxStore
       flags, positional = parse(rest)
       store = CtxStore.new(cwd: Dir.pwd, session_id: flags['session'].to_s)
       dispatch(verb, store, flags, positional, out:, input:)
+    rescue CtxPaths::NotAProject => e
+      out.puts("refused: #{e.message}")
     end
 
     def self.dispatch(verb, store, flags, positional, out:, input:)

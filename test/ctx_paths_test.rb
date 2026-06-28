@@ -40,4 +40,21 @@ class CtxPathsTest < Minitest::Test
   def test_assert_home_raises_on_divergent
     assert_raises(CtxPaths::HomeMismatch) { CtxPaths.assert_home!("/home/ci") }
   end
+
+  def test_project_cwd_accepts_a_path_under_home
+    assert CtxPaths.project_cwd?(CWD)
+    assert CtxPaths.project_cwd?("/Users/pst/workspace/areas/foo")
+  end
+
+  def test_project_cwd_rejects_cwd_outside_home
+    refute CtxPaths.project_cwd?("/private/var/folders/sk/abc/T/tmp.X1/demo")
+    refute CtxPaths.project_cwd?("/tmp/scratch")
+    refute CtxPaths.project_cwd?("/Volumes/ext/repo")
+    refute CtxPaths.project_cwd?(CtxPaths::EXPECTED_HOME), "bare home is not a project"
+  end
+
+  def test_assert_project_raises_outside_home
+    assert CtxPaths.assert_project!(CWD)
+    assert_raises(CtxPaths::NotAProject) { CtxPaths.assert_project!("/private/tmp/x") }
+  end
 end

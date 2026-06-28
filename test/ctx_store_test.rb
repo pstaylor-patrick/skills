@@ -55,6 +55,12 @@ class CtxStoreTest < Minitest::Test
     $VERBOSE = verbose
   end
 
+  def test_constructor_refuses_a_cwd_outside_home
+    assert_raises(CtxPaths::NotAProject) do
+      CtxStore.new(cwd: "/private/var/folders/x/T/tmp.AB", home: @home, committer: @committer)
+    end
+  end
+
   def test_write_stamps_provenance_and_round_trips
     doc = store.write(name: "plan", description: "the plan: phase one", klass: "active", body: "step one")
     assert_equal "2026-06-27T09:00:00-04:00", doc.last_touched

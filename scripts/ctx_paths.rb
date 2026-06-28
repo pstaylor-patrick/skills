@@ -20,6 +20,7 @@ module CtxPaths
   ARCHIVE = 'archive'
 
   class HomeMismatch < StandardError; end
+  class NotAProject < StandardError; end
 
   # Absolute cwd with every '/' replaced by '-'. '/Users/pst/code/x' becomes
   # '-Users-pst-code-x', matching the harness's own dashed-cwd memory keys.
@@ -38,6 +39,25 @@ module CtxPaths
   def self.meta(name, cwd, home: Dir.home) = File.join(store_dir(cwd, home:), '.ctx-meta', name.to_s)
 
   def self.klass?(klass) = CLASSES.include?(klass.to_s)
+
+  # A project cwd must live under the canonical home. The store is keyed by the
+  # cwd, so a cwd anywhere else (a system temp dir, an external volume) would mint
+  # a junk store under the real ctx root, which it has during dogfooding. This is
+  # the write-side twin of assert_home!: home guards which store, this guards
+  # whether to key one at all. EXPECTED_HOME is not symlinked, so a prefix test
+  # needs no realpath. Bare home is rejected: a store keys a project, not $HOME.
+  def self.project_cwd?(cwd)
+    cwd.to_s.start_with?("#{EXPECTED_HOME}/")
+  end
+
+  # Raised at the store-keying boundary (the CtxStore constructor) so no stray cwd
+  # can create a store, whichever verb or caller reached it. Reads never construct
+  # a store from a temp cwd in production, so this does not block them.
+  def self.assert_project!(cwd)
+    return true if project_cwd?(cwd)
+
+    raise NotAProject, "ctx refuses a cwd outside #{EXPECTED_HOME}: #{cwd}"
+  end
 
   # Raises unless the running home matches the one both devices share. Callers
   # (the SessionStart and prune hooks, the sync engine) catch this and degrade to
