@@ -4,8 +4,8 @@
 require 'fileutils'
 
 # Resolves the .ctx store paths for a project, keyed by the absolute cwd with
-# every slash turned to a dash. Both devices key the store identically because
-# both share one home, so a dashed cwd is byte-identical across them and the NAS
+# every slash turned to a dash. Devices key the store identically because they
+# share one home, so a dashed cwd is byte-identical across them and a configured
 # git remote lines up. This module is the single place that knows the keying
 # rule, so the invariant lives in one spot; assert_home! guards it.
 module CtxPaths
@@ -20,7 +20,7 @@ module CtxPaths
   # command, so a session launched with a wrong HOME still reads the real pin and
   # is caught. Absent (in the repo, in tests, before install) it falls back to the
   # running home, making the home-divergence check a no-op where nothing can
-  # diverge. The dashed key stays stable across devices because both pin the same
+  # diverge. The dashed key stays stable across devices because each pins the same
   # shared home.
   HOME_PIN = File.join(__dir__, '.expected-home')
 

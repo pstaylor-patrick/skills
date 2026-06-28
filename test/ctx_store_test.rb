@@ -25,7 +25,7 @@ class CtxStoreTest < Minitest::Test
   end
 
   def store
-    CtxStore.new(cwd: cwd, home: @home, session_id: "sess-1", device: "mac-mini",
+    CtxStore.new(cwd: cwd, home: @home, session_id: "sess-1", device: "laptop-a",
                  committer: @committer, now: @clock)
   end
 
@@ -65,7 +65,7 @@ class CtxStoreTest < Minitest::Test
   def test_write_stamps_provenance_and_round_trips
     doc = store.write(name: "plan", description: "the plan: phase one", klass: "active", body: "step one")
     assert_equal "2026-06-27T09:00:00-04:00", doc.last_touched
-    assert_equal "mac-mini", doc.origin_device
+    assert_equal "laptop-a", doc.origin_device
     assert_equal "sess-1", doc.origin_session_id
 
     saved = CtxStore::Doc.parse(File.read(doc_file("active", "plan")))
@@ -117,7 +117,7 @@ class CtxStoreTest < Minitest::Test
 
   def test_write_commits_locally_with_device_tag
     store.write(name: "plan", description: "the plan", klass: "active", body: "x")
-    assert_equal [ "ctx: capture plan [mac-mini]" ], @committer.messages
+    assert_equal [ "ctx: capture plan [laptop-a]" ], @committer.messages
   end
 
   def test_partial_write_leaves_no_live_doc
@@ -150,7 +150,7 @@ class CtxStoreTest < Minitest::Test
     assert store.delete("a")
     assert_nil store.read("a")
     refute_includes index_text, "(active/a.md)"
-    assert_equal "ctx: remove a [mac-mini]", @committer.messages.last
+    assert_equal "ctx: remove a [laptop-a]", @committer.messages.last
   end
 
   def test_archive_drops_live_and_writes_a_digest
@@ -162,7 +162,7 @@ class CtxStoreTest < Minitest::Test
     assert File.exist?(tomb), "archive tombstone should exist"
     assert_includes File.read(tomb), "the plan"
     refute_includes index_text, "(active/p.md)"
-    assert_equal "ctx: archive p [mac-mini]", @committer.messages.last
+    assert_equal "ctx: archive p [laptop-a]", @committer.messages.last
   end
 
   def test_archive_missing_doc_returns_false

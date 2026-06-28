@@ -20,7 +20,7 @@ class CtxSurfaceTest < Minitest::Test
           touched: "2026-06-20T09:00:00-04:00", expires: nil, description: "desc #{name}")
     CtxStore::Doc.new(
       name:, description:, klass:, status:, ttl: nil, expires:, review_after: nil,
-      last_touched: touched, origin_session_id: "s", origin_device: "mac-mini",
+      last_touched: touched, origin_session_id: "s", origin_device: "laptop-a",
       supersedes: nil, body:
     )
   end
