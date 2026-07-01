@@ -14,8 +14,6 @@ module BranchClassify
 
   class TrunkUnresolved < StandardError; end
 
-  KINDS = %w[prunable squash_merged rogue].freeze
-
   module_function
 
   # trunk is a short name ("main"), matched against origin/<trunk>. Raises
@@ -43,12 +41,12 @@ module BranchClassify
   end
 
   def ref_exists?(dir, ref)
-    _out, status = Open3.capture2e('git', '-C', dir, 'rev-parse', '--verify', '-q', ref)
+    _out, status = git(dir, 'rev-parse', '--verify', '-q', ref)
     status.success?
   end
 
   def local_branches(dir)
-    out, status = Open3.capture2e('git', '-C', dir, 'for-each-ref', '--format=%(refname:short)', 'refs/heads')
+    out, status = git(dir, 'for-each-ref', '--format=%(refname:short)', 'refs/heads')
     status.success? ? out.each_line.map(&:strip).reject(&:empty?) : []
   end
 
@@ -56,7 +54,7 @@ module BranchClassify
   # out somewhere. A detached-HEAD worktree contributes nothing (no branch
   # name to key on), so it never masks a branch's dirty state.
   def worktree_branches(dir)
-    out, status = Open3.capture2e('git', '-C', dir, 'worktree', 'list', '--porcelain')
+    out, status = git(dir, 'worktree', 'list', '--porcelain')
     return {} unless status.success?
 
     path = nil
@@ -69,12 +67,12 @@ module BranchClassify
   end
 
   def dirty?(worktree_path)
-    out, status = Open3.capture2e('git', '-C', worktree_path, 'status', '--porcelain')
+    out, status = git(worktree_path, 'status', '--porcelain')
     !status.success? || !out.strip.empty?
   end
 
   def unmerged_count(dir, trunk, branch)
-    out, status = Open3.capture2e('git', '-C', dir, 'rev-list', '--count', "origin/#{trunk}..#{branch}")
+    out, status = git(dir, 'rev-list', '--count', "origin/#{trunk}..#{branch}")
     status.success? ? out.strip.to_i : Float::INFINITY
   end
 
@@ -83,16 +81,18 @@ module BranchClassify
   # direct diff of the two tips is empty exactly when trunk's tree already
   # matches the branch's, whatever the merge shape.
   def no_diff?(dir, trunk, branch)
-    _out, status = Open3.capture2e('git', '-C', dir, 'diff', '--quiet', "origin/#{trunk}", branch)
+    _out, status = git(dir, 'diff', '--quiet', "origin/#{trunk}", branch)
     status.success?
   end
 
   def upstream_of(dir, branch)
-    out, status = Open3.capture2e('git', '-C', dir, 'for-each-ref', '--format=%(upstream:short)', "refs/heads/#{branch}")
+    out, status = git(dir, 'for-each-ref', '--format=%(upstream:short)', "refs/heads/#{branch}")
     return nil unless status.success?
 
     out.strip.empty? ? nil : out.strip
   end
+
+  def git(dir, *args) = Open3.capture2e('git', '-C', dir, *args)
 
   class CLI
     def self.run(argv, out: $stdout)
