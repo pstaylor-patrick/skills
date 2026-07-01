@@ -40,14 +40,17 @@ TRUNK=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##')
    `git status -sb`. Note the current branch and host worktree.
 2. **Fetch:** `git fetch --prune origin` (drops tracking refs for server-deleted
    branches and refreshes merge checks; not a remote deletion).
-3. **Classify** each branch and worktree against the trunk:
-   - clean and zero unmerged commits (`git rev-list --count origin/$TRUNK..<ref>`
-     == 0) -> prunable.
-   - clean, that count > 0, but `git diff --quiet origin/$TRUNK...<ref>` reports
-     no diff -> squash-merged: the branch's commits aren't literally in trunk
-     history, but their content already landed as one squashed commit. Prunable,
-     same as any other merged branch; do not ask about it as rogue.
-   - dirty worktree, or count > 0 with a non-empty diff against trunk -> rogue.
+3. **Classify:** run `ruby ~/.claude/pst/bin/branch_classify.rb $TRUNK` and act on
+   its JSON, one entry per local branch other than trunk:
+   - `kind: "prunable"` -> zero unmerged commits against `origin/$TRUNK`.
+   - `kind: "squash_merged"` -> commits aren't literally in trunk history, but a
+     tip-to-tip diff against `origin/$TRUNK` is empty, so the content already
+     landed as one squashed commit. Prunable, same as any other merged branch;
+     do not ask about it as rogue.
+   - `kind: "rogue"` -> a dirty worktree, or unmerged commits with a real diff
+     against trunk.
+   - `error: "trunk_unresolved"` -> `origin/$TRUNK` does not exist locally (stale
+     fetch, wrong name). Fetch and retry before trusting any classification.
 4. **Fast-forward:** switch the host worktree to `$TRUNK`, `git pull --ff-only
    origin $TRUNK`. If refused, the local trunk diverged: treat as rogue and ask.
 5. **Prune local:** `git worktree prune`, then `git worktree remove <path>` and
