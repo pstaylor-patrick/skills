@@ -31,27 +31,41 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
 
 ## Workflow
 
-1. **Resolve scope to files and a diff.** PR: `pull_request_read` with
-   `get_diff`, `get_files`, and `get_comments`/`get_review_comments` so
-   ground already covered by a human or a prior review is not re-flagged.
-   Everything else: `git diff`, `git show`, or plain reads. Record the base
-   commit or ref (`baseRef` below) so worktrees can check out the same
-   state.
+1. **Resolve scope to files, a repo, and a head commit.** PR: `pull_request_
+   read` with `get_diff`, `get_files`, and `get_comments`/`get_review_
+   comments` so ground already covered by a human or a prior review is not
+   re-flagged; if the PR's head is not already fetched locally, fetch it
+   (e.g. `git fetch origin pull/<N>/head`) so it resolves to a real local
+   commit. Everything else: `git diff`, `git show`, or plain reads. Record
+   `repoPath` (the local clone's absolute path) and `headSha` (the commit
+   whose code is under review, i.e. the PR's head or the branch tip, never
+   the merge-base) alongside the file list; step 2 needs a real commit
+   worktrees can check out, not a moving branch name.
 2. **Run the review workflow.** Call `Workflow` with the script under
-   Review workflow script and `args: { files, baseRef, cap }` (`files` and
-   `baseRef` from step 1; `cap` optional, defaults to 15). Invoking this
-   skill is what authorizes the `Workflow` call, so no separate
-   orchestration opt-in is needed. The script shards a large file set into
-   semantic sections, finds candidates per shard (folding the rubric and
-   general lenses into one pass, or splitting the rubric lens onto its own
-   cheap-tier call only when a shard's file count makes that split a real,
-   separable job), verifies every candidate by trying to refute it inside
-   an isolated worktree, and independently rechecks every P1 before it is
-   allowed to keep that tier. It returns `{ shards, posted, droppedForVolume
-   }`; `posted` is the deduped, ranked, capped finding list. On a repeat
-   run against the same scope, pass the `scriptPath` the first call
-   returned instead of resending `script`, so unchanged stages replay from
-   cache.
+   Review workflow script and `args: { files, repoPath, headSha, cap }`
+   (`cap` optional, defaults to 15). Invoking this skill is what authorizes
+   the `Workflow` call, so no separate orchestration opt-in is needed. The
+   script shards a large file set into semantic sections, finds candidates
+   per shard (folding the rubric and general lenses into one pass, or
+   splitting the rubric lens onto its own cheap-tier call only when a
+   shard's file count makes that split a real, separable job), verifies
+   every candidate by trying to refute it inside its own throwaway `git
+   worktree` of `repoPath` at `headSha`, and independently rechecks every
+   P1 before it is allowed to keep that tier. It returns `{ shards, posted,
+   droppedForVolume }`; `posted` is the deduped, ranked, capped finding
+   list. On a repeat run against the same scope, pass the `scriptPath` the
+   first call returned instead of resending `script`, so unchanged stages
+   replay from cache.
+
+   `repoPath` matters because the `Agent` tool's `isolation: "worktree"`
+   option only ever isolates the *session's own primary repository* (where
+   the session started), not an arbitrary path named in a script's args;
+   passing it something else silently isolates the wrong tree. When
+   `repoPath` is that primary repository this is harmless, but it is not
+   what makes verification correct, so the script does not rely on it: every
+   Verify and Recheck P1 call is told to create and clean up its own `git
+   worktree add`/`remove` of `repoPath` explicitly, which works the same way
+   whether `repoPath` is the session's own repo or a separate clone.
 3. **Report before posting.** Show `posted` (`path:line`, tier, one line
    each) plus the shard summary and `droppedForVolume` count, and ask
    whether to post. Skip the ask only when the invocation said to post
@@ -145,10 +159,23 @@ const RECHECK_SCHEMA = {
 }
 
 const files = args.files
-const baseRef = args.baseRef
+const repoPath = args.repoPath
+const headSha = args.headSha
 const shardThreshold = args.shardThreshold ?? 40
 const rubricThreshold = args.rubricThreshold ?? 25
 const cap = args.cap ?? 15
+
+// isolation: "worktree" on the Agent calls below only isolates this
+// session's own primary repo, not repoPath, so it is not used here.
+// Verify and Recheck P1 manage their own git worktree of repoPath instead,
+// which is correct whether repoPath is the primary repo or a separate one.
+function worktreeSetup() {
+  return "Before doing anything else, create your own throwaway checkout: run " +
+    "`git -C " + repoPath + " worktree add $(mktemp -d) " + headSha + "` and note the " +
+    "path it prints, then do every reproduction step inside that path only, never in " +
+    repoPath + " itself. Remove it when finished with `git -C " + repoPath +
+    " worktree remove <path> --force`. "
+}
 
 phase("Shard")
 let shards
@@ -205,11 +232,12 @@ const shardResults = await pipeline(
     })
     const verified = await parallel(uniqueCandidates.map((c) => () =>
       agent(
-        "Try to refute this finding by reproducing it against the real code (base " + baseRef +
-        "): " + c.file + ":" + c.line + " - " + c.scenario + ". Reproduce with a failing test, " +
-        "an actual invocation, or by applying a refactor and confirming behavior holds; do not " +
-        "just re-read the code and agree.",
-        { isolation: "worktree", phase: "Verify", label: c.file + ":" + c.line, schema: VERDICT_SCHEMA }
+        worktreeSetup() +
+        "Try to refute this finding by reproducing it against the real code: " + c.file + ":" +
+        c.line + " - " + c.scenario + ". Reproduce with a failing test, an actual invocation, " +
+        "or by applying a refactor and confirming behavior holds; do not just re-read the code " +
+        "and agree.",
+        { phase: "Verify", label: c.file + ":" + c.line, schema: VERDICT_SCHEMA }
       ).then((v) => (v ? { ...c, ...v } : null))
     ))
     const survivors = verified.filter(Boolean).filter((f) => f.reproduced)
@@ -219,9 +247,10 @@ const shardResults = await pipeline(
     const p1s = verified.findings.filter((f) => f.tier === "P1")
     const rechecks = await parallel(p1s.map((f) => () =>
       agent(
+        worktreeSetup() +
         "Independently try to reproduce this finding with no prior context: " + f.file + ":" +
         f.line + " - " + f.scenario,
-        { isolation: "worktree", model: "opus", phase: "Recheck P1", label: f.file + ":" + f.line, schema: RECHECK_SCHEMA }
+        { model: "opus", phase: "Recheck P1", label: f.file + ":" + f.line, schema: RECHECK_SCHEMA }
       ).then((r) => ({ key: f.file + ":" + f.line, confirmed: Boolean(r && r.reproduced) }))
     ))
     const confirmedKeys = new Set(rechecks.filter((r) => r.confirmed).map((r) => r.key))
