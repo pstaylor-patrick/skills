@@ -35,21 +35,33 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
    ground already covered by a human or a prior review is not re-flagged.
    Everything else: `git diff`, `git show`, or plain reads. Record the base
    commit so worktrees in step 3 can check out the same state.
-2. **Find candidates**, two lenses over the same file set:
-   - Route files through the repo's own rubrics with
-     `ruby ~/.claude/pst/bin/skill_route.rb <files...>` (the same routing
-     `pst:refactor` uses) and apply each matched skill's principles,
-     `pst:refactoring` and `pst:ai-slop` included.
-   - A general reviewer pass, unscoped to any skill: correctness bugs, edge
-     cases, security (injection, auth, secrets, OWASP top 10), API/contract
-     breaks, missing or wrong test coverage, performance regressions.
+2. **Find candidates**, two lenses over the same file set, each dispatched
+   as background `Agent` calls run in parallel with each other (do not pass
+   `run_in_background: false`). Wait for every call this step dispatched
+   before moving to step 3.
+   - Rubric lens, `model: "haiku"`: route files through the repo's own
+     rubrics with `ruby ~/.claude/pst/bin/skill_route.rb <files...>` (the
+     same routing `pst:refactor` uses), one call per matched skill or file
+     batch, applying that skill's principles verbatim (`pst:refactoring`
+     and `pst:ai-slop` included). This is checklist application against
+     text the skill already wrote, not open-ended judgment, so the cheap
+     tier is enough.
+   - General lens, no `model` override (inherit the session model):
+     correctness bugs, edge cases, security (injection, auth, secrets,
+     OWASP top 10), API/contract breaks, missing or wrong test coverage,
+     performance regressions. There is no checklist to apply here, so it
+     needs full reasoning, not the cheap tier.
    Every candidate needs a file, a line, and a concrete failure scenario
    ("input X produces Y", "breaks when Z is absent"), not a vague quality
    complaint.
-3. **Verify each candidate in an isolated worktree.** One `Agent` call per
-   finding, or per small batch of related findings, with
-   `isolation: "worktree"`, so verification never touches the tree the
-   review itself runs from. Task the agent to refute, not confirm:
+3. **Verify each candidate in an isolated worktree.** One background
+   `Agent` call per finding, or per small batch of related findings, with
+   `isolation: "worktree"` and no `model` override, so verification never
+   touches the tree the review itself runs from. Verification has to
+   write and run an actual repro or apply an actual refactor correctly,
+   which the cheap tier is not reliable enough for. Dispatch every
+   candidate's call in parallel and wait for all of them; step 4 must not
+   curate against a partial set. Task each agent to refute, not confirm:
    reproduce the bug (a failing test, an actual invocation, a traced code
    path), or for a refactor suggestion, apply it and confirm behavior is
    unchanged and the result is actually simpler. A tie goes to discarding
@@ -58,12 +70,17 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
 4. **Curate.** Drop everything that did not survive step 3. Merge
    duplicates surfaced by both lenses. Tier each survivor (see Priority)
    and re-verify every P1 candidate with a second, independent
-   `isolation: "worktree"` Agent call that gets only the file/line/claim,
-   not the first agent's reasoning; a P1 that the second pass cannot also
-   reproduce drops to P2 with no suggested diff, never posts as P1. Cap the
-   set: post what a reviewer would actually want interrupted for, not
-   everything that happens to be true. Note anything dropped only for
-   volume so it can be requested explicitly.
+   `isolation: "worktree"` Agent call, dispatched in the background with
+   `model: "opus"`, that gets only the file/line/claim, not the first
+   agent's reasoning. Dispatch every P1 recheck in parallel and wait for
+   all of them before finalizing tiers; P1 volume is small and a wrong
+   verdict here posts a false red finding carrying an auto-apply diff, so
+   the expensive tier is the right trade at this one point in the
+   pipeline. A P1 that the second pass cannot also reproduce drops to P2
+   with no suggested diff, never posts as P1. Cap the set: post what a
+   reviewer would actually want interrupted for, not everything that
+   happens to be true. Note anything dropped only for volume so it can be
+   requested explicitly.
 5. **Report before posting.** Show the curated list (`path:line`, tier, one
    line each) and ask whether to post. Skip the ask only when the
    invocation said to post automatically.
@@ -74,6 +91,19 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
      `event: "COMMENT"`. Never `REQUEST_CHANGES` or `APPROVE` unless asked.
    - Non-PR scope: there is nothing to post to. The curated report to the
      user is the deliverable.
+
+## Dispatch
+
+Every `Agent` call above runs in the background and in parallel with its
+siblings from the same step; the next step waits for all of them before it
+starts, so nothing curates or posts against a partial result.
+
+| Call | Model | Why |
+|---|---|---|
+| Rubric lens (step 2) | `haiku` | Applies an already-written skill's rules; no open-ended judgment |
+| General lens (step 2) | inherit | No checklist; needs full reasoning to name what a rubric cannot |
+| Worktree verification (step 3) | inherit | Must write and run a real repro or refactor correctly |
+| P1 second-pass (step 4) | `opus` | Low volume, highest stakes: gates a red, auto-apply-diff finding |
 
 ## Priority
 
