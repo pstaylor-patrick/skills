@@ -56,14 +56,17 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
    the finding; a concrete reproduction is what keeps it, not renewed
    confidence.
 4. **Curate.** Drop everything that did not survive step 3. Merge
-   duplicates surfaced by both lenses. Rank by what would make a reviewer's
-   day worse if shipped: correctness and security first, then real refactor
-   debt, then everything else. Cap it: post the handful that matter, not
+   duplicates surfaced by both lenses. Tier each survivor (see Priority)
+   and re-verify every P1 candidate with a second, independent
+   `isolation: "worktree"` Agent call that gets only the file/line/claim,
+   not the first agent's reasoning; a P1 that the second pass cannot also
+   reproduce drops to P2 with no suggested diff, never posts as P1. Cap the
+   set: post what a reviewer would actually want interrupted for, not
    everything that happens to be true. Note anything dropped only for
    volume so it can be requested explicitly.
-5. **Report before posting.** Show the curated list (`path:line`, one line
-   each) and ask whether to post. Skip the ask only when the invocation
-   said to post automatically.
+5. **Report before posting.** Show the curated list (`path:line`, tier, one
+   line each) and ask whether to post. Skip the ask only when the
+   invocation said to post automatically.
 6. **Post.**
    - PR scope: `pull_request_review_write` with `create` (no `event`, so it
      stays pending), then `add_comment_to_pending_review` per finding
@@ -72,9 +75,40 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
    - Non-PR scope: there is nothing to post to. The curated report to the
      user is the deliverable.
 
+## Priority
+
+Assign a tier from what step 3 actually proved, never from how severe it
+sounds:
+
+| Tier | Bar | Requires |
+|---|---|---|
+| P1 (red) | Confirmed break: crash, wrong output, security hole, data loss | A reproduction, plus the step-4 second-pass agreement |
+| P2 (yellow) | Confirmed but bounded: real bug/smell needing specific input, config, or scale; or a refactor with verified payoff | A reproduction from step 3 |
+| P3 (green) | Real but low blast radius, and only worth interrupting for because the fix is a one-line, unambiguous diff | A reproduction from step 3, and a suggestion block (see below) |
+
+Drop anything that only clears the P3 bar and has no suggestion block; it is
+noise, not feedback. Prefix each posted comment with its tier (`**P1**`,
+`**P2**`, `**P3**`).
+
 ## Posting style
 
-One finding, one comment: the concrete failure scenario, then the smallest
-fix. No summary of the summary, no praise, no restating the diff. Apply
+One finding, one comment: tier prefix, the concrete failure scenario, then
+the fix. Hard cap 640 characters per comment body; target roughly 240. No
+summary of the summary, no praise, no restating the diff. Apply
 `pst:ai-slop`'s punctuation and tone rules to anything written into a
-comment body.
+comment body. Before calling `add_comment_to_pending_review`, check the
+body's length; if it is over budget, cut prose before cutting the concrete
+scenario, and drop the suggestion block if it still does not fit rather
+than splitting into a second comment.
+
+Add a GitHub suggestion block only when the fix is mechanical and
+unambiguous from the finding alone (a rename, a null check, an off-by-one,
+a dead branch, the exact rubric move a matched skill names) and touches
+only the lines already in the diff:
+
+    ```suggestion
+    <replacement line(s)>
+    ```
+
+Never suggest a diff for anything needing a judgment call, multiple files,
+or unclear intent; post the finding without one instead.
