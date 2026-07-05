@@ -158,12 +158,16 @@ const RECHECK_SCHEMA = {
   required: [ "reproduced", "evidence" ]
 }
 
-const files = args.files
-const repoPath = args.repoPath
-const headSha = args.headSha
-const shardThreshold = args.shardThreshold ?? 40
-const rubricThreshold = args.rubricThreshold ?? 25
-const cap = args.cap ?? 15
+// Some hosts hand this script a JSON-encoded string instead of the parsed
+// object the Workflow contract promises; tolerate both.
+const scope = typeof args === "string" ? JSON.parse(args) : args
+
+const files = scope.files
+const repoPath = scope.repoPath
+const headSha = scope.headSha
+const shardThreshold = scope.shardThreshold ?? 40
+const rubricThreshold = scope.rubricThreshold ?? 25
+const cap = scope.cap ?? 15
 
 // isolation: "worktree" on the Agent calls below only isolates this
 // session's own primary repo, not repoPath, so it is not used here.
