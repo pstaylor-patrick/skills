@@ -77,8 +77,9 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
 4. **Post.**
    - PR scope: `pull_request_review_write` with `create` (no `event`, so it
      stays pending), then `add_comment_to_pending_review` per finding in
-     `posted`, anchored to `path`/`line`, then `submit_pending` with
-     `event: "COMMENT"`. Never `REQUEST_CHANGES` or `APPROVE` unless asked.
+     `posted`, anchored to `path`/`line` with the body rendered per Posting
+     style below, then `submit_pending` with `event: "COMMENT"`. Never
+     `REQUEST_CHANGES` or `APPROVE` unless asked.
      Posting these review comments is not a `git push`, a `gh pr merge`, or
      opening a PR, so the pst merge mode does not gate it: post in every mode
      (Local only included) whenever the user approves in step 3. Merge mode
@@ -153,9 +154,10 @@ const VERDICT_SCHEMA = {
     reproduced: { type: "boolean" },
     evidence: { type: "string" },
     tier: { type: "string", enum: [ "P1", "P2", "P3" ] },
+    title: { type: "string" },
     suggestion: { type: "string" }
   },
-  required: [ "reproduced", "evidence", "tier" ]
+  required: [ "reproduced", "evidence", "tier", "title" ]
 }
 
 const RECHECK_SCHEMA = {
@@ -249,7 +251,10 @@ const shardResults = await pipeline(
         "Try to refute this finding by reproducing it against the real code: " + c.file + ":" +
         c.line + " - " + c.scenario + ". Reproduce with a failing test, an actual invocation, " +
         "or by applying a refactor and confirming behavior holds; do not just re-read the code " +
-        "and agree.",
+        "and agree. If it survives, also write a title: an imperative one-line headline under " +
+        "60 characters naming what is wrong (e.g. 'Missing pst:ctx row in Command skills table'). " +
+        "The title states what is wrong; it must not restate the scenario's detail or repeat its " +
+        "wording, since both are posted together under one character budget.",
         { phase: "Verify", label: c.file + ":" + c.line, schema: VERDICT_SCHEMA }
       ).then((v) => (v ? { ...c, ...v } : null))
     ))
@@ -319,28 +324,29 @@ severe it sounds:
 | P3 (green) | Real but low blast radius, and only worth interrupting for because the fix is a one-line, unambiguous diff | A reproduction from Verify, and a suggestion block (see below) |
 
 Drop anything that only clears the P3 bar and has no suggestion block; it is
-noise, not feedback. Prefix each posted comment with its tier (`**P1**`,
-`**P2**`, `**P3**`).
+noise, not feedback. Every posted finding needs a `title` (see the Verify
+prompt above); render the comment body via `ruby
+~/.claude/pst/bin/render_finding_comment.rb`, never a hand-written tier
+prefix.
 
 ## Posting style
 
-One finding, one comment: tier prefix, the concrete failure scenario, then
-the fix. Hard cap 640 characters per comment body; target roughly 240. No
-summary of the summary, no praise, no restating the diff. Apply
-`pst:ai-slop`'s punctuation and tone rules to anything written into a
-comment body. Before calling `add_comment_to_pending_review`, check the
-body's length; if it is over budget, cut prose before cutting the concrete
-scenario, and drop the suggestion block if it still does not fit rather
-than splitting into a second comment.
+One finding, one comment: an emoji-badged tier header (`🔴 P1`, `🟠 P2`,
+`🟢 P3`) and title on line 1, then the concrete failure scenario, then the
+fix. Before calling `add_comment_to_pending_review`, pipe the finding as
+JSON (`{tier, title, scenario, suggestion}`, `scenario` carrying the
+evidence-backed detail) to `ruby ~/.claude/pst/bin/render_finding_comment.rb`
+on stdin and post its stdout verbatim as the comment body. The script owns
+the template, the badge, and the char-budget fallback (drop the suggestion
+block, then truncate the scenario) once the finding is over its 640-char
+cap; do the prose-trimming judgment call yourself first so the script's
+truncation is a safety net, not the first line of defense. No summary of
+the summary, no praise, no restating the diff. Apply `pst:ai-slop`'s
+punctuation and tone rules to `title` and `scenario` before rendering.
 
 Add a GitHub suggestion block only when the fix is mechanical and
 unambiguous from the finding alone (a rename, a null check, an off-by-one,
 a dead branch, the exact rubric move a matched skill names) and touches
-only the lines already in the diff:
-
-    ```suggestion
-    <replacement line(s)>
-    ```
-
-Never suggest a diff for anything needing a judgment call, multiple files,
-or unclear intent; post the finding without one instead.
+only the lines already in the diff. Never suggest a diff for anything
+needing a judgment call, multiple files, or unclear intent; omit
+`suggestion` from the finding instead.
