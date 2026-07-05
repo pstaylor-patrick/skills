@@ -66,15 +66,24 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
    Verify and Recheck P1 call is told to create and clean up its own `git
    worktree add`/`remove` of `repoPath` explicitly, which works the same way
    whether `repoPath` is the session's own repo or a separate clone.
-3. **Report before posting.** Show `posted` (`path:line`, tier, one line
-   each) plus the shard summary and `droppedForVolume` count, and ask
-   whether to post. Skip the ask only when the invocation said to post
-   automatically.
+3. **Report before posting.** This checkpoint is mandatory on every run and
+   is reached even when a finding was already fixed locally: applying a fix
+   in the working tree never substitutes for the post-to-PR decision. Show
+   `posted` (`path:line`, tier, one line each) plus the shard summary and
+   `droppedForVolume` count, and ask whether to post. Skip the ask only when
+   the invocation said to post automatically. If the `Workflow` call errored
+   or returned no `posted` list, say so explicitly and stop here; do not
+   silently fall back to hand-applying fixes without surfacing this report.
 4. **Post.**
    - PR scope: `pull_request_review_write` with `create` (no `event`, so it
      stays pending), then `add_comment_to_pending_review` per finding in
      `posted`, anchored to `path`/`line`, then `submit_pending` with
      `event: "COMMENT"`. Never `REQUEST_CHANGES` or `APPROVE` unless asked.
+     Posting these review comments is not a `git push`, a `gh pr merge`, or
+     opening a PR, so the pst merge mode does not gate it: post in every mode
+     (Local only included) whenever the user approves in step 3. Merge mode
+     restricts only landing code, never review commentary on a PR that
+     already exists.
    - Non-PR scope: there is nothing to post to. The curated report to the
      user is the deliverable.
 
