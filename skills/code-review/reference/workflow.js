@@ -120,6 +120,10 @@ const cap = scope.cap ?? 15
 // session's own primary repo, not repoPath, so it is not used here.
 // Verify and Recheck P1 manage their own git worktree of repoPath instead,
 // which is correct whether repoPath is the primary repo or a separate one.
+function locKey(finding) {
+  return finding.file + ":" + finding.line
+}
+
 function worktreeSetup() {
   return "Before doing anything else, create a throwaway checkout: run " +
     "`d=$(mktemp -d) && git -C " + repoPath + " worktree add \"$d\" " + headSha +
@@ -176,7 +180,7 @@ const shardResults = await pipeline(
   async (found) => {
     const seenKeys = new Set()
     const uniqueCandidates = found.candidates.filter((c) => {
-      const key = c.file + ":" + c.line
+      const key = locKey(c)
       if (seenKeys.has(key)) return false
       seenKeys.add(key)
       return true
@@ -184,14 +188,14 @@ const shardResults = await pipeline(
     const verified = await parallel(uniqueCandidates.map((c) => () =>
       agent(
         worktreeSetup() +
-        "Try to refute this finding by reproducing it against the real code: " + c.file + ":" +
-        c.line + " - " + c.scenario + ". Reproduce with a failing test, an actual invocation, " +
+        "Try to refute this finding by reproducing it against the real code: " + locKey(c) +
+        " - " + c.scenario + ". Reproduce with a failing test, an actual invocation, " +
         "or by applying a refactor and confirming behavior holds; do not just re-read the code " +
         "and agree. If it survives, also write a title: an imperative one-line headline under " +
         "60 characters naming what is wrong (e.g. 'Missing pst:ctx row in Command skills table'). " +
         "The title states what is wrong; it must not restate the scenario's detail or repeat its " +
         "wording, since both are posted together under one character budget.",
-        { phase: "Verify", label: c.file + ":" + c.line, schema: VERDICT_SCHEMA }
+        { phase: "Verify", label: locKey(c), schema: VERDICT_SCHEMA }
       ).then((v) => (v ? { ...c, ...v } : null))
     ))
     const survivors = verified.filter(Boolean).filter((f) => f.reproduced)
@@ -202,15 +206,15 @@ const shardResults = await pipeline(
     const rechecks = await parallel(p1s.map((f) => () =>
       agent(
         worktreeSetup() +
-        "Independently try to reproduce this finding with no prior context: " + f.file + ":" +
-        f.line + " - " + f.scenario,
-        { model: "opus", phase: "Recheck P1", label: f.file + ":" + f.line, schema: RECHECK_SCHEMA }
-      ).then((r) => ({ key: f.file + ":" + f.line, confirmed: Boolean(r && r.reproduced) }))
+        "Independently try to reproduce this finding with no prior context: " + locKey(f) +
+        " - " + f.scenario,
+        { model: "opus", phase: "Recheck P1", label: locKey(f), schema: RECHECK_SCHEMA }
+      ).then((r) => ({ key: locKey(f), confirmed: Boolean(r && r.reproduced) }))
     ))
     const confirmedKeys = new Set(rechecks.filter((r) => r.confirmed).map((r) => r.key))
     const findings = verified.findings.map((f) => {
       if (f.tier !== "P1") return f
-      const key = f.file + ":" + f.line
+      const key = locKey(f)
       return confirmedKeys.has(key) ? f : { ...f, tier: "P2", suggestion: undefined }
     })
     return { shard: verified.shard, findings: findings }
@@ -220,7 +224,7 @@ const shardResults = await pipeline(
 const all = shardResults.filter(Boolean).flatMap((r) => r.findings)
 const byKey = new Map()
 for (const f of all) {
-  const key = f.file + ":" + f.line
+  const key = locKey(f)
   if (!byKey.has(key)) byKey.set(key, f)
 }
 const rank = { P1: 0, P2: 1, P3: 2 }
