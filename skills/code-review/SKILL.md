@@ -175,10 +175,10 @@ const cap = scope.cap ?? 15
 // which is correct whether repoPath is the primary repo or a separate one.
 function worktreeSetup() {
   return "Before doing anything else, create your own throwaway checkout: run " +
-    "`git -C " + repoPath + " worktree add $(mktemp -d) " + headSha + "` and note the " +
-    "path it prints, then do every reproduction step inside that path only, never in " +
-    repoPath + " itself. Remove it when finished with `git -C " + repoPath +
-    " worktree remove <path> --force`. "
+    "`d=$(mktemp -d) && git -C " + repoPath + " worktree add \"$d\" " + headSha +
+    " && echo \"$d\"` and note the path it echoes, then do every reproduction step " +
+    "inside that path only, never in " + repoPath + " itself. Remove it when finished " +
+    "with `git -C " + repoPath + " worktree remove \"<path>\" --force`. "
 }
 
 phase("Shard")
