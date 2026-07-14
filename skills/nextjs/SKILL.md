@@ -1,6 +1,6 @@
 ---
 name: pst:nextjs
-description: Next.js App Router rubric, composed from the vercel-labs/next-skills best-practices skill plus our server-first defaults. Auto-applied by the pst shim on every Next.js change; also invocable directly.
+description: Next.js App Router rubric, composed from Vercel's best-practices guidance plus our server-first defaults. Auto-applied by the pst shim on every Next.js change; also invocable directly.
 auto:
   extensions: [ts, tsx, js, jsx]
   require:
@@ -9,12 +9,14 @@ auto:
 
 # Next.js Cheat Sheet
 
-Source: vercel-labs/next-skills best-practices skill (https://github.com/vercel-labs/next-skills) +
-Next.js App Router docs
+Source: the vercel-labs/next-skills `best-practices` skill (that repo has since moved to
+https://github.com/vercel/next.js/tree/canary/skills, which ships workflow skills only; the
+best-practices content now lives in Next.js's bundled docs and the auto-generated
+AGENTS.md/CLAUDE.md from `next dev` on 16.3+) + Next.js App Router docs
 
 Question: Does this route render on the server by default and mutate through a Server Action?
 
-## Vendor base (vercel-labs/next-skills)
+## Vendor base (Vercel best practices)
 
 Favor:
 - Node.js runtime by default; edge only if the project already runs it or a specific requirement demands it
