@@ -93,8 +93,8 @@ If scope is ambiguous, ask which PR or files are meant. Do not guess.
    silently fall back to hand-applying fixes without surfacing this report.
 4. **Post.** Before this step, read `reference/posting.md` for the tier
    bars and comment-rendering rules.
-   - PR scope: prefer the `gh` CLI via Bash as the default method: submit
-     the review and its comments in one call, e.g. `gh api
+   - PR scope: use the `gh` CLI via Bash by default, submitting the review
+     and its comments in one call, e.g. `gh api
      repos/<owner>/<repo>/pulls/<n>/reviews --method POST -f event=COMMENT
      --input review.json`, with a JSON payload built from `posted` (each
      entry anchored to `path`/`line`, body rendered per

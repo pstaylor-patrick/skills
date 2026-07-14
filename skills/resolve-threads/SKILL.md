@@ -29,8 +29,8 @@ can be resolved unambiguously, ask which one is meant.
 
 ## Workflow
 
-1. **Resolve the PR and its threads.** Prefer the `gh` CLI via Bash as the
-   default method, since no GitHub MCP server is assumed to be configured:
+1. **Resolve the PR and its threads.** Use the `gh` CLI via Bash by default,
+   since no GitHub MCP server is assumed to be configured:
    `gh pr view <n> --json ...` for `get`, `gh pr diff <n>` for `get_diff`
    (falling back to fetching the PR head locally and diffing with plain
    `git diff`/`git show` if `gh pr diff` fails on a very large PR with HTTP
@@ -70,8 +70,8 @@ can be resolved unambiguously, ask which one is meant.
    no longer applied cleanly once earlier fixes landed) get no commit and
    fold into `needsHuman` for reporting and replies.
 6. **Reply and resolve.** Before this step, read `reference/replying.md`
-   for the verdict bars and reply-style rules. Prefer the `gh` CLI via Bash
-   as the default method. For `fixed` and `wontFix`: reply on the thread's
+   for the verdict bars and reply-style rules. Use the `gh` CLI via Bash by
+   default. For `fixed` and `wontFix`: reply on the thread's
    last comment with `gh api repos/<owner>/<repo>/pulls/<n>/comments/
    <comment_id>/replies -f body=...` stating what happened (the commit, or
    the dismissal rationale), then resolve the thread with `gh api graphql
