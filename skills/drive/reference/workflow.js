@@ -203,14 +203,23 @@ for (let n = 1; n <= cap; n++) {
   }
 
   phase("Recheck")
-  const recheck = await agent(
-    "Inspect the current state of " + repoPath + " (the real working tree; every fix this " +
-    "iteration decided to keep is already applied there, not left in a worktree). Would this " +
-    "change earn a real pull request approval right now? Weigh the lane notes below alongside " +
-    "your own read of the diff.\n\nLane results this iteration:\n" +
-    JSON.stringify(lanesRun, null, 2),
-    { model: "opus", phase: "Recheck", label: "iteration " + n, schema: RECHECK_SCHEMA }
-  )
+  // A lane reporting blocking: true (including the no-result fallback above)
+  // must not be overridable by the recheck agent's own read of the diff; it
+  // is a hard gate, not just prose folded into the recheck prompt.
+  const blockingLanes = lanesRun.filter((l) => l.blocking)
+  const recheck = blockingLanes.length > 0
+    ? {
+        wouldApprove: false,
+        rationale: "blocked by " + blockingLanes.map((l) => l.skill + ": " + l.notes).join("; ")
+      }
+    : await agent(
+        "Inspect the current state of " + repoPath + " (the real working tree; every fix this " +
+        "iteration decided to keep is already applied there, not left in a worktree). Would this " +
+        "change earn a real pull request approval right now? Weigh the lane notes below alongside " +
+        "your own read of the diff.\n\nLane results this iteration:\n" +
+        JSON.stringify(lanesRun, null, 2),
+        { model: "opus", phase: "Recheck", label: "iteration " + n, schema: RECHECK_SCHEMA }
+      )
 
   iterations.push({
     n,
