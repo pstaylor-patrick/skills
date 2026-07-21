@@ -48,6 +48,13 @@ class ChangeLaneBrowserless < ChangeLane
   def grade(check)
     return [ 'fail', 'high', "navigation error: #{check['error']}" ] if check['error']
     return [ 'fail', 'high', "http #{check['httpStatus']}" ] if bad_status?(check['httpStatus'])
+
+    served = redirected_path(check['route'], check['finalUrl'])
+    if served
+      return [ 'warn', 'low',
+               "requested #{check['route']}, redirected to #{served}; the viewport checks reflect that page, not the requested route" ]
+    end
+
     return [ 'fail', 'medium', "horizontal overflow: scrollWidth #{check['scrollWidth']} > #{check['width']}" ] if check['overflow']
     return [ 'warn', 'low', "#{check['consoleErrors']} console error(s)" ] if check['consoleErrors'].to_i.positive?
 
@@ -81,6 +88,7 @@ class ChangeLaneBrowserless < ChangeLane
               await page.setViewport({ width: vp.width, height: vp.height });
               const resp = await page.goto(baseUrl + route, { waitUntil: "networkidle2", timeout: 30000 });
               cell.httpStatus = resp ? resp.status() : null;
+              cell.finalUrl = page.url();
               const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
               cell.scrollWidth = scrollWidth;
               cell.overflow = scrollWidth > vp.width + 1;

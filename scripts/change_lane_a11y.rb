@@ -48,6 +48,14 @@ class ChangeLaneA11y < ChangeLane
   end
 
   def route_findings(route)
+    served = redirected_path(route['route'], route['finalUrl'])
+    if served
+      return [ Finding.new(lane: 'a11y', check: 'redirected', status: 'warn', severity: 'moderate',
+                           target: base_url, location: route['route'].to_s,
+                           detail: "requested #{route['route']}, redirected to #{served}; " \
+                                   'axe ran against that page, not the requested route') ]
+    end
+
     violations = Array(route['violations'])
     if violations.empty?
       return [ Finding.new(lane: 'a11y', check: 'no violations', status: 'pass', severity: 'info',
