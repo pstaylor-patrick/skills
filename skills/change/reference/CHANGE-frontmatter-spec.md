@@ -1,6 +1,6 @@
 # CHANGE.md frontmatter specification
 
-Schema version: 1.0.0
+Schema version: 1.1.0
 
 Status: stable. This is the golden reference for authoring a repo's `CHANGE.md`
 frontmatter. A maintainer or an AI agent creating a new repo's `CHANGE.md` reads
@@ -99,10 +99,25 @@ up and confirm it is ready; `lanes` describes what to audit.
 | `change_config.lanes.zap.targets` | list of string | no (default the lane base url) | URLs in scope for the ZAP baseline. |
 | `change_config.lanes.zap.strict` | boolean | no (default false) | When true, any low-risk-or-above alert fails; when false, only high-risk fails. |
 | `change_config.lanes.zap.auth` | map or null | no | Reserved for authenticated scans; the baseline runs unauthenticated. |
-| `change_config.lanes.browserless.routes` | list of string | no (default `/`) | Routes to load at each viewport. |
+| `change_config.lanes.browserless.routes` | list of string or mapping | no (default `/`) | Routes to load at each viewport. A plain string is an unauthenticated route with no visual check. A mapping adds `path`, and optionally `auth` and `figma` below. |
+| `change_config.lanes.browserless.routes[].path` | string | yes, on a mapping route | The route path (or absolute url) to load. |
+| `change_config.lanes.browserless.routes[].auth` | boolean | no (default false) | Whether this route requires the session logged in via `lanes.browserless.auth` before it is checked. A route marked `auth: true` with no working `auth:` block is skipped with a named failing finding, never checked unauthenticated. |
+| `change_config.lanes.browserless.routes[].figma.file_key` | string | yes, to enable the visual check on this route | The Figma file key (from the file's url) holding the reference frame. |
+| `change_config.lanes.browserless.routes[].figma.node_id` | string | yes, to enable the visual check on this route | The Figma node id of the reference frame, fetched via the real `GET /v1/images/:file_key?ids=:node_id` REST API. |
+| `change_config.lanes.browserless.routes[].figma.viewport` | string | no (default the first configured viewport) | Which viewport's screenshot this reference is diffed against (a Figma frame is normally authored for one breakpoint). |
 | `change_config.lanes.browserless.viewports[].name` | string | no | Viewport label (e.g. `mobile`). |
 | `change_config.lanes.browserless.viewports[].width` | integer | no | Viewport width in pixels. |
 | `change_config.lanes.browserless.viewports[].height` | integer | no | Viewport height in pixels. |
+| `change_config.lanes.browserless.auth.login_url` | string | yes, to check any `auth: true` route | Login page path (relative to the lane's base url) or absolute url. |
+| `change_config.lanes.browserless.auth.email_env` | string | yes, to check any `auth: true` route | Name of the environment variable holding the real test login email/username. The value is never written into `CHANGE.md`. |
+| `change_config.lanes.browserless.auth.password_env` | string | yes, to check any `auth: true` route | Name of the environment variable holding the real test login password. The value is never written into `CHANGE.md`. |
+| `change_config.lanes.browserless.auth.email_selector` | string | no (default `input[name="email"]`) | CSS selector for the email/username field. |
+| `change_config.lanes.browserless.auth.password_selector` | string | no (default `input[type="password"]`) | CSS selector for the password field. |
+| `change_config.lanes.browserless.auth.submit_selector` | string | no (default `button[type="submit"]`) | CSS selector for the login form's submit control. |
+| `change_config.lanes.browserless.auth.wait_for_selector` | string | no | An optional selector to wait for after submit, confirming the post-login page rendered before any auth-required route is checked. |
+| `change_config.lanes.browserless.auth.timeout_ms` | integer | no (default 15000) | Timeout for each login step (navigation, field wait, post-login wait). |
+| `change_config.lanes.browserless.figma.token_env` | string | no (default `FIGMA_ACCESS_TOKEN`) | Name of the environment variable holding a real Figma personal access token. |
+| `change_config.lanes.browserless.figma.max_diff_percent` | number | no (default 10) | Pixel-diff percentage above which a route's Figma alignment check fails; a nonzero diff at or below this still reports as a warn so a rerun after a fix shows the number moving toward zero. |
 
 ## change_policy fields
 
@@ -191,6 +206,14 @@ Version scheme (semver for the schema):
 
 ### Changelog
 
+- 1.1.0: adds authenticated browserless checks and Figma visual alignment to
+  the browserless lane. `routes[]` accepts a mapping (`path`, `auth`, `figma`)
+  alongside the existing plain-string form; a new `auth:` block configures a
+  one-time login flow (real credentials only, read from env vars named by
+  `email_env`/`password_env`); a new `figma:` block per route (and lane-level
+  `figma.token_env`/`figma.max_diff_percent`) configures a pixel-diff check
+  against a real Figma REST API reference render. All additions, no field
+  removed or renamed.
 - 1.0.0: initial specification. Consolidates the mechanical config (formerly a
   separate `.pst/change.yml`) and the governance policy into the single
   `CHANGE.md` frontmatter, with `change_config:` and `change_policy:` blocks.
