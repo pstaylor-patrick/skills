@@ -153,6 +153,28 @@ change_config:
         submit_selector: 'button[type="submit"]'     # optional, this is the default
         wait_for_selector: '[data-testid="dashboard"]' # optional post-login confirmation
         timeout_ms: 15000
+      # A login that needs more than one form (an OTP flow: submit an email,
+      # then submit a code from a second form) uses auth.steps instead of the
+      # shorthand fields above; use one or the other, never both. A step's
+      # field value comes from env (as above) or code_source, which polls an
+      # HTTP endpoint reachable from the browserless container (e.g. a Mailpit
+      # dev inbox on the run network) for the code live, rather than ever
+      # reading, storing, or logging a real OTP on the host:
+      #
+      # auth:
+      #   steps:
+      #     - url: /login
+      #       fields:
+      #         - { selector: 'input[name="email"]', env: PORTAL_TEST_EMAIL }
+      #       submit_selector: 'button[type="submit"]'
+      #       wait_for_selector: 'input[name="otp"]'
+      #     - fields:
+      #         - selector: 'input[name="otp"]'
+      #           code_source:
+      #             url: http://mailpit:8025/api/v1/messages/latest
+      #             pattern: '\b(\d{6})\b'
+      #       submit_selector: 'button[type="submit"]'
+      #       wait_for_selector: '[data-testid="dashboard"]'
       # Lane-level Figma settings shared by every route's figma: block above.
       figma:
         token_env: FIGMA_ACCESS_TOKEN   # optional, this is the default

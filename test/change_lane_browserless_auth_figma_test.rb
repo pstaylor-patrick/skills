@@ -95,6 +95,89 @@ class ChangeLaneBrowserlessAuthFigmaTest < Minitest::Test
     end
   end
 
+  # --- auth.steps (multi-step / OTP login) -------------------------------------
+
+  def test_legacy_shorthand_normalizes_into_a_single_step
+    with_env("PST_TEST_EMAIL" => "user@example.org", "PST_TEST_PASSWORD" => "hunter2") do
+      auth = lane("auth" => { "login_url" => "/login", "email_env" => "PST_TEST_EMAIL",
+                               "password_env" => "PST_TEST_PASSWORD" }).send(:auth_config)
+      steps = auth.steps
+      assert_equal 1, steps.size
+      assert_equal "/login", steps.first[:url]
+      assert_equal [ "user@example.org", "hunter2" ], steps.first[:fields].map { |f| f[:value] }
+    end
+  end
+
+  def test_multi_step_auth_is_ready_when_every_field_resolves
+    with_env("PORTAL_TEST_EMAIL" => "user@example.org") do
+      raw = {
+        "routes" => [ { "path" => "/dashboard", "auth" => true } ],
+        "auth" => { "steps" => [
+          { "url" => "/login", "fields" => [ { "selector" => "input[name=email]", "env" => "PORTAL_TEST_EMAIL" } ],
+            "wait_for_selector" => "input[name=otp]" },
+          { "fields" => [ { "selector" => "input[name=otp]",
+                            "code_source" => { "url" => "http://mailpit:8025/api/v1/messages/latest" } } ] }
+        ] }
+      }
+      l = lane(raw)
+      ready, finding = l.send(:resolve_auth, l.send(:route_entries), l.send(:auth_config))
+      assert ready
+      assert_nil finding
+    end
+  end
+
+  def test_multi_step_auth_missing_env_value_is_blocked
+    with_env("PORTAL_TEST_EMAIL" => nil) do
+      raw = {
+        "routes" => [ { "path" => "/dashboard", "auth" => true } ],
+        "auth" => { "steps" => [
+          { "url" => "/login", "fields" => [ { "selector" => "input[name=email]", "env" => "PORTAL_TEST_EMAIL" } ] }
+        ] }
+      }
+      l = lane(raw)
+      ready, finding = l.send(:resolve_auth, l.send(:route_entries), l.send(:auth_config))
+      refute ready
+      assert_includes finding.detail, "PORTAL_TEST_EMAIL"
+    end
+  end
+
+  def test_multi_step_auth_missing_code_source_url_is_blocked
+    raw = {
+      "routes" => [ { "path" => "/dashboard", "auth" => true } ],
+      "auth" => { "steps" => [
+        { "url" => "/login", "fields" => [ { "selector" => "input[name=otp]", "code_source" => {} } ] }
+      ] }
+    }
+    l = lane(raw)
+    ready, finding = l.send(:resolve_auth, l.send(:route_entries), l.send(:auth_config))
+    refute ready
+    assert_includes finding.detail, "code_source.url"
+  end
+
+  def test_multi_step_auth_missing_first_step_url_is_blocked
+    raw = {
+      "routes" => [ { "path" => "/dashboard", "auth" => true } ],
+      "auth" => { "steps" => [ { "fields" => [] } ] }
+    }
+    l = lane(raw)
+    ready, finding = l.send(:resolve_auth, l.send(:route_entries), l.send(:auth_config))
+    refute ready
+    assert_includes finding.detail, "login_url"
+  end
+
+  def test_js_auth_carries_code_source_through_without_resolving_it_on_the_host
+    raw = { "auth" => { "steps" => [
+      { "url" => "/login", "fields" => [ { "selector" => "input[name=otp]",
+                                           "code_source" => { "url" => "http://mailpit:8025/latest", "pattern" => '(\d{6})' } } ] }
+    ] } }
+    l = lane(raw)
+    js = l.send(:js_auth, l.send(:auth_config))
+    field = js[:steps].first[:fields].first
+    assert_equal "http://mailpit:8025/latest", field[:codeSource][:url]
+    assert_equal '(\d{6})', field[:codeSource][:pattern]
+    refute field.key?(:value)
+  end
+
   def test_auth_skip_finding_names_the_route
     finding = lane.send(:auth_skip_finding, { path: "/dashboard", auth: true, figma: nil })
     assert_equal "fail", finding.status

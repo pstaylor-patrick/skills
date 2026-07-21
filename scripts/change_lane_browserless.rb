@@ -17,13 +17,19 @@ require_relative 'change_figma'
 # no bypass logic):
 #
 # - Authenticated routes: `routes[]` entries can be a mapping with `auth: true`
-#   plus a lane-level `auth:` block (login url, selectors, credentials read from
-#   env vars). The single browserless /function call logs in once, in the same
-#   page, before checking any auth-required route, so the same session cookies
-#   carry into the rest of the matrix. A route needing auth is only ever checked
-#   authenticated for real; if auth is not configured or the credentials are
-#   missing, those routes are skipped with a named failing finding rather than
-#   silently graded unauthenticated.
+#   plus a lane-level `auth:` block. The shorthand shape is a single-form login
+#   (login url, selectors, credentials read from env vars), still supported and
+#   normalized internally into a one-step flow. An explicit `auth.steps:` list
+#   supports a login that needs more than one form, the OTP case: submit an
+#   email on step one, then submit a code on step two, where that code is
+#   resolved live by polling a `code_source.url` reachable on the run network
+#   (a Mailpit/MailHog dev inbox API) rather than ever landing in the config or
+#   the host environment. The single browserless /function call logs in once,
+#   walking every step in the same page, before checking any auth-required
+#   route, so the same session cookies carry into the rest of the matrix. A
+#   route needing auth is only ever checked authenticated for real; if auth is
+#   not configured or a credential is missing, those routes are skipped with a
+#   named failing finding rather than silently graded unauthenticated.
 # - Figma visual alignment: a route entry's `figma:` block (file key + node id)
 #   fetches a rendered reference PNG from the real Figma REST API
 #   (ChangeFigma), then diffs it against browserless's own screenshot of that
@@ -48,6 +54,8 @@ class ChangeLaneBrowserless < ChangeLane
   DEFAULT_SUBMIT_SELECTOR = 'button[type="submit"]'
   DEFAULT_TIMEOUT_MS = 15_000
   DEFAULT_MAX_DIFF_PERCENT = 10.0
+  DEFAULT_CODE_SOURCE_TIMEOUT_MS = 20_000
+  DEFAULT_CODE_SOURCE_POLL_INTERVAL_MS = 1_000
 
   def run
     session = @context.browserless
@@ -128,17 +136,33 @@ class ChangeLaneBrowserless < ChangeLane
   # session. When auth is missing or incomplete, the caller skips just the
   # auth-required routes and this returns a named finding explaining why, per
   # the platform rule that a real blocker is reported, never silently absorbed.
+  # A code_source field is not checked here: its value is resolved live inside
+  # the browserless container, not on the host, so there is nothing to read
+  # from this process's environment; only that its own url is configured.
   def resolve_auth(entries, auth)
     return [ true, nil ] unless entries.any? { |e| e[:auth] }
     return [ false, auth_blocker("route(s) are marked auth: true but lanes.browserless.auth is not configured") ] unless auth
 
-    return [ false, auth_blocker('auth.login_url is not set') ] if auth.login_url.empty?
-    return [ false, auth_blocker("auth.email_env (#{auth.email_env_name.inspect}) is unset or empty in this process's environment") ] if auth.email.empty?
-    if auth.password.empty?
-      return [ false, auth_blocker("auth.password_env (#{auth.password_env_name.inspect}) is unset or empty in this process's environment") ]
-    end
+    steps = auth.steps
+    return [ false, auth_blocker('auth.login_url is not set') ] if steps.first[:url].to_s.empty?
+
+    detail = missing_auth_field_detail(steps)
+    return [ false, auth_blocker(detail) ] if detail
 
     [ true, nil ]
+  end
+
+  def missing_auth_field_detail(steps)
+    steps.each do |step|
+      step[:fields].each do |field|
+        if field[:code_source]
+          return "a field's code_source.url is not set (selector #{field[:selector].inspect})" if field[:code_source][:url].empty?
+        elsif field[:value].to_s.empty?
+          return "auth env var #{field[:env].inspect} (selector #{field[:selector].inspect}) is unset or empty in this process's environment"
+        end
+      end
+    end
+    nil
   end
 
   def auth_blocker(detail)
@@ -277,18 +301,60 @@ class ChangeLaneBrowserless < ChangeLane
         let authOk = null;
         let authError = null;
 
+        // Polls a code_source url (an HTTP endpoint reachable on the run
+        // network, e.g. a Mailpit/MailHog dev inbox API) with Node's own
+        // fetch until its body matches, so an out-of-band OTP is read live
+        // rather than ever landing in CHANGE.md or the host environment.
+        async function resolveCodeSource(codeSource) {
+          const deadline = Date.now() + codeSource.timeoutMs;
+          let lastErr = null;
+          while (Date.now() < deadline) {
+            try {
+              const res = await fetch(codeSource.url);
+              const text = await res.text();
+              if (codeSource.pattern) {
+                const match = text.match(new RegExp(codeSource.pattern));
+                if (match) return match[1] || match[0];
+              } else if (text.trim()) {
+                return text.trim();
+              }
+            } catch (err) {
+              lastErr = err;
+            }
+            await new Promise((resolve) => setTimeout(resolve, codeSource.pollIntervalMs));
+          }
+          throw new Error(
+            `code_source did not yield a value within ${codeSource.timeoutMs}ms: ${codeSource.url}` +
+              (lastErr ? ` (last error: ${lastErr})` : "")
+          );
+        }
+
+        async function fillField(field, timeoutMs) {
+          await page.waitForSelector(field.selector, { timeout: timeoutMs });
+          const value = field.codeSource ? await resolveCodeSource(field.codeSource) : field.value;
+          await page.type(field.selector, value);
+        }
+
+        async function runAuthStep(step) {
+          if (step.url) await page.goto(step.url, { waitUntil: "networkidle2", timeout: step.timeoutMs });
+          for (const field of step.fields) await fillField(field, step.timeoutMs);
+          if (step.submitSelector) {
+            await Promise.all([
+              page.waitForNavigation({ waitUntil: "networkidle2", timeout: step.timeoutMs }).catch(() => null),
+              page.click(step.submitSelector),
+            ]);
+          }
+          if (step.waitForSelector) await page.waitForSelector(step.waitForSelector, { timeout: step.timeoutMs });
+        }
+
+        // Runs every configured step in order, in the same page, so a
+        // multi-step login (submit an email, then submit a code from a
+        // second form) carries its session cookies from one step into the
+        // next exactly as a single-form login always has.
         async function ensureAuth() {
           if (!auth || authOk !== null) return authOk;
           try {
-            await page.goto(auth.loginUrl, { waitUntil: "networkidle2", timeout: auth.timeoutMs });
-            await page.waitForSelector(auth.emailSelector, { timeout: auth.timeoutMs });
-            await page.type(auth.emailSelector, auth.email);
-            await page.type(auth.passwordSelector, auth.password);
-            await Promise.all([
-              page.waitForNavigation({ waitUntil: "networkidle2", timeout: auth.timeoutMs }).catch(() => null),
-              page.click(auth.submitSelector),
-            ]);
-            if (auth.waitForSelector) await page.waitForSelector(auth.waitForSelector, { timeout: auth.timeoutMs });
+            for (const step of auth.steps) await runAuthStep(step);
             authOk = true;
           } catch (err) {
             authOk = false;
@@ -400,22 +466,53 @@ class ChangeLaneBrowserless < ChangeLane
   def js_auth(auth)
     return nil unless auth
 
+    { steps: auth.steps.map { |step| js_step(step) } }
+  end
+
+  def js_step(step)
     {
-      loginUrl: resolve_login_url(auth.login_url),
-      email: auth.email,
-      password: auth.password,
-      emailSelector: auth.email_selector,
-      passwordSelector: auth.password_selector,
-      submitSelector: auth.submit_selector,
-      waitForSelector: auth.wait_for_selector,
-      timeoutMs: auth.timeout_ms
+      url: step[:url] && !step[:url].empty? ? resolve_login_url(step[:url]) : nil,
+      fields: step[:fields].map { |field| js_field(field) },
+      submitSelector: step[:submit_selector],
+      waitForSelector: step[:wait_for_selector],
+      timeoutMs: step[:timeout_ms]
     }
   end
 
-  # Typed view over the lane's `auth:` block. Credentials are always read from
-  # the environment by the variable name the config names (`email_env`,
-  # `password_env`), never written into CHANGE.md itself, matching how this
-  # platform never accepts a raw secret literal in the config it checks in.
+  def js_field(field)
+    return { selector: field[:selector], codeSource: js_code_source(field[:code_source]) } if field[:code_source]
+
+    { selector: field[:selector], value: field[:value].to_s }
+  end
+
+  def js_code_source(code_source)
+    {
+      url: code_source[:url],
+      pattern: code_source[:pattern],
+      timeoutMs: code_source[:timeout_ms],
+      pollIntervalMs: code_source[:poll_interval_ms]
+    }
+  end
+
+  # Typed view over the lane's `auth:` block. Two shapes: the original
+  # single-form login (`login_url`/`email_env`/`password_env`/selectors),
+  # normalized here into a one-step `steps` list so the rest of the lane
+  # never branches on which shape a project used; or an explicit multi-step
+  # `steps:` list for a login that needs more than one form (an OTP flow:
+  # submit an email, then submit a code from a second form).
+  #
+  # A field's value comes from one of two places, and every field carries at
+  # most one: `env` names an environment variable read on the host, exactly
+  # like the legacy shape (never a raw secret literal in CHANGE.md itself); a
+  # `code_source` is resolved live, in the browserless container, by polling
+  # an HTTP endpoint reachable on the run network (e.g. a Mailpit/MailHog dev
+  # inbox API) until a value matches, so an out-of-band OTP is never read,
+  # stored, or logged on the host at all. Resolving it in-page rather than on
+  # the host is a real architectural constraint, not a style choice: the
+  # login session lives entirely inside one browserless /function call and
+  # its one Puppeteer `page`, so a step that needs the code has to fetch it
+  # from the same running page rather than pausing for a second, separate
+  # host-to-container call that would lose that page and its cookies.
   class AuthConfig
     def initialize(raw) = @raw = raw
 
@@ -429,5 +526,61 @@ class ChangeLaneBrowserless < ChangeLane
     def submit_selector = (@raw['submit_selector'] || DEFAULT_SUBMIT_SELECTOR).to_s
     def wait_for_selector = @raw['wait_for_selector']&.to_s
     def timeout_ms = Integer(@raw['timeout_ms'] || DEFAULT_TIMEOUT_MS)
+
+    # The login as an ordered list of steps, each `{ url:, fields:, submit_selector:,
+    # wait_for_selector:, timeout_ms: }`. Built from `steps:` when present,
+    # else synthesized as a single step from the legacy top-level fields so
+    # every existing CHANGE.md keeps behaving exactly as it did.
+    def steps
+      raw_steps = @raw['steps']
+      return raw_steps.map { |step| normalize_step(step) } if raw_steps.is_a?(Array) && !raw_steps.empty?
+
+      [ legacy_step ]
+    end
+
+    private
+
+    def legacy_step
+      {
+        url: login_url,
+        fields: [
+          { selector: email_selector, env: email_env_name, value: email, code_source: nil },
+          { selector: password_selector, env: password_env_name, value: password, code_source: nil }
+        ],
+        submit_selector: submit_selector,
+        wait_for_selector: wait_for_selector,
+        timeout_ms: timeout_ms
+      }
+    end
+
+    def normalize_step(raw_step)
+      {
+        url: raw_step['url']&.to_s,
+        fields: Array(raw_step['fields']).map { |field| normalize_field(field) },
+        submit_selector: (raw_step['submit_selector'] || DEFAULT_SUBMIT_SELECTOR).to_s,
+        wait_for_selector: raw_step['wait_for_selector']&.to_s,
+        timeout_ms: Integer(raw_step['timeout_ms'] || DEFAULT_TIMEOUT_MS)
+      }
+    end
+
+    def normalize_field(raw_field)
+      code_source = raw_field['code_source']
+      env_name = raw_field['env']&.to_s
+      {
+        selector: raw_field['selector'].to_s,
+        env: env_name,
+        value: env_name ? ENV[env_name].to_s : nil,
+        code_source: code_source.is_a?(Hash) ? normalize_code_source(code_source) : nil
+      }
+    end
+
+    def normalize_code_source(raw)
+      {
+        url: raw['url'].to_s,
+        pattern: raw['pattern']&.to_s,
+        timeout_ms: Integer(raw['timeout_ms'] || DEFAULT_CODE_SOURCE_TIMEOUT_MS),
+        poll_interval_ms: Integer(raw['poll_interval_ms'] || DEFAULT_CODE_SOURCE_POLL_INTERVAL_MS)
+      }
+    end
   end
 end

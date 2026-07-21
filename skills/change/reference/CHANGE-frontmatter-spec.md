@@ -1,6 +1,6 @@
 # CHANGE.md frontmatter specification
 
-Schema version: 1.2.0
+Schema version: 1.3.0
 
 Status: stable. This is the golden reference for authoring a repo's `CHANGE.md`
 frontmatter. A maintainer or an AI agent creating a new repo's `CHANGE.md` reads
@@ -112,14 +112,24 @@ up and confirm it is ready; `lanes` describes what to audit.
 | `change_config.lanes.browserless.viewports[].name` | string | no | Viewport label (e.g. `mobile`). |
 | `change_config.lanes.browserless.viewports[].width` | integer | no | Viewport width in pixels. |
 | `change_config.lanes.browserless.viewports[].height` | integer | no | Viewport height in pixels. |
-| `change_config.lanes.browserless.auth.login_url` | string | yes, to check any `auth: true` route | Login page path (relative to the lane's base url) or absolute url. |
-| `change_config.lanes.browserless.auth.email_env` | string | yes, to check any `auth: true` route | Name of the environment variable holding the real test login email/username. The value is never written into `CHANGE.md`. |
-| `change_config.lanes.browserless.auth.password_env` | string | yes, to check any `auth: true` route | Name of the environment variable holding the real test login password. The value is never written into `CHANGE.md`. |
-| `change_config.lanes.browserless.auth.email_selector` | string | no (default `input[name="email"]`) | CSS selector for the email/username field. |
-| `change_config.lanes.browserless.auth.password_selector` | string | no (default `input[type="password"]`) | CSS selector for the password field. |
-| `change_config.lanes.browserless.auth.submit_selector` | string | no (default `button[type="submit"]`) | CSS selector for the login form's submit control. |
-| `change_config.lanes.browserless.auth.wait_for_selector` | string | no | An optional selector to wait for after submit, confirming the post-login page rendered before any auth-required route is checked. |
-| `change_config.lanes.browserless.auth.timeout_ms` | integer | no (default 15000) | Timeout for each login step (navigation, field wait, post-login wait). |
+| `change_config.lanes.browserless.auth.login_url` | string | yes, to check any `auth: true` route (unless `auth.steps` is used instead) | Login page path (relative to the lane's base url) or absolute url. Shorthand for a single-form login; normalized internally into a one-step `auth.steps` list, so `auth.steps` and this shorthand are two ways to write the same thing, never both at once. |
+| `change_config.lanes.browserless.auth.email_env` | string | yes, to check any `auth: true` route (shorthand form) | Name of the environment variable holding the real test login email/username. The value is never written into `CHANGE.md`. |
+| `change_config.lanes.browserless.auth.password_env` | string | yes, to check any `auth: true` route (shorthand form) | Name of the environment variable holding the real test login password. The value is never written into `CHANGE.md`. |
+| `change_config.lanes.browserless.auth.email_selector` | string | no (default `input[name="email"]`) | CSS selector for the email/username field (shorthand form). |
+| `change_config.lanes.browserless.auth.password_selector` | string | no (default `input[type="password"]`) | CSS selector for the password field (shorthand form). |
+| `change_config.lanes.browserless.auth.submit_selector` | string | no (default `button[type="submit"]`) | CSS selector for the login form's submit control (shorthand form). |
+| `change_config.lanes.browserless.auth.wait_for_selector` | string | no | An optional selector to wait for after submit, confirming the post-login page rendered before any auth-required route is checked (shorthand form). |
+| `change_config.lanes.browserless.auth.timeout_ms` | integer | no (default 15000) | Timeout for each login step (navigation, field wait, post-login wait) (shorthand form). |
+| `change_config.lanes.browserless.auth.steps[].url` | string | yes, on the first step | Page to navigate to before filling this step's fields (relative to the lane's base url, or absolute). Only the first step normally needs one; later steps continue on whatever page the previous step's submit landed on (a second form rendered in place, e.g. an OTP prompt). |
+| `change_config.lanes.browserless.auth.steps[].fields[].selector` | string | yes | CSS selector for this step's input field. |
+| `change_config.lanes.browserless.auth.steps[].fields[].env` | string | yes, unless `code_source` is set | Name of the environment variable holding this field's value (a password, a test-mode static code). Never written into `CHANGE.md`. Mutually exclusive with `code_source`. |
+| `change_config.lanes.browserless.auth.steps[].fields[].code_source.url` | string | yes, to use `code_source` | An HTTP endpoint reachable from the browserless container on the run network (e.g. a Mailpit/MailHog dev inbox API) polled for this field's value. Resolved live, inside the browserless container, at fill time: never read, stored, or logged on the host, since a real OTP is inherently one-time and out-of-band. |
+| `change_config.lanes.browserless.auth.steps[].fields[].code_source.pattern` | string | no | A regex applied to the endpoint's response body; the first capture group (or the whole match) becomes the field value. Omit to use the trimmed response body verbatim. |
+| `change_config.lanes.browserless.auth.steps[].fields[].code_source.timeout_ms` | integer | no (default 20000) | How long to keep polling the endpoint for a match before failing this login attempt. |
+| `change_config.lanes.browserless.auth.steps[].fields[].code_source.poll_interval_ms` | integer | no (default 1000) | Delay between polling attempts. |
+| `change_config.lanes.browserless.auth.steps[].submit_selector` | string | no (default `button[type="submit"]`) | CSS selector for this step's submit control. |
+| `change_config.lanes.browserless.auth.steps[].wait_for_selector` | string | no | An optional selector to wait for after this step's submit, confirming the next page (or the next step's form) rendered before continuing. |
+| `change_config.lanes.browserless.auth.steps[].timeout_ms` | integer | no (default 15000) | Timeout for this step's navigation, field waits, and post-submit wait. |
 | `change_config.lanes.browserless.figma.token_env` | string | no (default `FIGMA_ACCESS_TOKEN`) | Name of the environment variable holding a real Figma personal access token. |
 | `change_config.lanes.browserless.figma.max_diff_percent` | number | no (default 10) | Pixel-diff percentage above which a route's Figma alignment check fails; a nonzero diff at or below this still reports as a warn so a rerun after a fix shows the number moving toward zero. |
 
@@ -210,6 +220,16 @@ Version scheme (semver for the schema):
 
 ### Changelog
 
+- 1.3.0: adds `lanes.browserless.auth.steps[]`, a multi-step login (each step
+  with its own `url`, `fields[]`, `submit_selector`, `wait_for_selector`,
+  `timeout_ms`) alongside the existing single-form shorthand, which is now
+  normalized internally into a one-step `steps` list. A field's value comes
+  from `env` (as before) or a new `code_source` block that polls an HTTP
+  endpoint reachable from the browserless container (e.g. a Mailpit/MailHog
+  dev inbox), resolving an out-of-band OTP live rather than ever reading,
+  storing, or logging it on the host. Covers a login that needs more than one
+  form (submit an email, then submit a code from a second form). All
+  additions, no field removed or renamed.
 - 1.2.0: adds `boot.env_file`, a repo-relative env file (or list) parsed and
   merged into `boot.up`'s subprocess environment, so a compose `build.args:`
   entry's `${VAR}` interpolation resolves without pre-exporting anything. A

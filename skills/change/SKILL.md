@@ -102,7 +102,12 @@ and policy together). Shape under `change_config:`:
   block (real login-flow credentials read from named env vars, never
   hardcoded) that runs once per session before any `auth: true` route, and a
   `figma:` block (`token_env`, `max_diff_percent`) for the pixel-diff check
-  against a real Figma REST API reference render. See
+  against a real Figma REST API reference render. A login needing more than
+  one form (an OTP flow: submit an email, then a code from a second form)
+  uses `auth.steps` instead of the single-form shorthand; a step's field value
+  comes from an env var or a `code_source` that polls an HTTP endpoint (e.g. a
+  Mailpit dev inbox) for the code live, never reading or storing a real OTP on
+  the host. See
   "Config schema" -> `reference/CHANGE-frontmatter-spec.md` for the full field
   set.
 
