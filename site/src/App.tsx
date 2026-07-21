@@ -14,10 +14,10 @@ function GithubLogo() {
 }
 
 const LANES = [
-  { name: "k6", role: "load and burst", detail: "Grafana k6 drives the target and grades each threshold, with a scenario-driven load narrative for the go/no-go reader." },
-  { name: "axe-core", role: "accessibility", detail: "axe-core runs against each route in an ephemeral browser and fails on violations at or above an impact threshold." },
-  { name: "OWASP ZAP", role: "security", detail: "A passive ZAP baseline spiders each in-scope target for missing headers, cookie flags, and known-vulnerable libraries." },
-  { name: "browserless", role: "responsive UX", detail: "Each route loads at every configured viewport to catch horizontal overflow, bad status, and console errors." },
+  { name: "k6", role: "load", detail: "Grades every threshold under load.", url: "https://github.com/grafana/k6" },
+  { name: "axe-core", role: "accessibility", detail: "Fails on violations above an impact threshold.", url: "https://github.com/dequelabs/axe-core" },
+  { name: "OWASP ZAP", role: "security", detail: "Passive baseline: headers, cookies, known CVEs.", url: "https://github.com/zaproxy/zaproxy" },
+  { name: "browserless", role: "responsive UX", detail: "Every route at every viewport.", url: "https://github.com/browserless/browserless" },
 ];
 
 function schemaVersion(markdown: string): string {
@@ -40,7 +40,7 @@ export function App() {
         <span className="wordmark">change fabric</span>
         <a className="repo-link" href={REPO_URL} target="_blank" rel="noopener noreferrer">
           <GithubLogo />
-          <span>pstaylor-patrick/change-fabric</span>
+          <span>GitHub</span>
         </a>
       </header>
 
@@ -48,47 +48,69 @@ export function App() {
         <section className="hero">
           <h1>A dockerized local release-quality gate.</h1>
           <p>
-            change fabric runs four automated audit lanes against a locally booted app, in
-            ephemeral digest-pinned containers, and gates a release-affecting merge on the
-            result. One file per repo, the root <code>CHANGE.md</code>, tells it how to boot
-            the app, what to audit, and how the repo is governed.
+            Four audit lanes run against a locally booted app, in ephemeral digest-pinned
+            containers, gating a release before it merges.
           </p>
         </section>
 
         <section className="lanes" aria-label="Audit lanes">
           {LANES.map((lane) => (
-            <article className="lane" key={lane.name}>
-              <h2>{lane.name}</h2>
-              <p className="lane-role">{lane.role}</p>
-              <p>{lane.detail}</p>
-            </article>
+            <a
+              className="lane"
+              key={lane.name}
+              href={lane.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="lane-role">{lane.role}</span>
+              <span className="lane-name">
+                {lane.name}
+                <span className="lane-arrow" aria-hidden="true">
+                  &#8599;
+                </span>
+              </span>
+              <span className="lane-detail">{lane.detail}</span>
+            </a>
           ))}
         </section>
 
         <section className="contract">
-          <h2>The CHANGE.md contract</h2>
-          <p>
-            <code>CHANGE.md</code> is a repo's answer to "how do changes get made here." It sits
-            in the same lineage as the root-level convention files a tool or a newcomer reads to
-            operate correctly in a specific repo: <code>AGENTS.md</code> for how a coding agent
-            works, <code>CLAUDE.md</code> for what Claude needs to know, <code>design.md</code>{" "}
-            for how a project is designed.
+          <h2>One file per repo</h2>
+          <p className="section-lede">
+            The root <code>CHANGE.md</code> declares how a repo is audited and governed. Its
+            frontmatter carries two blocks.
           </p>
-          <p>
-            Its frontmatter carries two blocks. <code>change_config</code> is the mechanical
-            target-app config the audit lanes read (boot, health, routes, thresholds, viewports).
-            <code>change_policy</code> is the machine-checkable governance the merge gate enforces
-            (protected branches, promotion rules, admin-bypass policy). The prose body below is
-            the human governance FAQ.
+          <div className="contract-grid">
+            <div className="contract-card">
+              <h3>
+                <code>change_config</code>
+              </h3>
+              <p>Boot, health, routes, thresholds, viewports. What the lanes read.</p>
+            </div>
+            <div className="contract-card">
+              <h3>
+                <code>change_policy</code>
+              </h3>
+              <p>Protected branches, promotion rules, admin-bypass. What the merge gate enforces.</p>
+            </div>
+          </div>
+          <p className="lineage">
+            Same lineage as <code>AGENTS.md</code>, <code>CLAUDE.md</code>, and{" "}
+            <code>design.md</code>: one root file a newcomer reads to work correctly here.
           </p>
         </section>
 
         <section className="spec">
-          <div className="spec-heading">
-            <h2>CHANGE.md frontmatter specification</h2>
-            <span className="version-badge">v{version}</span>
-          </div>
-          <div className="spec-body" dangerouslySetInnerHTML={{ __html: specHtml(specMarkdown) }} />
+          <details className="spec-details">
+            <summary>
+              <span>CHANGE.md frontmatter specification</span>
+              <span className="version-badge">v{version}</span>
+            </summary>
+            <div
+              className="spec-body"
+              dangerouslySetInnerHTML={{ __html: specHtml(specMarkdown) }}
+            />
+          </details>
         </section>
       </main>
 
