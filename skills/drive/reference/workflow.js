@@ -139,7 +139,7 @@ const relevance = await agent(
   "refactor.relevant: false; there is no code shape to refactor.\n\n" +
   "change.relevant should be true when the change plausibly affects load/performance, " +
   "accessibility, security posture (headers, auth, cookies, dependencies), or responsive UX, " +
-  "AND the target repo carries a .pst/change.yml config (without it there is nothing for the " +
+  "AND the target repo carries a root CHANGE.md with a change_config: block (without it there is nothing for the " +
   "config-driven sweep to run). A pure-docs or internal-refactor change in a repo with no " +
   "change-fabric config should get change.relevant: false.\n\n" +
   "Files:\n" + files.join("\n") + "\n\nRoute output (ruby skill_route.rb):\n" + routeOutput,
@@ -210,7 +210,7 @@ function refactorPrompt() {
 
 // pst:change is the deterministic config-driven release-gate sweep. Unlike the
 // other lanes it does not "find and fix" a rubric; it runs the four dockerized
-// audit lanes against the repo's .pst/change.yml and gates on their result. So
+// audit lanes against the repo's root CHANGE.md config and gates on their result. So
 // its lane treats a failing audit as blocking and fixes what is code-fixable
 // (an added security header, an axe label, a viewport overflow), leaving load
 // or infrastructure findings as deferred. It records the comprehensive gate
@@ -224,7 +224,7 @@ function changePrompt() {
     "writes a CSV+Markdown report to the Desktop. Treat any failing lane as blocking. Fix what " +
     "is code-fixable directly in " + repoPath + " (a missing security header, an axe violation, " +
     "a responsive overflow), re-run to confirm, and report load or infrastructure findings that " +
-    "are not code-fixable as deferred. If the repo has no .pst/change.yml, report that and set " +
+    "are not code-fixable as deferred. If the repo has no CHANGE.md config, report that and set " +
     "blocking: false; there is nothing to gate."
   )
 }

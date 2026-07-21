@@ -3,7 +3,6 @@
 
 require 'json'
 require 'open3'
-require 'yaml'
 require_relative 'hook_event'
 require_relative 'change_policy'
 require_relative 'change_gate_store'
@@ -16,12 +15,11 @@ require_relative 'change_gate_store'
 # than a sandbox, bypassable (PST_ALLOW_UNGATED_MERGE=1) for the genuine
 # exception.
 #
-# Two files inform the decision and each owns its half: `.pst/change.yml` is the
-# mechanical target-app config (it only tells this hook where CHANGE.md lives if
-# relocated), and CHANGE.md is the policy layer. A repo with no CHANGE.md is
-# ungoverned and merges freely; presence of CHANGE.md is the opt-in. So this
-# hook never blocks an unrelated repo on the machine, only one that has chosen
-# change-fabric governance.
+# One file informs the decision: the repo-root CHANGE.md, whose `change_policy:`
+# frontmatter block this hook reads. A repo with no CHANGE.md is ungoverned and
+# merges freely; presence of CHANGE.md is the opt-in. So this hook never blocks
+# an unrelated repo on the machine, only one that has chosen change-fabric
+# governance.
 class ChangeMergeGuard
   EVENT = 'PreToolUse'
   MERGE = /\bgh\b[^&|;]*\bpr\b[^&|;]*\bmerge\b/
@@ -54,7 +52,7 @@ class ChangeMergeGuard
   # must not wedge a merge on an inability to check.
   def violation
     root = repo_root or return nil
-    policy = ChangePolicy.for_repo(root, doc_path: change_doc(root)) or return nil
+    policy = ChangePolicy.for_repo(root) or return nil
     pr = pr_facts or return nil
     base, sha = pr
     return nil unless policy.protects?(base)
@@ -99,19 +97,6 @@ class ChangeMergeGuard
   def repo_root
     out, status = Open3.capture2e('git', 'rev-parse', '--show-toplevel')
     status.success? ? out.strip : nil
-  rescue StandardError
-    nil
-  end
-
-  # Honors a relocated CHANGE.md when the project config names one, else the
-  # conventional repo-root CHANGE.md (resolved inside ChangePolicy).
-  def change_doc(root)
-    config = File.join(root, '.pst', 'change.yml')
-    return nil unless File.exist?(config)
-
-    raw = YAML.safe_load(File.read(config))
-    doc = raw.is_a?(Hash) ? raw['change_doc'] : nil
-    doc && File.expand_path(doc.to_s, root)
   rescue StandardError
     nil
   end

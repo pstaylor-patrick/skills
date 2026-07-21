@@ -40,9 +40,9 @@ class ChangeLaneZap < ChangeLane
   def scan(target)
     Dir.mktmpdir('pst-change-zap') do |dir|
       report = 'report.json'
-      _out, status = execute(target, dir, report)
+      out, status = execute(target, dir, report)
       @context.log("[zap] #{target} exit #{exit_code(status)}")
-      alerts_findings(target, File.join(dir, report), status)
+      alerts_findings(target, File.join(dir, report), status, out)
     end
   end
 
@@ -55,20 +55,34 @@ class ChangeLaneZap < ChangeLane
     )
   end
 
-  def alerts_findings(target, report, status)
+  def alerts_findings(target, report, status, out)
     alerts = parse_alerts(report)
-    return [ no_alert_finding(target, status) ] if alerts.empty?
+    return [ no_alert_finding(target, status, out) ] if alerts.empty?
 
     alerts.map { |alert| alert_finding(target, alert) }
   end
 
   # An alert-free scan still reports pass, unless ZAP itself errored (exit 3),
-  # so a broken run never silently reads as clean.
-  def no_alert_finding(target, status)
+  # so a broken run never silently reads as clean. On an error, surface the tail
+  # of ZAP's own output rather than a generic string, since the cause is usually
+  # actionable (the target is unreachable from inside the runner: a hostname the
+  # ZAP container cannot resolve, or a TLS endpoint served by a proxy that is not
+  # on this run's docker network). Configure boot.network so the runner shares
+  # the network that can reach the target, or point the target at a
+  # network-internal service url.
+  def no_alert_finding(target, status, out)
     errored = exit_code(status) == 3
     Finding.new(lane: 'zap', check: 'baseline scan', target: target,
                 status: errored ? 'fail' : 'pass', severity: errored ? 'high' : 'info',
-                detail: errored ? 'ZAP internal error' : 'no alerts')
+                detail: errored ? "ZAP could not scan the target: #{output_tail(out)}" : 'no alerts')
+  end
+
+  # The last few non-empty lines of ZAP's combined output, which name the real
+  # failure (a resolution error, a connection refused, a TLS handshake failure).
+  def output_tail(out)
+    lines = out.to_s.lines.map(&:strip).reject(&:empty?)
+    tail = lines.last(4).join(' | ')
+    tail.empty? ? 'no output captured' : tail
   end
 
   def alert_finding(target, alert)

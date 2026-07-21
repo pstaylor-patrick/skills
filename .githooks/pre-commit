@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-commit hook: fail the commit if the CHANGE.md frontmatter spec doc and the
+# schema registry have drifted apart. This is the fast, local first line of
+# defense; the same test also runs in the full `rake test` suite in CI, so a
+# bypassed or unconfigured hook is still caught before merge.
+#
+# Enable it in a fresh clone with:
+#   git config core.hooksPath .githooks
+# (or run `rake hooks:install`). Runs only the one spec test, not the whole
+# suite, to stay pre-commit fast.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if ! command -v ruby >/dev/null 2>&1; then
+  echo "[pre-commit] ruby not found; skipping change-schema drift check" >&2
+  exit 0
+fi
+
+# Only pay the cost when the schema, the spec doc, or the check itself changed.
+if git diff --cached --name-only | grep -qE '^(scripts/change_schema\.rb|skills/change/reference/CHANGE-frontmatter-spec\.md|test/change_schema_spec_test\.rb)$'; then
+  echo "[pre-commit] checking CHANGE.md frontmatter spec against ChangeSchema..."
+  if ! ruby -Itest test/change_schema_spec_test.rb >/tmp/pst-change-schema-check.out 2>&1; then
+    cat /tmp/pst-change-schema-check.out >&2
+    echo "[pre-commit] CHANGE.md spec/code drift detected; fix before committing (or bypass with 'git commit --no-verify')." >&2
+    exit 1
+  fi
+fi
+
+exit 0

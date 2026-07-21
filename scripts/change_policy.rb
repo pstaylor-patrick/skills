@@ -2,42 +2,35 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require_relative 'change_frontmatter'
 
-# Reads a repo's CHANGE.md, the narrative-and-policy layer that sits beside the
-# mechanical `.pst/change.yml`. CHANGE.md is prose a human and an agent both
-# read (git flow, PR expectations, when admin-bypass merging is acceptable), but
-# a hook cannot act on prose, so the machine-checkable subset lives in a
-# `change_policy:` YAML frontmatter block at the top of the file, exactly the
-# SKILL.md split this repo already uses: frontmatter for the machine, body for
-# the human. The body is the source of truth a person reads; the frontmatter is
-# the same policy stated in a form the merge gate can enforce, and the body is
-# expected to explain it.
+# Reads the `change_policy:` block from a repo's CHANGE.md, the single
+# change-fabric file. CHANGE.md's prose body is the governance FAQ a human and an
+# agent both read (git flow, PR expectations, when admin-bypass merging is
+# acceptable), but a hook cannot act on prose, so the machine-checkable subset
+# lives in a `change_policy:` YAML frontmatter block, alongside the
+# `change_config:` block the audit lanes read. The body is the source of truth a
+# person reads; the frontmatter is the same policy stated in a form the merge
+# gate can enforce, and the body is expected to explain it.
 #
 # Presence of CHANGE.md is itself the signal that a repo has opted into
 # change-fabric gating. A repo with no CHANGE.md is simply not governed by the
 # merge gate, so nothing here ever manufactures a policy for an ungoverned repo:
 # `for_repo` returns nil when the file is absent.
 class ChangePolicy
-  FRONTMATTER = /\A---\s*\n(.*?\n)---\s*\n/m
   DEFAULT_PROTECTED = %w[staging production].freeze
 
-  # Loads the policy for a repo root, honoring a relocated doc path when the
-  # project's config names one. Returns nil when no doc exists (ungoverned repo).
-  def self.for_repo(root, doc_path: nil)
-    path = doc_path || File.join(root, 'CHANGE.md')
+  # Loads the policy from a repo root's CHANGE.md. Returns nil when no CHANGE.md
+  # exists (ungoverned repo).
+  def self.for_repo(root)
+    path = File.join(root, 'CHANGE.md')
     return nil unless File.exist?(path)
 
-    new(parse(File.read(path)), path)
+    new(ChangeFrontmatter.parse_file(path)['change_policy'], path)
   rescue StandardError
     # A malformed CHANGE.md must not wedge every merge; fall back to the
     # conservative default policy so the gate still protects the named branches.
     new({}, path)
-  end
-
-  def self.parse(text)
-    match = text.match(FRONTMATTER)
-    front = match && YAML.safe_load(match[1])
-    front.is_a?(Hash) ? (front['change_policy'] || {}) : {}
   end
 
   def initialize(policy, path)

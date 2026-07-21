@@ -2,38 +2,44 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require_relative 'change_frontmatter'
+require_relative 'change_schema'
 
-# Parses and validates a project's change-fabric config, the single file that
-# lets a repo be audited by the platform without carrying any of the tools as its
-# own dependencies. The default location is `.pst/change.yml` at the repo root.
+# Parses and validates a project's change-fabric config. There is one
+# change-fabric file per repo, `CHANGE.md` at the repo root: its YAML
+# frontmatter carries a `change_config:` block (the mechanical target-app
+# details this class reads) alongside a `change_policy:` block (read by the merge
+# gate), and its prose body is the human governance FAQ. Keeping everything in
+# one file was a deliberate call: a repo declares how it is audited and how it is
+# governed in a single place a person already opens.
 #
-# YAML over JSON is deliberate: every authored contract in this repo already
-# reads as YAML (each SKILL.md frontmatter), a human edits this file by hand, and
-# it wants comments (which JSON cannot carry). settings.json is machine-wired by
-# install.rb and is a different audience.
-#
-# Validation fails loud with a ConfigError naming the offending key. A lane the
-# project does not want is simply omitted or `enabled: false`; only the lanes
+# YAML frontmatter over a separate JSON file is deliberate: a human edits this by
+# hand and wants comments, and the same block already holds the policy the gate
+# reads. Validation fails loud with a ConfigError naming the offending key. A
+# lane the project does not want is omitted or `enabled: false`; only lanes
 # present and enabled run, so a repo can adopt one lane at a time.
 class ChangeConfig
   class ConfigError < StandardError; end
 
-  DEFAULT_PATH = '.pst/change.yml'
-  LANES = %w[k6 a11y zap browserless].freeze
+  DEFAULT_PATH = 'CHANGE.md'
+  # The accepted lanes come from the schema registry, so the validator and the
+  # documented schema can never name a different set.
+  LANES = ChangeSchema::LANES
 
   def self.load(path)
-    raise ConfigError, "config not found: #{path}" unless File.exist?(path)
+    raise ConfigError, "CHANGE.md not found: #{path}" unless File.exist?(path)
 
-    raw = YAML.safe_load(File.read(path)) || {}
-    raise ConfigError, "config root must be a mapping: #{path}" unless raw.is_a?(Hash)
+    front = ChangeFrontmatter.parse_file(path)
+    config = front['change_config']
+    unless config.is_a?(Hash)
+      raise ConfigError, "CHANGE.md has no change_config: frontmatter block (or it is not a mapping): #{path}"
+    end
 
-    new(raw, File.dirname(path))
-  rescue Psych::SyntaxError => e
-    raise ConfigError, "config is not valid YAML: #{e.message}"
+    new(config, File.dirname(path))
   end
 
-  # `dir` is the config file's directory, used to resolve repo-relative paths
-  # (a k6 script) the lanes reference.
+  # `dir` is the CHANGE.md directory, i.e. the repo root, used to resolve
+  # repo-relative paths (a k6 script) the lanes reference.
   def initialize(raw, dir)
     @raw = raw
     @dir = dir
@@ -43,19 +49,8 @@ class ChangeConfig
   def project = @raw.fetch('project', 'project').to_s
   def boot = Boot.new(@raw['boot'] || {})
 
-  # The repo root, inferred from the conventional `.pst/change.yml` location so
-  # the narrative policy doc can be found beside it. A config kept elsewhere
-  # treats its own directory as the root.
-  def repo_root
-    File.basename(@dir) == '.pst' ? File.expand_path('..', @dir) : @dir
-  end
-
-  # Absolute path to the repo's narrative change-management doc (CHANGE.md by
-  # default), the human-and-agent policy layer that the config's mechanical
-  # target-app details deliberately do not carry. `change_doc:` relocates it.
-  def change_doc
-    File.expand_path(@raw.fetch('change_doc', 'CHANGE.md'), repo_root)
-  end
+  # The repo root: the directory holding CHANGE.md.
+  def repo_root = @dir
 
   # The enabled lanes, in the fixed LANES order so a report's lane sequence is
   # stable across runs regardless of the file's key order.

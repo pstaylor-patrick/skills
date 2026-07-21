@@ -15,7 +15,7 @@ does it behave when deliberately pushed past its ceiling?
 
 ## Run it
 
-From the target repo root (a repo carrying `.pst/change.yml`):
+From the target repo root (a repo carrying `CHANGE.md`):
 
 ```
 ruby ~/.claude/pst/bin/change_run.rb k6
@@ -45,8 +45,8 @@ built for a non-engineer go/no-go reader, not a raw metrics dump:
 - One relatable comparison for the scale.
 
 Every input is the project's own, supplied in the config; nothing is hardcoded.
-The CSV stays purely tabular. See `pst:change`'s `reference/change.schema.yml`
-for the `scenario` shape.
+The CSV stays purely tabular. See `pst:change`'s `reference/CHANGE.template.md`
+and `reference/CHANGE-frontmatter-spec.md` for the `scenario` shape.
 
 ## Read the output
 
@@ -58,6 +58,6 @@ weaken the threshold to make it pass.
 
 - Docker unavailable, or the k6 image cannot be pulled: exits 2 and names the
   cause; report and stop.
-- No `.pst/change.yml`: the repo is not change-fabric-integrated. Say so.
+- No `CHANGE.md` with a `change_config:` block: the repo is not change-fabric-integrated. Say so.
 - No k6 script and no default-usable `BASE_URL`: the default script errors; set
   `lanes.k6.env.BASE_URL` or `boot.target_url`.
