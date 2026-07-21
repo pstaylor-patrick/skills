@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'net/http'
-require 'uri'
 require 'open3'
 require 'optparse'
 require_relative 'change_config'
@@ -151,8 +149,19 @@ class ChangeRun
     end
   end
 
+  # The health poll goes through curl, not Net::HTTP, on purpose. Local dev
+  # stacks are commonly fronted by a local CA (a Caddy dev cert), which the OS
+  # keychain trusts but Ruby's OpenSSL does not by default, so Net::HTTP raises
+  # "certificate verify failed" against a URL a browser and curl both accept.
+  # curl trusts the system trust store (and honors SSL_CERT_FILE/SSL_CERT_DIR
+  # when set), so the check works against a local-CA https health url with no
+  # extra configuration. A short per-attempt timeout keeps the outer deadline
+  # loop responsive.
   def healthy?(boot)
-    Net::HTTP.get_response(URI(boot.health_url)).code.to_i == boot.health_status
+    out, status = Open3.capture2e(
+      'curl', '-sS', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5', boot.health_url
+    )
+    status.success? && out.strip.to_i == boot.health_status
   rescue StandardError
     false
   end

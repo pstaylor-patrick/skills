@@ -1,7 +1,95 @@
 ---
-# Machine-checkable policy the change-fabric merge gate enforces. The prose
-# below is the human source of truth; this block states the same rules in the
-# form the hook (change_merge_guard.rb) can act on. Keep the two in agreement.
+# CHANGE.md is the single change-fabric file. Copy it to <repo-root>/CHANGE.md
+# and edit. Its frontmatter carries two blocks:
+#
+#   change_config:  the mechanical target-app details the audit lanes read
+#                   (boot, health, routes, thresholds, viewports).
+#   change_policy:  the machine-checkable governance the merge gate enforces.
+#
+# The prose body below both blocks is the human governance FAQ. There is no
+# separate config file: a repo can carry only this one file, with none of the
+# audit tools installed as its own dependencies, and the platform provides every
+# runner as an ephemeral, digest-pinned container.
+
+change_config:
+  project: my-app                 # label used in the Desktop report filename
+
+  boot:
+    # Command that brings the target app up. Run from the repo root. May be a
+    # docker compose invocation or anything that ends with the app reachable.
+    up: docker compose up -d --build postgres migrate portal core
+    down: docker compose down     # teardown, always run after the sweep
+    # An existing docker network the runners join so they can reach app services
+    # by name. Omit to have the platform create an ephemeral network; then
+    # address the app from the runners via host.docker.internal.
+    network: myapp_default
+    # In-network base url the lanes default to (service-name form when on a
+    # compose network). A per-lane base_url overrides this.
+    target_url: http://myapp-portal:3000
+    health:
+      # HOST-reachable url, polled from the host via curl. A local dev stack
+      # behind a local CA (a Caddy dev cert) works: curl trusts the system store
+      # and honors SSL_CERT_FILE/SSL_CERT_DIR if set.
+      url: http://localhost:3000/health
+      expect_status: 200
+      timeout_seconds: 120
+
+  lanes:
+    k6:
+      enabled: true
+      # Repo-relative k6 script. Omit to use the platform's built-in light-load
+      # default (a constant-VU GET against a health route).
+      script: apps/load/scripts/smoke.js
+      env:
+        BASE_URL: http://myapp-core:3000
+        VUS: "5"
+        DURATION: "30s"
+      thresholds:                 # applied to the built-in default script
+        http_req_failed: "rate<0.01"
+        http_req_duration: "p(95)<500"
+      # Optional narrative inputs for the Markdown report (never the CSV). All
+      # optional; supply what you have. Numbers here are illustrative only.
+      scenario:
+        window: "per minute"
+        assumptions: "25% open rate, 10% of opens click through, 5% of those attempt the action"
+        funnel:
+          - { stage: "campaign emails sent", value: 100000 }
+          - { stage: "opened", rate: 0.25 }
+          - { stage: "clicked through", rate: 0.10 }
+          - { stage: "attempted the action", rate: 0.05 }
+        expected_peak: "125 per minute"   # optional; derived from the funnel when omitted
+        tested_to: "300 requests/second sustained for 5 minutes, zero errors, p95 180ms"
+        tested_rate: 18000        # optional numeric (same unit as window) to compute the margin multiple
+        safety_margin: "well over 100x the expected peak"  # used only when tested_rate is absent
+        overload: "a burst to 5x the ceiling degraded by queuing rather than dropping; the queue drained in about 8 seconds"
+        comparison: "sustained throughput comparable to a well-known public launch's first-day growth rate"
+
+    a11y:
+      enabled: true
+      routes: ["/login", "/register", "/home", "/dashboard"]
+      threshold: serious          # minor | moderate | serious | critical
+      base_url: http://myapp-portal:3000   # optional per-lane override
+
+    zap:
+      enabled: true
+      targets:
+        - http://myapp-portal:3000
+        - http://myapp-core:3000
+      strict: false               # true: any low-or-above alert fails; false: only high-risk fails
+      auth: null                  # reserved for authenticated scans; the baseline runs unauthenticated
+
+    browserless:
+      enabled: true
+      routes: ["/login", "/home", "/dashboard"]
+      viewports:
+        - { name: mobile, width: 390, height: 844 }
+        - { name: tablet, width: 768, height: 1024 }
+        - { name: desktop, width: 1440, height: 900 }
+      base_url: http://myapp-portal:3000
+
+# Machine-checkable policy the change-fabric merge gate enforces. The prose below
+# is the human source of truth; this block states the same rules in the form the
+# hook (change_merge_guard.rb) can act on. Keep the two in agreement.
 change_policy:
   # Branches whose merges are gated. Every branch named under promotion: is
   # protected automatically; list extras here if needed.

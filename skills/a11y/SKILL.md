@@ -15,7 +15,7 @@ impact threshold?
 
 ## Run it
 
-From the target repo root (a repo carrying `.pst/change.yml`):
+From the target repo root (a repo carrying `CHANGE.md`):
 
 ```
 ruby ~/.claude/pst/bin/change_run.rb a11y
@@ -47,6 +47,6 @@ positive, raise it rather than silently excluding the rule.
 
 - Docker unavailable, or an image cannot be pulled: exits 2 and names the cause;
   report and stop.
-- No `.pst/change.yml`: the repo is not change-fabric-integrated. Say so.
+- No `CHANGE.md` with a `change_config:` block: the repo is not change-fabric-integrated. Say so.
 - browserless never becomes ready: the lane records a failing finding rather
   than crashing the run.

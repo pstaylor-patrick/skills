@@ -47,12 +47,12 @@ module ChangeDocker
   # throwaway network created here and removed on exit.
   def with_network(configured)
     if configured && !configured.empty?
-      yield Network.new(configured, owned: false)
+      yield Network.new(name: configured, owned: false)
     else
       name = "pst-change-#{SecureRandom.hex(4)}"
       Open3.capture2e('docker', 'network', 'create', name)
       begin
-        yield Network.new(name, owned: true)
+        yield Network.new(name: name, owned: true)
       ensure
         Open3.capture2e('docker', 'network', 'rm', name)
       end
@@ -127,15 +127,30 @@ module ChangeDocker
     end
 
     # Runs `code` (an ES module exporting `default async ({ page }) => {...}`)
-    # against a fresh page and returns the parsed JSON the module resolves with.
+    # against a fresh page and returns the payload the module resolves with.
     # Raises on a transport or browserless-side error so a lane surfaces it as a
     # failing finding rather than a silent empty result.
+    #
+    # A browserless /function module returns `{ data, type }`, and browserless
+    # echoes that whole envelope back as the JSON body rather than unwrapping it,
+    # so the module's real result is under "data". Unwrap it here so a lane
+    # receives the value it returned (its array of route results), not the
+    # envelope. Treating the envelope as the result was what made the a11y and
+    # browserless lanes crash with "no implicit conversion of String into
+    # Integer": Array({data,type}) yields [key, value] pairs, and indexing a pair
+    # by a string key raised.
     def run_function(code)
       uri = URI("http://127.0.0.1:#{@port}/function?token=#{@token}")
       response = post(uri, code, 'application/javascript')
       raise "browserless /function failed: #{response.code} #{response.body}" unless response.is_a?(Net::HTTPSuccess)
 
-      JSON.parse(response.body)
+      unwrap(JSON.parse(response.body))
+    end
+
+    # browserless echoes the module's `{ data, type }` return value back as the
+    # JSON body rather than unwrapping it, so the real result is under "data".
+    def unwrap(parsed)
+      parsed.is_a?(Hash) && parsed.key?('data') ? parsed['data'] : parsed
     end
 
     private

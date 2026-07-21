@@ -17,7 +17,7 @@ high-risk alert (or, in strict mode, any alert)?
 
 ## Run it
 
-From the target repo root (a repo carrying `.pst/change.yml`):
+From the target repo root (a repo carrying `CHANGE.md`):
 
 ```
 ruby ~/.claude/pst/bin/change_run.rb zap
@@ -59,6 +59,6 @@ fixing or consciously accepting it.
 
 - Docker unavailable, or the ZAP image cannot be pulled: exits 2 and names the
   cause; report and stop.
-- No `.pst/change.yml`: the repo is not change-fabric-integrated. Say so.
+- No `CHANGE.md` with a `change_config:` block: the repo is not change-fabric-integrated. Say so.
 - ZAP internal error (its exit code 3): reported as a failing finding for that
   target rather than a silent pass.

@@ -9,8 +9,8 @@ require_relative "../scripts/change_merge_guard"
 require_relative "../scripts/change_gate_store"
 
 # A guard with the two shell-backed lookups stubbed, so the decision logic can be
-# exercised without a real repo or gh. change_doc and the policy/gate reads stay
-# real (they read files under the stubbed root and HOME).
+# exercised without a real repo or gh. The CHANGE.md policy read and the gate
+# store read stay real (they read files under the stubbed root and HOME).
 class StubMergeGuard < ChangeMergeGuard
   def initialize(event, root:, pr:)
     super(event)

@@ -16,7 +16,7 @@ require_relative 'change_findings'
 # A project supplies its own script via `lanes.k6.script`; a project with none
 # gets the built-in light-load script below (a small GET against a health route),
 # so a repo can adopt the lane with zero k6 assets of its own, exactly the "zero
-# tools installed, just the config" case the platform exists to serve.
+# tools installed, just the CHANGE.md config" case the platform exists to serve.
 class ChangeLaneK6 < ChangeLane
   # The default script when a project ships none: a modest constant-VU load
   # against BASE_URL. VUS/DURATION/BASE_URL come from the lane env, so the same
@@ -118,10 +118,22 @@ class ChangeLaneK6 < ChangeLane
   end
 
   def threshold_finding(metric, expr, result)
-    ok = result.is_a?(Hash) ? (result['ok'] != false) : (result != false)
+    ok = threshold_passed?(result)
     Finding.new(lane: 'k6', check: "#{metric} #{expr}", target: base_url,
                 status: ok ? 'pass' : 'fail', severity: ok ? 'info' : 'high',
                 detail: ok ? 'threshold met' : 'threshold breached')
+  end
+
+  # k6's --summary-export writes each threshold as a bare boolean that is TRUE
+  # when the threshold was crossed (failed) and FALSE when it held (passed), so a
+  # passing threshold reads as `false`. An earlier revision treated any non-false
+  # value as passing, which inverted the verdict: every held threshold reported
+  # as breached even though k6 itself exited 0. Some k6 output modes instead
+  # write `{ "ok": bool }` where ok means passed, so both shapes are handled.
+  def threshold_passed?(result)
+    return result['ok'] == true if result.is_a?(Hash)
+
+    result == false
   end
 
   def read_summary(summary)
