@@ -15,7 +15,7 @@
 # spec doc's changelog. A field-set change without a matching version bump, or a
 # version bump the doc does not reflect, is exactly what the drift test catches.
 module ChangeSchema
-  VERSION = '1.0.0'
+  VERSION = '1.1.0'
 
   # The four audit lanes, the authoritative list the config validator enforces.
   LANES = %w[k6 a11y zap browserless].freeze
@@ -58,9 +58,24 @@ module ChangeSchema
     'change_config.lanes.zap.strict',
     'change_config.lanes.zap.auth',
     'change_config.lanes.browserless.routes',
+    'change_config.lanes.browserless.routes[].path',
+    'change_config.lanes.browserless.routes[].auth',
+    'change_config.lanes.browserless.routes[].figma.file_key',
+    'change_config.lanes.browserless.routes[].figma.node_id',
+    'change_config.lanes.browserless.routes[].figma.viewport',
     'change_config.lanes.browserless.viewports[].name',
     'change_config.lanes.browserless.viewports[].width',
     'change_config.lanes.browserless.viewports[].height',
+    'change_config.lanes.browserless.auth.login_url',
+    'change_config.lanes.browserless.auth.email_env',
+    'change_config.lanes.browserless.auth.password_env',
+    'change_config.lanes.browserless.auth.email_selector',
+    'change_config.lanes.browserless.auth.password_selector',
+    'change_config.lanes.browserless.auth.submit_selector',
+    'change_config.lanes.browserless.auth.wait_for_selector',
+    'change_config.lanes.browserless.auth.timeout_ms',
+    'change_config.lanes.browserless.figma.token_env',
+    'change_config.lanes.browserless.figma.max_diff_percent',
     # change_policy: machine-checkable governance the merge gate enforces.
     'change_policy.protected_branches',
     'change_policy.gate.require_change_pass',

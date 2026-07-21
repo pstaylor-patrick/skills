@@ -93,8 +93,15 @@ and policy together). Shape under `change_config:`:
 - `lanes.zap`: `enabled`, `targets` (list of in-scope urls), `strict` (fail on
   any low-or-above alert; default fails only on high-risk), optional `auth`
   (reserved for authenticated scans; the baseline runs unauthenticated).
-- `lanes.browserless`: `enabled`, `routes`, `viewports` (`name`/`width`/
-  `height` list), optional `base_url`.
+- `lanes.browserless`: `enabled`, `routes` (a plain string, or a mapping with
+  `path` plus optional `auth: true` and a `figma: {file_key, node_id}` block),
+  `viewports` (`name`/`width`/`height` list), optional `base_url`, an `auth:`
+  block (real login-flow credentials read from named env vars, never
+  hardcoded) that runs once per session before any `auth: true` route, and a
+  `figma:` block (`token_env`, `max_diff_percent`) for the pixel-diff check
+  against a real Figma REST API reference render. See
+  "Config schema" -> `reference/CHANGE-frontmatter-spec.md` for the full field
+  set.
 
 A lane a project does not want is omitted or set `enabled: false`. A project can
 carry the config alone with none of the tools installed as repo dependencies.

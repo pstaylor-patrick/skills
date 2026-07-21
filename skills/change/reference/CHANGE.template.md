@@ -80,12 +80,40 @@ change_config:
 
     browserless:
       enabled: true
-      routes: ["/login", "/home", "/dashboard"]
+      # A route can be a plain string (unauthenticated, no visual check) or a
+      # mapping that adds auth: true (checked only after the login flow below
+      # succeeds) and/or a figma: block (pixel-diffed against a real Figma
+      # reference render of that node).
+      routes:
+        - "/login"
+        - path: /home
+          figma: { file_key: tg3U3gNcIYMn9aY9JYrIZc, node_id: "12:345", viewport: desktop }
+        - path: /dashboard
+          auth: true
+          figma: { file_key: tg3U3gNcIYMn9aY9JYrIZc, node_id: "12:678" }
       viewports:
         - { name: mobile, width: 390, height: 844 }
         - { name: tablet, width: 768, height: 1024 }
         - { name: desktop, width: 1440, height: 900 }
       base_url: http://myapp-portal:3000
+      # Configures a one-time login the browserless session runs before any
+      # auth: true route, using the resulting cookies for the rest of the run.
+      # Real credentials only, read from the named env vars (never written
+      # here); a route needing auth is skipped with a named failing finding
+      # rather than checked unauthenticated when this is absent or incomplete.
+      auth:
+        login_url: /login
+        email_env: PORTAL_TEST_EMAIL
+        password_env: PORTAL_TEST_PASSWORD
+        email_selector: 'input[name="email"]'      # optional, this is the default
+        password_selector: 'input[type="password"]' # optional, this is the default
+        submit_selector: 'button[type="submit"]'     # optional, this is the default
+        wait_for_selector: '[data-testid="dashboard"]' # optional post-login confirmation
+        timeout_ms: 15000
+      # Lane-level Figma settings shared by every route's figma: block above.
+      figma:
+        token_env: FIGMA_ACCESS_TOKEN   # optional, this is the default
+        max_diff_percent: 10            # optional, this is the default; above it, the route's diff finding fails
 
 # Machine-checkable policy the change-fabric merge gate enforces. The prose below
 # is the human source of truth; this block states the same rules in the form the
