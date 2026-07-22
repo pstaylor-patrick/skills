@@ -130,10 +130,22 @@ class ChangeConfig
   def spec_version_mismatch
     return nil if @declared_spec_version.empty? || @declared_spec_version == ChangeSchema::VERSION
 
-    "CHANGE.md declares spec_version #{@declared_spec_version} but the installed change-fabric is " \
+    message = "CHANGE.md declares spec_version #{@declared_spec_version} but the installed change-fabric is " \
       "#{ChangeSchema::VERSION}. If #{@declared_spec_version} is older, fields added since are silently " \
       "ignored; if newer, this toolkit may not understand fields it relies on yet. Update the toolkit or " \
       'CHANGE.md\'s spec_version.'
+    message += ' Note: one of these is a pre-release schema, whose field set may still be changing; ' \
+               'pin to a stable version for anything you depend on.' if prerelease?
+
+    message
+  end
+
+  # SemVer prerelease identifiers (0.4.0-alpha.1) are the only version shape
+  # this toolkit orders or compares nothing about; a bare hyphen check is
+  # enough to flag "one side of this mismatch is still moving," which is the
+  # only thing spec_version_mismatch needs, not real precedence.
+  def prerelease?
+    @declared_spec_version.include?('-') || ChangeSchema::VERSION.include?('-')
   end
 
   # The repo root: the directory holding CHANGE.md.
