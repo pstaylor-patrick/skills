@@ -52,7 +52,7 @@ Consequences that fall out of this and must be handled (see section 5):
 
 ## 2. Formula location: custom tap, not homebrew-core
 
-Recommendation: a custom tap, `pstaylor-patrick/homebrew-pst` (installed as `brew tap pstaylor-patrick/pst` then `brew install pstaylor-patrick/pst/change-fabric`). Do not attempt homebrew-core.
+Recommendation: a custom tap, `pstaylor-patrick/homebrew-cf` (installed as `brew tap pstaylor-patrick/cf` then `brew install pstaylor-patrick/cf/change-fabric`). Do not attempt homebrew-core.
 
 The case, on homebrew-core's actual acceptance bars:
 
@@ -62,9 +62,9 @@ The case, on homebrew-core's actual acceptance bars:
 - Stable-releases-only and no prerelease channels. Core takes tagged stable releases only. This project's cadence (dozens of tags in a day, active prerelease conventions in flight) is a poor match for core's slow, reviewed formula-bump process.
 - Bundled ecosystems. Core dislikes formulae that awkwardly straddle Ruby, Node, and Docker. This one does.
 
-A custom tap removes every one of those frictions: it is just a Git repo (`homebrew-pst`) with a `Formula/change-fabric.rb`. No notability bar, no reviewer, no core-style objection to `post_install` home mutation, and the maintainer (who already merges every PR manually, per `CLAUDE.md`) keeps the same self-owned control over releases. It also composes cleanly with the existing self-hosted release automation (section 4) because the tap is a repo this project's own CI can push to.
+A custom tap removes every one of those frictions: it is just a Git repo (`homebrew-cf`) with a `Formula/change-fabric.rb`. No notability bar, no reviewer, no core-style objection to `post_install` home mutation, and the maintainer (who already merges every PR manually, per `CLAUDE.md`) keeps the same self-owned control over releases. It also composes cleanly with the existing self-hosted release automation (section 4) because the tap is a repo this project's own CI can push to.
 
-Name the tap `homebrew-pst` (so the namespace is `pst`, matching the `pst:` skill namespace and the `pst` merge-mode shim identity) rather than `homebrew-change-fabric`, because the tap is the natural home for the whole `pst` toolkit and any future sibling formulae, not just this one repo's artifact. The formula itself is named `change-fabric` to match the repo.
+Name the tap `homebrew-cf` (short for Change Fabric, the umbrella brand the whole toolkit is moving to, replacing the earlier `pst` naming) rather than the longer `homebrew-change-fabric`, because the tap is the natural home for the whole Change Fabric toolkit and any future sibling formulae, not just this one repo's artifact. The formula itself is named `change-fabric`, spelled out in full, to match the repo and keep the actual installed product name unambiguous even though the tap uses the short prefix.
 
 ## 3. Version-to-formula mapping and prerelease handling
 
@@ -91,7 +91,7 @@ Add:
 head "https://github.com/pstaylor-patrick/change-fabric.git", branch: "main"
 ```
 
-so `brew install --HEAD pstaylor-patrick/pst/change-fabric` installs from the `main` tip for anyone who wants unreleased work between tags. This is the modern, supported Homebrew mechanism for "I want the development version," it requires no extra automation (Homebrew clones `main` at install time), and it exactly matches this project's reality that `main` is always the integrated truth and `VERSION` bumps trail behind merged work. `--HEAD` is opt-in, so it never affects normal `brew install` users.
+so `brew install --HEAD pstaylor-patrick/cf/change-fabric` installs from the `main` tip for anyone who wants unreleased work between tags. This is the modern, supported Homebrew mechanism for "I want the development version," it requires no extra automation (Homebrew clones `main` at install time), and it exactly matches this project's reality that `main` is always the integrated truth and `VERSION` bumps trail behind merged work. `--HEAD` is opt-in, so it never affects normal `brew install` users.
 
 ### Prerelease tracks: none at the formula level
 
@@ -133,18 +133,18 @@ jobs:
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.TAP_BUMP_TOKEN }}
         run: |
-          brew tap pstaylor-patrick/pst
+          brew tap pstaylor-patrick/cf
           brew bump-formula-pr \
             --no-browse --no-audit \
             --url "https://github.com/pstaylor-patrick/change-fabric/archive/refs/tags/skills/v${VERSION}.tar.gz" \
-            pstaylor-patrick/pst/change-fabric
+            pstaylor-patrick/cf/change-fabric
 ```
 
 Given the maintainer merges every PR manually (`CLAUDE.md`), `bump-formula-pr` opening a PR (not pushing to the tap's default branch) is the right default: it keeps the human-merge discipline on the tap too. If the maintainer later wants the tap fully hands-off, switch to a direct commit; but the PR default matches the stated workflow and is the safer first cut.
 
 ### Auth: this is the one genuinely new secret
 
-The default `GITHUB_TOKEN` in the toolkit repo's Actions is scoped to `pstaylor-patrick/change-fabric` only. Writing to a different repo (`pstaylor-patrick/homebrew-pst`) requires a cross-repo credential: either a fine-grained PAT with `contents: write` plus `pull_requests: write` on the tap repo, stored as `secrets.TAP_BUMP_TOKEN`, or a GitHub App installed on both repos with a token minted per-run. For a single-maintainer setup, a fine-grained PAT scoped to only the tap repo is the pragmatic first cut (least moving parts); a GitHub App is the upgrade if the PAT's expiry/rotation becomes annoying or more repos join. `brew bump-formula-pr` reads the token from `HOMEBREW_GITHUB_API_TOKEN`. Note `tag-on-version.yml` needs no such secret because it writes tags in its own repo with the default token; the tap-bump is the first automation that crosses a repo boundary, and that boundary is the entire reason a PAT or App is unavoidable.
+The default `GITHUB_TOKEN` in the toolkit repo's Actions is scoped to `pstaylor-patrick/change-fabric` only. Writing to a different repo (`pstaylor-patrick/homebrew-cf`) requires a cross-repo credential: either a fine-grained PAT with `contents: write` plus `pull_requests: write` on the tap repo, stored as `secrets.TAP_BUMP_TOKEN`, or a GitHub App installed on both repos with a token minted per-run. For a single-maintainer setup, a fine-grained PAT scoped to only the tap repo is the pragmatic first cut (least moving parts); a GitHub App is the upgrade if the PAT's expiry/rotation becomes annoying or more repos join. `brew bump-formula-pr` reads the token from `HOMEBREW_GITHUB_API_TOKEN`. Note `tag-on-version.yml` needs no such secret because it writes tags in its own repo with the default token; the tap-bump is the first automation that crosses a repo boundary, and that boundary is the entire reason a PAT or App is unavoidable.
 
 ### Should CI gate the release/bump?
 
@@ -202,7 +202,7 @@ Matching this repo's demonstrated preference for not building infrastructure ahe
 
 ## Summary of the concrete recommendation
 
-1. Custom tap `pstaylor-patrick/homebrew-pst`, formula `change-fabric`.
+1. Custom tap `pstaylor-patrick/homebrew-cf`, formula `change-fabric`.
 2. Formula vendors the whole tree into `libexec`, no `bin/`, `depends_on "ruby"`, and runs `install.rb` from `post_install` on install and every upgrade (the only way the `~/.claude/skills` symlinks stay valid across Cellar moves).
 3. Stable `url`/`sha256` track `skills/vX.Y.Z` tags; a `head` block pointing at `main` serves bleeding-edge; no prerelease channel.
 4. A new `bump-tap-formula.yml` in the toolkit repo, triggered on `skills/v*` tag pushes, runs `brew bump-formula-pr` against the tap using a tap-scoped fine-grained PAT; `tag-on-version.yml`, `ci.yml`, and `version-reminder.yml` are left unchanged, and formula-correctness is gated by the tap repo's own audit/install-test CI on the bump PR.
