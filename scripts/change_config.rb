@@ -166,7 +166,7 @@ class ChangeConfig
     raise ConfigError, "profile '#{name}' lanes must be a mapping" unless lanes.nil? || lanes.is_a?(Hash)
 
     (lanes || {}).each do |lane, section|
-      next unless section.is_a?(Hash)
+      raise ConfigError, "profile '#{name}' lane '#{lane}' override must be a mapping" unless section.is_a?(Hash)
 
       unknown_lane = section.keys - PROFILE_LANE_KEYS
       next if unknown_lane.empty?

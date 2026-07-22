@@ -209,6 +209,15 @@ class ChangeConfigTest < Minitest::Test
     assert_match(/profile 'staging'.*lanes.*mapping/, error.message)
   end
 
+  def test_profile_lane_override_that_is_not_a_mapping_is_rejected
+    config = {
+      "project" => "app", "lanes" => { "a11y" => { "enabled" => true, "routes" => [ "/" ] } },
+      "profiles" => { "staging" => { "lanes" => { "a11y" => "bogus" } } }
+    }
+    error = assert_raises(ChangeConfig::ConfigError) { with_config(config, "staging") { |_c| } }
+    assert_match(/profile 'staging' lane 'a11y'.*mapping/, error.message)
+  end
+
   def test_a_repo_with_no_profiles_block_ignores_a_nil_profile_request
     with_config("project" => "app", "lanes" => { "k6" => { "enabled" => true } }) do |loaded, _root|
       assert_equal "app", loaded.project
