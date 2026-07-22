@@ -198,11 +198,7 @@ class ChangeConfig
               "A profile's lane override may only set #{PROFILE_LANE_KEYS.join(', ')}; other lane behavior is shared across profiles."
       end
 
-      next unless section.key?('basic_auth') && !BROWSER_LANES.include?(lane)
-
-      raise ConfigError,
-            "profile '#{name}' lane '#{lane}' sets basic_auth, but basic_auth only applies to a browser lane " \
-            "(#{BROWSER_LANES.join(', ')}); #{lane} never reads it."
+      reject_basic_auth_outside_browser_lanes(lane, section, subject: "profile '#{name}' lane '#{lane}'")
     end
   end
 
@@ -231,15 +227,19 @@ class ChangeConfig
   # basic_auth only means anything on a lane that drives a real browser page
   # (a11y, browserless); k6 and zap never read it, so setting it there is
   # silently a no-op rather than the credential gate an author would expect.
+  # Shared by the base-config validator and the per-profile lane validator so
+  # the rule and its message stay in exactly one place.
   def validate_basic_auth_lanes(lanes)
-    lanes.each do |name, section|
-      next unless section.is_a?(Hash) && section.key?('basic_auth')
-      next if BROWSER_LANES.include?(name)
+    lanes.each { |name, section| reject_basic_auth_outside_browser_lanes(name, section, subject: "lane '#{name}'") }
+  end
 
-      raise ConfigError,
-            "lane '#{name}' sets basic_auth, but basic_auth only applies to a browser lane " \
-            "(#{BROWSER_LANES.join(', ')}); #{name} never reads it."
-    end
+  def reject_basic_auth_outside_browser_lanes(lane, section, subject:)
+    return unless section.is_a?(Hash) && section.key?('basic_auth')
+    return if BROWSER_LANES.include?(lane)
+
+    raise ConfigError,
+          "#{subject} sets basic_auth, but basic_auth only applies to a browser lane " \
+          "(#{BROWSER_LANES.join(', ')}); #{lane} never reads it."
   end
 
   # How to bring the target app up and confirm it is ready before any lane runs.

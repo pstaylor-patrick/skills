@@ -41,7 +41,7 @@ class ChangeLane
 
     username = ENV[raw['username_env'].to_s].to_s
     password = ENV[raw['password_env'].to_s].to_s
-    return nil if username.empty? && password.empty?
+    return nil if username.empty? || password.empty?
 
     { 'username' => username, 'password' => password }
   end

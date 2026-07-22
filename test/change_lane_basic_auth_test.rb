@@ -62,6 +62,20 @@ class ChangeLaneBasicAuthTest < Minitest::Test
     assert_nil a11y_lane("basic_auth" => { "username_env" => "NO_SUCH_BA_USER", "password_env" => "NO_SUCH_BA_PASS" }).send(:basic_auth)
   end
 
+  # A half-set credential (a typo'd or unset env var name on one side only) must
+  # not silently send a blank username or password to page.authenticate().
+  def test_basic_auth_with_only_username_set_is_nil
+    with_env("BA_USER" => "svc") do
+      assert_nil a11y_lane("basic_auth" => { "username_env" => "BA_USER", "password_env" => "NO_SUCH_BA_PASS" }).send(:basic_auth)
+    end
+  end
+
+  def test_basic_auth_with_only_password_set_is_nil
+    with_env("BA_PASS" => "s3cr3t") do
+      assert_nil a11y_lane("basic_auth" => { "username_env" => "NO_SUCH_BA_USER", "password_env" => "BA_PASS" }).send(:basic_auth)
+    end
+  end
+
   # --- a11y module wiring -------------------------------------------------------
 
   def test_a11y_module_authenticates_when_configured
