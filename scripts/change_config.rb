@@ -140,14 +140,6 @@ class ChangeConfig
     message
   end
 
-  # SemVer prerelease identifiers (0.4.0-alpha.1) are the only version shape
-  # this toolkit orders or compares nothing about; a bare hyphen check is
-  # enough to flag "one side of this mismatch is still moving," which is the
-  # only thing spec_version_mismatch needs, not real precedence.
-  def prerelease?
-    @declared_spec_version.include?('-') || ChangeSchema::VERSION.include?('-')
-  end
-
   # The repo root: the directory holding CHANGE.md.
   def repo_root = @dir
 
@@ -160,6 +152,14 @@ class ChangeConfig
   def lane(name) = LaneConfig.new(name.to_s, @raw.dig('lanes', name.to_s) || {}, @dir)
 
   private
+
+  # This toolkit does no ordering or comparison on SemVer prerelease
+  # identifiers (0.4.0-alpha.1); a bare hyphen check is enough to flag that
+  # one side of a spec_version mismatch is still moving, which is all
+  # spec_version_mismatch needs, not real precedence.
+  def prerelease?
+    @declared_spec_version.include?('-') || ChangeSchema::VERSION.include?('-')
+  end
 
   # nil when `raw` has no profiles block at all (a request is simply ignored,
   # so an unprofiled CHANGE.md never has to know profiles exist). Otherwise
