@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'shellwords'
 require_relative 'change_frontmatter'
+require_relative 'shell_git'
 
 # Shared, fail-soft resolver for the `contributors_team` registration a repo
 # carries in its CHANGE.md frontmatter, plus the local "which contributor am I"
@@ -116,16 +116,7 @@ class ContributorsTeam
     File.join(Dir.home, '.claude', 'pst', 'teams', team_id.to_s, 'contributor_id')
   end
 
-  def git(*args)
-    return nil if @start_dir.empty?
-
-    out = `git -C #{Shellwords.escape(@start_dir)} #{args.map { |a| Shellwords.escape(a) }.join(' ')} 2>/dev/null`
-    return nil unless $?.success?
-
-    out.strip
-  rescue StandardError
-    nil
-  end
+  def git(*args) = ShellGit.run(@start_dir, *args)
 
   def remote_url
     root = repo_root

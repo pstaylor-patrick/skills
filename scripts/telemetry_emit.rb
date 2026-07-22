@@ -6,12 +6,12 @@ require 'base64'
 require 'net/http'
 require 'uri'
 require 'socket'
-require 'shellwords'
 require_relative 'hook_event'
 require_relative 'merge_mode_store'
 require_relative 'change_gate_store'
 require_relative 'skill_registry'
 require_relative 'contributors_team'
+require_relative 'shell_git'
 
 # SessionEnd hook (Capability A, plan section 9.1): fire-and-forget upload of the
 # session's metadata plus its raw Claude Code transcript to the change-fabric
@@ -132,14 +132,7 @@ class TelemetryEmit
     out.nil? ? nil : !out.empty?
   end
 
-  def git(*args)
-    out = `git -C #{Shellwords.escape(cwd)} #{args.map { |a| Shellwords.escape(a) }.join(' ')} 2>/dev/null`
-    return nil unless $?.success?
-
-    out.strip
-  rescue StandardError
-    nil
-  end
+  def git(*args) = ShellGit.run(cwd, *args)
 
   def hostname
     Socket.gethostname
